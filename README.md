@@ -1,4 +1,4 @@
-# High Performance Numeric Integration.
+# High Performance Numeric Integration
 
 ### Description
 
