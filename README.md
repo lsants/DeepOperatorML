@@ -6,7 +6,7 @@ Welcome to the repository for the High Performance Numeric Integration project, 
 
 ### Project Overview
 
-The primary objective of this project is to pioneer the development of high-performance mathematical models tailored for large-scale applications. Specifically, we are dedicated to enhancing the efficiency of numeric integral computations through the application of neural networks.
+The primary objective of this project is to develop state of the art high-performance mathematical models tailored for large-scale applications. Specifically, we are dedicated to enhancing the efficiency of numeric integral computations through the application of neural networks.
 
 ## Key Features
 
