@@ -1,7 +1,7 @@
 # ------------------- Define Neural Network architecture -------------------
 import torch.nn as nn
 
-nodes_config = [40, 40, 40, 40, 40]
+nodes_config = [40, 40, 40, 40, 40, 40, 40]
 
 
 class NeuralNetwork(nn.Module):
@@ -22,11 +22,13 @@ class NeuralNetwork(nn.Module):
             nn.ReLU(),
             nn.Linear(40, 40),
             nn.ReLU(),
+            nn.Linear(40, 40),
+            nn.ReLU(),
             nn.Linear(40, 1),
+            # nn.Dropout(p=0.3),
         )
 
     def forward(self, x):
         x = self.flatten(x)
-        x = self.dropout(x)
         logits = self.linear_relu_stack(x)
         return logits
