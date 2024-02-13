@@ -29,13 +29,12 @@ class ToTensor(object):
 
     def __call__(self, sample):
         features, label = sample
-        return torch.tensor(features, dtype=torch.float32), torch.tensor(label, dtype=torch.float32)
+        return torch.from_numpy(features), torch.from_numpy(label)
 
 
 def generate_data(n_samples=500):
     # polynomial coefficients (α, β, γ, B), in the interval [0, 1]
     alpha_beta_gamma_B = np.random.rand(n_samples, 4)
-    alpha_beta_gamma_B[:, -1] = 1
     integrals = np.zeros((n_samples, 1))
 
     for i in range(n_samples):
