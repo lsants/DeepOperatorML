@@ -32,37 +32,41 @@ def split_dataset(data, TEST_SIZE=0.2, seed=0):
 
 
 def compute_integral(coefs):
-    alpha, beta, gamma, B = coefs
+    if len(coefs) == 3:
+        alpha, beta, gamma = coefs
+        B = 1
+    else:
+        alpha, beta, gamma, B = coefs
     return (alpha / 3) * B**3 + (beta / 2) * B**2 + \
         gamma * B
 
 
-def plot_performance(train_loss: list, test_loss: list, accuracy=None, model_name=None):
-    """Generate plot with model's loss and accuracy curves.
+def plot_performance(train_loss: list, test_loss: list, performance=None, model_name=None, loss_fn=None, metric=None):
+    """Generate plot with model's loss and performance curves.
 
     Args:
         train_loss (list): Training loss for each epoch.
         test_loss (list): Test loss for each epoch.
-        accuracy (list, optional): Accuracy for each epoch. Defaults to None.
+        performance (list, optional): performance for each epoch. Defaults to None.
         model_name (str, optional): Name of tested model. Defaults to None.
 
     Returns:
         fig: Figure with plots.
     """
-    if accuracy is not None:
+    if performance is not None:
         fig, ax = plt.subplots(1, 2, figsize=(11, 4))
         ax[0].plot(train_loss, label='Training')
         ax[0].plot(test_loss, label='Validation')
-        ax[0].set_ylabel(f"MSE", fontsize=9)
+        ax[0].set_ylabel(loss_fn, fontsize=9)
         # ax[0].set_ylim([0, 3e-1])
         ax[0].set_xlabel(f"Epochs/Iterations", fontsize=9)
         ax[0].set_title(f"Loss", fontsize=10)
         ax[0].ticklabel_format(style='scientific', scilimits=(-1, 2), axis='y',useMathText=True)
         ax[0].legend()
 
-        ax[1].plot(accuracy, 'r', label='RMSE')
+        ax[1].plot(performance, 'r', label=metric)
         ax[1].set_xlabel("Epochs/Iterations", fontsize=9)
-        ax[1].set_ylabel("RMSE", fontsize=9)
+        ax[1].set_ylabel(metric, fontsize=9)
         # ax[1].set_ylim([0, 1e-2])
         ax[1].set_title('Metric', fontsize=10)
         ax[1].ticklabel_format(style='scientific', scilimits=(-1, 2), axis='y',useMathText=True)

@@ -1,7 +1,7 @@
 # ------------------- Define Neural Network architecture -------------------
 import torch.nn as nn
 
-nodes_config = [64, 64, 64, 64, 64, 64, 64]
+nodes_config = [96, 96, 96, 96, 96, 96, 96]
 
 
 class NeuralNetwork(nn.Module):
@@ -10,22 +10,29 @@ class NeuralNetwork(nn.Module):
         self.flatten = nn.Flatten()
         self.dropout = nn.Dropout(0.2)
         self.linear_relu_stack = nn.Sequential(
-            nn.Linear(4, 64),
+            nn.Linear(4, 96),
+            # nn.Dropout(p=0.5),
             nn.ReLU(),
-            nn.Linear(64, 64),
+            nn.Linear(96, 96),
+            # nn.Dropout(p=0.5),
             nn.ReLU(),
-            nn.Linear(64, 64),
+            nn.Linear(96, 96),
+            # nn.Dropout(p=0.5),
             nn.ReLU(),
-            nn.Linear(64, 64),
+            nn.Linear(96, 96),
+            # nn.Dropout(p=0.5),
             nn.ReLU(),
-            nn.Linear(64, 64),
+            nn.Linear(96, 96),
+            # nn.Dropout(p=0.5),
             nn.ReLU(),
-            nn.Linear(64, 64),
+            nn.Linear(96, 96),
+            # nn.Dropout(p=0.5),
             nn.ReLU(),
-            nn.Linear(64, 64),
+            nn.Linear(96, 96),
+            # nn.Dropout(p=0.5),
             nn.ReLU(),
-            nn.Linear(64, 1),
-            # nn.Dropout(p=0.3),
+            nn.Linear(96, 1),
+            # nn.Dropout(p=0.5),
         )
 
     def forward(self, x):
