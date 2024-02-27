@@ -1,9 +1,11 @@
 import os
+import sys
 import numpy as np
 import torch
 from torch.utils.data import Dataset
-
-
+script_dir = os.path.dirname(os.path.abspath(__file__))
+project_dir = os.path.dirname(script_dir)
+sys.path.insert(0, project_dir)
 class PolyDataset(Dataset):
     def __init__(self, data, transform=None):
         self.data = data
@@ -24,6 +26,7 @@ class PolyDataset(Dataset):
 
         return sample
 
+
 class ToTensor(object):
     """Convert ndarrays in sample to Tensors."""
 
@@ -32,9 +35,10 @@ class ToTensor(object):
         return torch.from_numpy(features), torch.from_numpy(label)
 
 
-def generate_data(n_samples=500):
-    # polynomial coefficients (α, β, γ, B), in the interval [0, 1]
-    alpha_beta_gamma_B = np.random.rand(n_samples, 4)
+def generate_data(n_samples=500, fixed=0):
+    # polynomial coefficients (α, β, γ, B), in the interval [0.1, 1]
+    alpha_beta_gamma_B = 2 * np.random.rand(n_samples, 4) - 1
+    alpha_beta_gamma_B[:, -1] = 0.1 + np.random.rand(n_samples) * 0.9
     integrals = np.zeros((n_samples, 1))
 
     for i in range(n_samples):
@@ -46,12 +50,20 @@ def generate_data(n_samples=500):
 
 
 if __name__ == '__main__':
-    path = os.getcwd()
-    data_path = os.path.join(path, 'data')
+    data_path = os.path.join(project_dir, 'data')
 
     n = 1000000
-    X, y = generate_data(n)
+    np.random.seed(42)
 
+    X, y = generate_data(n)
     poly_data = np.concatenate((X, y), axis=1)
-    print(poly_data.shape)
+    print('Dataset:', '\n', poly_data[:5], '\n')
     np.save(os.path.join(data_path, 'poly_data'), poly_data)
+
+    X[:, -1] = 1 # Fixing limit of integration at 1
+    alpha, beta, gamma, B = X.T
+    y = np.expand_dims(alpha/3 * B**3 + beta/2 * B**2 + gamma * B, axis=1)
+    X = X[:, :-1]
+    poly_data = np.concatenate((X, y), axis=1)
+    print('Fixed dataset:', '\n', poly_data[:5], '\n')
+    np.save(os.path.join(data_path, 'poly_data_fixed'), poly_data)

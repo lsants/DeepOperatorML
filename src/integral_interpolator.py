@@ -5,38 +5,39 @@ We want to use a NN to compute the integral I of a polynomial function in the fo
     I = α*B^3/3 + β*B^2/2 + γ*B
 '''
 # --------------------- Modules ---------------------
+import numpy as np
+import torch
 import os
 import sys
-sys.path.insert(0, '/home/lsantiago/workspace/ic/project/')
-from tqdm.auto import tqdm
-from matplotlib import pyplot as plt
-from torch.utils.data import DataLoader
-from torch import nn
-from src.generate_poly_dataset import PolyDataset, ToTensor
-from src import generic as gc
-from src import model_training as mt
+script_dir = os.path.dirname(os.path.abspath(__file__))
+project_dir = os.path.dirname(script_dir)
+sys.path.insert(0, project_dir)
 from src import nn_architecture as NN
-import torch
-import numpy as np
+from src import model_training as mt
+from src import generic as gc
+from src.generate_poly_dataset import PolyDataset, ToTensor
+from torch import nn
+from torch.utils.data import DataLoader
+from matplotlib import pyplot as plt
+from tqdm.auto import tqdm
 
 # --------------------- Paths ---------------------
-working_path = sys.path[0]
-path_to_data = os.path.join(working_path, 'data')
-path_to_models = os.path.join(working_path, 'models')
-path_to_images = os.path.join(working_path, 'images')
+path_to_data = os.path.join(project_dir, 'data')
+path_to_models = os.path.join(project_dir, 'models')
+path_to_images = os.path.join(project_dir, 'images')
 data = os.path.join(path_to_data, 'poly_data.npy')
+# data = os.path.join(path_to_data, 'poly_data_fixed.npy')
 
 # --------------------- Parameters ---------------------
 torch.set_default_dtype(torch.float64)
 batch_size = 100
-lr = 0.001
-epochs = 700
+lr = 0.0001
+epochs = 400
 n_sample = 40000
 full_data = False
 
 # --------------------- Get and normalize dataset ---------------------
 poly_data = np.load(data)  # Load polynomials numpy array
-# poly_data[:, -2] = 1 # Fixing limit of integration
 poly_data = poly_data.astype(np.float64)
 mean = np.mean(poly_data, axis=0)
 y_mean = mean[-1]
@@ -80,7 +81,14 @@ nodes_config = NN.nodes_config
 # print(model)
 
 # --------------------- Defining loss function and optimizer ---------------------
-loss_fn = nn.MSELoss()
+loss_arg = 'MAE'
+metric_arg = 'MAE'
+match loss_arg:
+    case 'MAE':
+        loss_fn = nn.L1Loss()
+    case 'MSE':
+        loss_fn = nn.MSELoss()
+
 optimizer = torch.optim.Adam(model.parameters(), lr=lr)
 
 # --------------------- Get model filename ---------------------
@@ -96,27 +104,27 @@ acc = []
 early_stopper = mt.EarlyStopper(patience=5, min_delta=1e-2)
 for t in tqdm(range(epochs)):
     train_loss = mt.train(train_dataloader, model, loss_fn, optimizer)
-    test_loss, metric = mt.test(train_dataloader, model, loss_fn)
+    test_loss, metric = mt.test(train_dataloader, model, loss_fn, metric=metric_arg)
     tl.append(train_loss)
     vl.append(test_loss)
     acc.append(metric)
     # if t % 1 == 0:
         # print(f"Epoch {t}\n-------------------------")
         # print(f"Test error: \n Performance {(metric):>0.4e}, Avg train loss: {train_loss:>8e}, Avg test loss: {test_loss:>8e} \n")
-    if early_stopper.early_stop(test_loss):
-        print(f"Early stopping at:\nEpoch {t}")
-        break
+    # if early_stopper.early_stop(test_loss):
+    #     print(f"Early stopping at:\nEpoch {t}")
+    #     break
 print("Done!\n")
 
 # --------------------- Plot loss curves ---------------------
 plots = gc.plot_performance(
-    train_loss=tl, test_loss=vl, accuracy=acc, model_name=model_name)
+    train_loss=tl, test_loss=vl, performance=acc, model_name=model_name, loss_fn=loss_arg, metric=metric_arg)
 print(
-    f"For training: \n Min RMSE {(np.array(acc).min()):>0.4e}, Min loss: {np.array(test_loss).min():>8e} \n")
-plt.savefig(f"{plot_path}.png")
+    f": \n Min {loss_arg} for training: {(np.array(tl).min()):>8e}, Min {metric_arg} for test: {np.array(acc).min():>8e} \n")
+# plt.savefig(f"{plot_path}.png")
 
 # --------------------- Save model ---------------------
-torch.save(model.state_dict(), os.path.join(path_to_models, model_name))
+# torch.save(model.state_dict(), os.path.join(path_to_models, model_name))
 
 # --------------------- Testing ---------------------
 X_n, y_n = poly_data[0], poly_data[1]
@@ -129,7 +137,9 @@ y_train = y_train_n*y_std + y_mean
 y_test_n = test_data[:][1]
 y_test = y_test_n*y_std + y_mean
 error = (np.abs(y_pred - y) < 0.1*y).sum() / len(y)
-print(f'Accuracy on training set for 10% error:\n{error:.2%}')
+print(f'performance on training set for 10% error:\n{error:.2%}')
+
+print(y_pred, y)
 
 a = gc.compute_integral(([0, 0, 1, 1]))
 b = model(torch.atleast_2d(torch.tensor(gc.normalize(
@@ -144,19 +154,18 @@ print(*outs, '\n')
 
 fig1, ax = plt.subplots(2, 2, figsize=(8, 4))
 ax[0, 0].hist(y, bins=1000, label='y', color='blue', density=True)
-ax[0, 0].set_xlim([0, 2])
+ax[0, 0].set_xlim([-2, 2])
 ax[0, 0].set_title(f'$y$')
 ax[0, 1].hist(y_pred, bins=1000, label='y_pred',
               color='darkorange', density=True)
-ax[0, 1].set_xlim([0, 2])
+ax[0, 1].set_xlim([-2, 2])
 ax[0, 1].set_title(f'$y_{{pred}}$')
 ax[1, 0].hist(y_train, bins=1000, label='y_train', color='green', density=True)
-ax[1, 0].set_xlim([0, 2])
+ax[1, 0].set_xlim([-2, 2])
 ax[1, 0].set_title(f'$y_{{train}}$')
 ax[1, 1].hist(y_test, bins=1000, label='y_test', color='green', density=True)
-ax[1, 1].set_xlim([0, 2])
+ax[1, 1].set_xlim([-2, 2])
 ax[1, 1].set_title(f'$y_{{test}}$')
 fig1.tight_layout()
-
 
 plt.show()
