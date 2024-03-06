@@ -32,8 +32,8 @@ torch.set_default_dtype(torch.float64)
 batch_size = 100
 lr = 0.00001
 epochs = 200
-n_sample = 50000
-full_data = True
+n_sample = 1000
+full_data = False
 
 # --------------------- Get and normalize dataset ---------------------
 data = np.load(data)  # Load polynomials numpy array
