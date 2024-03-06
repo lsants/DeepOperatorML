@@ -22,29 +22,16 @@ class EarlyStopper:
 
 
 def train(train_dataloader, model, loss_fn, optimizer, device, val_dataloader=None):
+    model.to(device, dtype=torch.float64)
     loss_fn.to(device)
     model.train()
-
-    for param in model.parameters():
-        param.data = param.data.to(device=device, dtype=torch.float64)
-    if param.grad is not None:
-        param.grad.data = param.grad.data.to(device=device, dtype=torch.float64)
-
-
-    # Check dtype consistency
-    prev_dtype = None
+    
 
     # Training
     total_train_loss = 0.0
     for batch, (X, y) in enumerate(train_dataloader):
-        X, y = X.to(device=device, dtype=torch.float64), y.to(device=device, dtype=torch.float64)
+        X, y = X.to(device, dtype=torch.float64), y.to(device, dtype=torch.float64)
 
-
-        current_dtype = X.dtype
-        if prev_dtype is not None and current_dtype != prev_dtype:
-            raise ValueError("Tensors in the DataLoader have different dtypes.")
-        
-        prev_dtype = current_dtype
         # Forward pass
         y_pred = model(X)
         y_pred = torch.squeeze(y_pred)
@@ -65,7 +52,7 @@ def train(train_dataloader, model, loss_fn, optimizer, device, val_dataloader=No
         total_val_loss = 0.0
         with torch.no_grad():
             for X_val, y_val in val_dataloader:
-                X_val, y_val = X_val.to(device=device, dtype=torch.float64), y_val.to(device=device, dtype=torch.float64)
+                X_val, y_val = X_val.to(device, dtype=torch.float64), y_val.to(device, dtype=torch.float64)
                 y_pred_val = model(X_val)
                 y_pred_val = torch.squeeze(y_pred_val)
                 val_loss = loss_fn(y_pred_val, y_val)
@@ -84,8 +71,7 @@ def test(dataloader, model, device, metric='RMSE', custom=0.1):
     total_metric = 0
     with torch.no_grad():
         for X, y in tqdm(dataloader):
-            X_val, y_val = X_val.to(device=device, dtype=torch.float64), y_val.to(device=device, dtype=torch.float64)
-                
+            X, y = X.to(device, dtype=torch.float64), y.to(device, dtype=torch.float64)
             y_pred = model(X)
             y_pred = np.squeeze(y_pred)
 
