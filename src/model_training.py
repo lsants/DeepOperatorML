@@ -22,7 +22,7 @@ class EarlyStopper:
 
 
 def train(train_dataloader, model, loss_fn, optimizer, device, val_dataloader=None):
-    model.to(device)
+    model.to(device=device, dtype=torch.float64)
     loss_fn.to(device)
     model.train()
 
