@@ -22,13 +22,23 @@ class EarlyStopper:
 
 
 def train(train_dataloader, model, loss_fn, optimizer, device, val_dataloader=None):
+    model.to(device)
+    loss_fn.to(device)
     model.train()
+
+    # Check dtype consistency
+    prev_dtype = None
 
     # Training
     total_train_loss = 0.0
     for batch, (X, y) in enumerate(train_dataloader):
         X, y = X.to(device), y.to(device)
 
+        current_dtype = X.dtype
+        if prev_dtype is not None and current_dtype != prev_dtype:
+            raise ValueError("Tensors in the DataLoader have different dtypes.")
+        
+        prev_dtype = current_dtype
         # Forward pass
         y_pred = model(X)
         y_pred = torch.squeeze(y_pred)
