@@ -32,7 +32,8 @@ def train(train_dataloader, model, loss_fn, optimizer, device, val_dataloader=No
     # Training
     total_train_loss = 0.0
     for batch, (X, y) in enumerate(train_dataloader):
-        X, y = X.to(device), y.to(device)
+        X, y = X.to(device=device, dtype=torch.float64), y.to(device=device, dtype=torch.float64)
+
 
         current_dtype = X.dtype
         if prev_dtype is not None and current_dtype != prev_dtype:
@@ -59,7 +60,7 @@ def train(train_dataloader, model, loss_fn, optimizer, device, val_dataloader=No
         total_val_loss = 0.0
         with torch.no_grad():
             for X_val, y_val in val_dataloader:
-                X_val, y_val = X_val.to(device), y_val.to(device)
+                X_val, y_val = X_val.to(device=device, dtype=torch.float64), y_val.to(device=device, dtype=torch.float64)
                 y_pred_val = model(X_val)
                 y_pred_val = torch.squeeze(y_pred_val)
                 val_loss = loss_fn(y_pred_val, y_val)
@@ -78,7 +79,8 @@ def test(dataloader, model, device, metric='RMSE', custom=0.1):
     total_metric = 0
     with torch.no_grad():
         for X, y in tqdm(dataloader):
-            X, y = X.to(device), y.to(device)
+            X_val, y_val = X_val.to(device=device, dtype=torch.float64), y_val.to(device=device, dtype=torch.float64)
+                
             y_pred = model(X)
             y_pred = np.squeeze(y_pred)
 
