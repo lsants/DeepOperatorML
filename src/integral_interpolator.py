@@ -31,9 +31,9 @@ data = os.path.join(path_to_data, 'poly_data.npy')
 torch.set_default_dtype(torch.float64)
 batch_size = 100
 lr = 0.00001
-epochs = 50
+epochs = 200
 n_sample = 50000
-full_data = False
+full_data = True
 
 # --------------------- Get and normalize dataset ---------------------
 data = np.load(data)  # Load polynomials numpy array
@@ -106,47 +106,48 @@ model_name = gnc.get_model_name(nodes_config, batch_size, lr, epochs, data_size)
 plot_path = os.path.join(path_to_images, model_name)
 
 # --------------------- Train/test the model ---------------------
-train_losses = []
-val_losses = []
-early_stopper = mt.EarlyStopper(patience=5, min_delta=5e-3)
-for t in tqdm(range(epochs)):
-    train_loss, val_loss = mt.train(train_dataloader, model, loss_fn, optimizer, val_dataloader=val_dataloader)
-    train_losses.append(train_loss)
-    val_losses.append(val_loss)
-    if t % 1 == 0:
-        print(f"Epoch {t}\n-------------------------")
-        print(f"Avg train loss: {train_loss:>8e}, \nAvg val loss: {val_loss:>8e} \n")
-    if early_stopper.early_stop(val_loss):
-        print(f"Early stopping at:\nEpoch {t}")
-        break
-print("Done!\n")
+if __name__ == '__main__':
+    train_losses = []
+    val_losses = []
+    early_stopper = mt.EarlyStopper(patience=5, min_delta=5e-3)
+    for t in tqdm(range(epochs)):
+        train_loss, val_loss = mt.train(train_dataloader, model, loss_fn, optimizer, val_dataloader=val_dataloader)
+        train_losses.append(train_loss)
+        val_losses.append(val_loss)
+        if t % 1 == 0:
+            print(f"Epoch {t}\n-------------------------")
+            print(f"Avg train loss: {train_loss:>8e}, \nAvg val loss: {val_loss:>8e} \n")
+        if early_stopper.early_stop(val_loss):
+            print(f"Early stopping at:\nEpoch {t}")
+            break
+    print("Done!\n")
 
 
-# --------------------- Plot loss curves ---------------------
-plots = gnc.plot_loss(
-    train_loss=train_losses, val_loss=val_losses, model_name=model_name)
-print(
-    f": \n Min {loss_arg} for training: {(np.array(train_losses).min()):>8e}, \nMin {loss_arg} for validation: {(np.array(val_losses).min()):>8e}")
+    # --------------------- Plot loss curves ---------------------
+    plots = gnc.plot_loss(
+        train_loss=train_losses, val_loss=val_losses, model_name=model_name)
+    print(
+        f": \n Min {loss_arg} for training: {(np.array(train_losses).min()):>8e}, \nMin {loss_arg} for validation: {(np.array(val_losses).min()):>8e}")
 
-# --------------------- Save model ---------------------
+    # --------------------- Save model ---------------------
 
-# --------------------- Testing ---------------------
-model.eval()  # Set the model to evaluation mode
-metric = mt.test(test_dataloader, model, metric=metric_arg)
+    # --------------------- Testing ---------------------
+    model.eval()  # Set the model to evaluation mode
+    metric = mt.test(test_dataloader, model, metric=metric_arg)
 
-y_pred = gnc.predict(model, X_test, y_test) # predictions are unnormalized in the function
-histograms = gnc.plot_histograms(y, y_train, y_val, y_test, y_pred)
+    y_pred = gnc.predict(model, X_test, y_test) # predictions are unnormalized in the function
+    histograms = gnc.plot_histograms(y, y_train, y_val, y_test, y_pred)
 
-custom_metric = 0.01
-custom_accuracy = np.mean(abs((y_pred - y_test) / y_test) < custom_metric)
-print(f"% of predictions inferior to {custom_metric:.0%} relative error: {custom_accuracy:.1%}")
+    custom_metric = 0.01
+    custom_accuracy = np.mean(abs((y_pred - y_test) / y_test) < custom_metric)
+    print(f"% of predictions inferior to {custom_metric:.0%} relative error: {custom_accuracy:.1%}")
 
-custom_metric = 0.05
-custom_accuracy = np.mean(abs((y_pred - y_test) / y_test) < custom_metric)
-print(f"% of predictions inferior to {custom_metric:.0%} relative error: {custom_accuracy:.1%}")
+    custom_metric = 0.05
+    custom_accuracy = np.mean(abs((y_pred - y_test) / y_test) < custom_metric)
+    print(f"% of predictions inferior to {custom_metric:.0%} relative error: {custom_accuracy:.1%}")
 
-custom_metric = 0.1
-custom_accuracy = np.mean(abs((y_pred - y_test) / y_test) < custom_metric)
-print(f"% of predictions inferior to {custom_metric:.0%} relative error: {custom_accuracy:.1%}")
+    custom_metric = 0.1
+    custom_accuracy = np.mean(abs((y_pred - y_test) / y_test) < custom_metric)
+    print(f"% of predictions inferior to {custom_metric:.0%} relative error: {custom_accuracy:.1%}")
 
-plt.show()
+    plt.show()
