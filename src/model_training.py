@@ -21,7 +21,7 @@ class EarlyStopper:
         return False
 
 
-def train(train_dataloader, model, loss_fn, optimizer, val_dataloader=None, device='cpu'):
+def train(train_dataloader, model, loss_fn, optimizer, device, val_dataloader=None):
     model.train()
 
     # Training
@@ -61,7 +61,7 @@ def train(train_dataloader, model, loss_fn, optimizer, val_dataloader=None, devi
     return avg_train_loss
 
 
-def test(dataloader, model, device='cpu', metric='RMSE', custom=0.1):
+def test(dataloader, model, device, metric='RMSE', custom=0.1):
     size = len(dataloader.dataset)
     num_batches = len(dataloader)
     model.eval()
