@@ -111,7 +111,7 @@ if __name__ == '__main__':
     val_losses = []
     early_stopper = mt.EarlyStopper(patience=5, min_delta=5e-3)
     for t in tqdm(range(epochs)):
-        train_loss, val_loss = mt.train(train_dataloader, model, loss_fn, optimizer, val_dataloader=val_dataloader)
+        train_loss, val_loss = mt.train(train_dataloader, model, loss_fn, optimizer, val_dataloader=val_dataloader, device=device)
         train_losses.append(train_loss)
         val_losses.append(val_loss)
         if t % 1 == 0:
@@ -133,7 +133,7 @@ if __name__ == '__main__':
 
     # --------------------- Testing ---------------------
     model.eval()  # Set the model to evaluation mode
-    metric = mt.test(test_dataloader, model, metric=metric_arg)
+    metric = mt.test(test_dataloader, model, metric=metric_arg, device=device)
 
     y_pred = gnc.predict(model, X_test, y_test) # predictions are unnormalized in the function
     histograms = gnc.plot_histograms(y, y_train, y_val, y_test, y_pred)
