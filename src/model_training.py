@@ -22,9 +22,14 @@ class EarlyStopper:
 
 
 def train(train_dataloader, model, loss_fn, optimizer, device, val_dataloader=None):
-    model.to(device=device, dtype=torch.float64)
     loss_fn.to(device)
     model.train()
+
+    for param in model.parameters():
+        param.data = param.data.to(device=device, dtype=torch.float64)
+    if param.grad is not None:
+        param.grad.data = param.grad.data.to(device=device, dtype=torch.float64)
+
 
     # Check dtype consistency
     prev_dtype = None
