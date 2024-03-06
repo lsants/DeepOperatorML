@@ -1,5 +1,7 @@
 import numpy as np
 import torch
+from tqdm.auto import tqdm
+
 
 class EarlyStopper:
     def __init__(self, patience=1, min_delta=0):
@@ -19,34 +21,53 @@ class EarlyStopper:
         return False
 
 
-def train(dataloader, model, loss_fn, optimizer, device='cpu'):
-    size = len(dataloader.dataset)
+def train(train_dataloader, model, loss_fn, optimizer, val_dataloader=None, device='cpu'):
     model.train()
-    for batch, (X, y) in enumerate((dataloader)):
+
+    # Training
+    total_train_loss = 0.0
+    for batch, (X, y) in enumerate(train_dataloader):
         X, y = X.to(device), y.to(device)
-        # Compute prediction error
+
+        # Forward pass
         y_pred = model(X)
-        y_pred = np.squeeze(y_pred)
+        y_pred = torch.squeeze(y_pred)
         loss = loss_fn(y_pred, y)
 
-        # Backpropagation
+        # Backward pass and optimization
         loss.backward()
         optimizer.step()
         optimizer.zero_grad()
 
-        if batch % 100 == 0:
-            loss, current = loss.item(), (batch + 1) * len(X)
-            # print(f"loss: {loss:>7f} [{current:>5d}]/{size:>5d}]")
-        return loss
+        total_train_loss += loss.item()
+
+    avg_train_loss = total_train_loss / len(train_dataloader)
+
+    # Validation
+    if val_dataloader is not None:
+        model.eval()
+        total_val_loss = 0.0
+        with torch.no_grad():
+            for X_val, y_val in val_dataloader:
+                X_val, y_val = X_val.to(device), y_val.to(device)
+                y_pred_val = model(X_val)
+                y_pred_val = torch.squeeze(y_pred_val)
+                val_loss = loss_fn(y_pred_val, y_val)
+                total_val_loss += val_loss.item()
+
+        avg_val_loss = total_val_loss / len(val_dataloader)
+        return avg_train_loss, avg_val_loss
+
+    return avg_train_loss
 
 
-def test(dataloader, model, loss_fn, device='cpu', metric='RMSE'):
+def test(dataloader, model, device='cpu', metric='RMSE', custom=0.1):
     size = len(dataloader.dataset)
     num_batches = len(dataloader)
     model.eval()
-    total_test_loss, total_metric = 0, 0
+    total_metric = 0
     with torch.no_grad():
-        for X, y in dataloader:
+        for X, y in tqdm(dataloader):
             X, y = X.to(device), y.to(device)
             y_pred = model(X)
             y_pred = np.squeeze(y_pred)
@@ -58,10 +79,9 @@ def test(dataloader, model, loss_fn, device='cpu', metric='RMSE'):
                 case 'RMSE':
                     criterion = torch.nn.MSELoss()
                     batch_metric = torch.sqrt(criterion(y_pred, y)).item()
-            total_test_loss += loss_fn(y_pred, y).item()
+                    print(f'{metric} for batch: {batch_metric}')
             total_metric += batch_metric
 
-    avg_test_loss = total_test_loss / num_batches
-    average_metric = total_metric / size
-    # print(f"Test error: \n Epoch performance ({metric}) {(average_metric):>8e}, loss for batch: {test_loss:>8e} \n")
-    return avg_test_loss, average_metric
+    average_metric = total_metric / num_batches
+    print(f"Performance ({metric}): {(average_metric):>8e}")
+    return average_metric
