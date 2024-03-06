@@ -6,6 +6,8 @@ from torch.utils.data import Dataset
 script_dir = os.path.dirname(os.path.abspath(__file__))
 project_dir = os.path.dirname(script_dir)
 sys.path.insert(0, project_dir)
+
+
 class PolyDataset(Dataset):
     def __init__(self, data, transform=None):
         self.data = data
@@ -36,7 +38,7 @@ class ToTensor(object):
 
     def __call__(self, sample):
         features, label = sample
-        return torch.from_numpy(features), torch.from_numpy(label)
+        return torch.tensor(features, dtype=torch.float64), torch.tensor(label, dtype=torch.float64)
 
 
 def generate_data(n_samples=500, fixed=0):
@@ -64,7 +66,7 @@ if __name__ == '__main__':
     print('Dataset:', '\n', poly_data[:5], '\n')
     np.save(os.path.join(data_path, 'poly_data'), poly_data)
 
-    X[:, -1] = 1 # Fixing limit of integration at 1
+    X[:, -1] = 1  # Fixing limit of integration at 1
     alpha, beta, gamma, B = X.T
     y = np.expand_dims(alpha/3 * B**3 + beta/2 * B**2 + gamma * B, axis=1)
     X = X[:, :-1]
