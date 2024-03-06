@@ -1,7 +1,7 @@
 # ------------------- Define Neural Network architecture -------------------
 import torch.nn as nn
 
-nodes_config = [96, 96, 96, 96, 96, 96, 96]
+nodes_config = [128, 128, 128, 128, 128, 128]
 
 
 class NeuralNetwork(nn.Module):
@@ -10,28 +10,37 @@ class NeuralNetwork(nn.Module):
         self.flatten = nn.Flatten()
         self.dropout = nn.Dropout(0.2)
         self.linear_relu_stack = nn.Sequential(
-            nn.Linear(4, 96),
+            nn.Linear(4, 128),
             # nn.Dropout(p=0.5),
             nn.ReLU(),
-            nn.Linear(96, 96),
+            nn.Linear(128, 128),
             # nn.Dropout(p=0.5),
             nn.ReLU(),
-            nn.Linear(96, 96),
+            nn.Linear(128, 128),
             # nn.Dropout(p=0.5),
             nn.ReLU(),
-            nn.Linear(96, 96),
+            nn.Linear(128, 128),
             # nn.Dropout(p=0.5),
             nn.ReLU(),
-            nn.Linear(96, 96),
+            nn.Linear(128, 128),
             # nn.Dropout(p=0.5),
             nn.ReLU(),
-            nn.Linear(96, 96),
+            nn.Linear(128, 128),
             # nn.Dropout(p=0.5),
             nn.ReLU(),
-            nn.Linear(96, 96),
+            nn.Linear(128, 128),
             # nn.Dropout(p=0.5),
             nn.ReLU(),
-            nn.Linear(96, 1),
+            nn.Linear(128, 128),
+            # nn.Dropout(p=0.5),
+            nn.ReLU(),
+            nn.Linear(128, 128),
+            # nn.Dropout(p=0.5),
+            nn.ReLU(),
+            nn.Linear(128, 128),
+            # nn.Dropout(p=0.5),
+            nn.ReLU(),
+            nn.Linear(128, 1),
             # nn.Dropout(p=0.5),
         )
 

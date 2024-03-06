@@ -9,16 +9,20 @@ sys.path.insert(0, project_dir)
 class PolyDataset(Dataset):
     def __init__(self, data, transform=None):
         self.data = data
-        self.features = data[0]
-        self.labels = data[1]
+        if type(data) != tuple:
+            self.features = data[:, :-1]
+            self.labels = data[:, -1]
+        else:
+            self.features = data[0]
+            self.labels = data[1]
         self.transform = transform
 
     def __len__(self):
-        return len(self.data[0])
+        return len(self.data)
 
     def __getitem__(self, idx):
         features = self.features[idx]
-        label = np.array(self.labels[idx])
+        label = np.asarray(self.labels[idx])
 
         sample = features, label
         if self.transform:
