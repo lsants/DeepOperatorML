@@ -5,6 +5,11 @@ We want to use a NN to compute the integral I of a polynomial function in the fo
     I = α*B^3/3 + β*B^2/2 + γ*B
 '''
 # --------------------- Modules ---------------------
+import os
+import sys
+script_dir = os.path.dirname(os.path.abspath(__file__))
+project_dir = os.path.dirname(script_dir)
+sys.path.insert(0, project_dir)
 from tqdm.auto import tqdm
 from matplotlib import pyplot as plt
 from torch.utils.data import DataLoader
@@ -15,42 +20,44 @@ from src import model_training as mt
 from src import nn_architecture as NN
 import numpy as np
 import torch
-import os
-import sys
-script_dir = os.path.dirname(os.path.abspath(__file__))
-project_dir = os.path.dirname(script_dir)
-sys.path.insert(0, project_dir)
 
 # --------------------- Paths ---------------------
 path_to_data = os.path.join(project_dir, 'data')
 path_to_models = os.path.join(project_dir, 'models')
 path_to_images = os.path.join(project_dir, 'images')
-data = os.path.join(path_to_data, 'poly_data.npy')
+data_path = os.path.join(path_to_data, 'poly_data.npy')
 
 # --------------------- Parameters ---------------------
 torch.set_default_dtype(torch.float64)
-batch_size = 100
+batch_size = 64
 lr = 0.00001
-epochs = 200
-n_sample = 1000
-full_data = True
+epochs = 50
+n_sample = 10000
+full_data = False
 
 # --------------------- Get and normalize dataset ---------------------
-data = np.load(data)  # Load polynomials numpy array
+data = np.load(data_path)  # Load polynomials numpy array
 data = data.astype(np.float64)
 if not full_data:
     data = data[:n_sample]
 
-data_norm = gnc.normalize(data)
-
+X, y = data[:, :-1], data[:, -1]
+data_norm = np.zeros((len(data), 5))
+data_norm[:, :-1] = gnc.normalize(X)
+data_norm[:, -1] = y
 # --------------------- Format as torch and split train-test set ---------------------
-training_data, val_data, test_data = gnc.split_dataset(data, seed=42)
+training_data_params, val_data_params, test_data_params = gnc.split_dataset(data, seed=42)
+mean_for_normalization, std_for_normalization = np.mean(training_data_params, axis=0)[:-1], np.std(training_data_params, axis=0)[:-1]
+
+np.savez(f'{path_to_models}/normalization_params.npz', mean=mean_for_normalization, std=std_for_normalization)
+
+training_data, val_data, test_data = gnc.split_dataset(data_norm, seed=42)
 
 for i in [training_data, val_data, test_data]:
     i = i[:, :-1], i[:, -1]  # format for dataset
 
-data = data[:, :-1], data[:, -1]  # format for dataset
-data_size = len(data[0]) if not full_data else None
+data_norm = data_norm[:, :-1], data_norm[:, -1]  # format for dataset
+data_size = len(data_norm[0]) if not full_data else None
 
 X_train, y_train = training_data[:, :-1], training_data[:, -1]
 X_val, y_val = val_data[:, :-1], val_data[:, -1]
@@ -59,11 +66,11 @@ X_test_mean, X_test_std = np.mean(X_test, axis=0), np.std(X_test, axis=0)
 y_test_mean, y_test_std = np.mean(y_test, axis=0), np.std(y_test, axis=0)
 
 training_data_tensor = PolyDataset(
-    gnc.normalize(training_data), transform=ToTensor())
-val_data_tensor = PolyDataset(gnc.normalize(val_data), transform=ToTensor())
-test_data_tensor = PolyDataset(gnc.normalize(test_data), transform=ToTensor())
-X, y = PolyDataset(data, transform=ToTensor()).features, PolyDataset(
-    data, transform=ToTensor()).labels
+    training_data, transform=ToTensor())
+val_data_tensor = PolyDataset(val_data, transform=ToTensor())
+test_data_tensor = PolyDataset(test_data, transform=ToTensor())
+X, y = PolyDataset(data_norm, transform=ToTensor()).features, PolyDataset(
+    data_norm, transform=ToTensor()).labels
 print(X.shape, y.shape)
 
 # --------------------- Create data loaders ---------------------
@@ -143,7 +150,7 @@ if __name__ == '__main__':
     metric = mt.test(test_dataloader, model, metric=metric_arg, device=device)
 
     # predictions are unnormalized in the function
-    y_pred = gnc.predict(model, X_test, y_test)
+    y_pred = gnc.predict(model, X_test)
     histograms = gnc.plot_histograms(y, y_train, y_val, y_test, y_pred)
 
     custom_metric = 0.01
