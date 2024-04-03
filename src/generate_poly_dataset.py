@@ -66,7 +66,6 @@ if __name__ == '__main__':
     print('Dataset:', '\n', poly_data[:5], '\n')
     np.save(os.path.join(data_path, 'poly_data'), poly_data)
 
-    X[:, -1] = 1  # Fixing limit of integration at 1
     alpha, beta, gamma, B = X.T
     y = np.expand_dims(alpha/3 * B**3 + beta/2 * B**2 + gamma * B, axis=1)
     X = X[:, :-1]

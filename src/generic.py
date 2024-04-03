@@ -55,14 +55,20 @@ def split_dataset(data, VAL_SIZE=0.1, TEST_SIZE=0.1, seed=42):
 
 def compute_integral(coefs):
     integrals = []
-    for poly in coefs:
-        if len(poly) == 3:
-            alpha, beta, gamma = poly
-            B = 1
-        else:
-            alpha, beta, gamma, B = poly
-        integrals.append((alpha / 3) * B**3 + (beta / 2) * B**2 +
-                         gamma * B)
+    if type(coefs) != list:
+        for poly in coefs:
+            if len(poly) == 3:
+                alpha, beta, gamma = poly
+                B = 1
+            else:
+                alpha, beta, gamma, B = poly
+            integrals.append((alpha / 3) * B**3 + (beta / 2) * B**2 +
+                            gamma * B)
+    else:
+        alpha, beta, gamma, B = coefs
+        integrals =  ((alpha / 3) * (B)**3 + (beta / 2) * B**2 +
+                                gamma * B) - ((alpha / 3) * (0.1)**3 + (beta / 2) * 0.1**2 +
+                                gamma * 0.1)
     return integrals
 
 
