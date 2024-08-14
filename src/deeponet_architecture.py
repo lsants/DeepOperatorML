@@ -1,23 +1,42 @@
+import torch
 import torch.nn as nn
 
 class FNNDeepOnet(nn.Module):
-    def __init__(self, layers):
+    def __init__(self, branch_layers, trunk_layers):
         super().__init__()
-        self.linears = nn.ModuleList()
-        L = len(layers)
-        for layer in range(len(1,layers)):
-            self.linears.append(nn.Linear(layer-1, layer))
-            if layer != L - 1:
-                self.linears.append(nn.Tanh())
+        
+        self.branch_layers = nn.ModuleList()
+        for i in range(len(branch_layers) - 1):
+            in_features = branch_layers[i]
+            out_features = branch_layers[i+1]
+            self.branch_layers.append(nn.Linear(in_features, out_features))
+            if i < len(branch_layers) - 2:
+                self.branch_layers.append(nn.ReLU())
 
-    def branch(self, X, layers):
+        self.trunk_layers = nn.ModuleList()
+        for i in range(len(trunk_layers) - 1):
+            in_features = trunk_layers[i]
+            out_features = trunk_layers[i+1]
+            self.trunk_layers.append(nn.Linear(in_features, out_features))
+            if i < len(trunk_layers) - 2:
+                self.trunk_layers.append(nn.ReLU())
+
+    def branch(self, X):
         b = X
-        for layer in layers:
+        for layer in self.branch_layers:
             b = layer(b)
         return b
 
-    def trunk(self, X, layers):
+    def trunk(self, X):
         t = X
-        for layer in layers:
+        for layer in self.trunk_layers:
             t = layer(t)
         return t
+    
+    def forward(self, X_branch, X_trunk):
+        print(X_branch.shape, X_trunk.shape)
+        b = self.branch(X_branch)
+        t = self.trunk(X_trunk)
+        print(b.shape, t.shape)
+        output = torch.mm(b,t.T)
+        return output
