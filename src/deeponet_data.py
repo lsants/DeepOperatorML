@@ -56,4 +56,4 @@ print(f"Train size: {antiderivative_train.shape}, \nTest size: {antiderivative_t
 
 if __name__ == '__main__':
     np.save(os.path.join(path_to_data, 'antiderivative_train.npy'), antiderivative_train)
-    np.save(os.path.join(path_to_data, 'antiderivative_train.npy'), antiderivative_train)
+    np.save(os.path.join(path_to_data, 'antiderivative_test.npy'), antiderivative_test)
