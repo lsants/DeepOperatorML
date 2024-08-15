@@ -12,12 +12,6 @@ def G(a, b, y):
     c = (a/b).reshape(-1,1) # (n, 1) -> broadcasting row wise
     return c*np.sin(b*y.T)
 
-def preprocess_data(u, y, Guy):
-    branch_input = np.repeat(u, repeats=len(y), axis=0)
-    trunk_input = np.tile(y, (len(u), 1))
-    output = Guy.flatten().reshape(-1,1)
-    return (branch_input, trunk_input, output)
-
 def split_data(arr):
     train_spilt = 0.7
     size = len(arr)
@@ -44,12 +38,19 @@ y = end *np.random.rand(q).reshape(q, 1)
 G_u_y = G(a, b, y)
 
 # _------ Split training and test set --------
-data = np.concatenate(preprocess_data(u, y, G_u_y), axis=1)
-antiderivative_train, antiderivative_test = split_data(data)
+u_train, u_test = split_data(u)
+y_train, y_test = split_data(y)
+G_train, G_test = split_data(G_u_y)
 
-print(f"Train size: {antiderivative_train.shape}, \nTest size: {antiderivative_test.shape}")
+train_data = (u_train, y_train, G_train)
+test_data = (u_test, y_test, G_test)
+
+train_shapes = '\n'.join([str(i.shape) for i in train_data])
+test_shapes = '\n'.join([str(i.shape) for i in test_data])
+
+print(f"Train sizes: \n{train_shapes}, \nTest size: {test_shapes}")
 
 # --- Save dataset ---
 if __name__ == '__main__':
-    np.savez(os.path.join(path_to_data, 'antiderivative_train.npz'), X_branch=antiderivative_train[:,:m], X_trunk=antiderivative_train[:,m], y=antiderivative_train[:,m+1])
-    np.savez(os.path.join(path_to_data, 'antiderivative_test.npz'), X_branch=antiderivative_test[:,:m], X_trunk=antiderivative_test[:,m], y=antiderivative_test[:,m+1])
+    np.savez(os.path.join(path_to_data, 'antiderivative_train.npz'), X_branch=u_train, X_trunk=y_train, y=G_train)
+    np.savez(os.path.join(path_to_data, 'antiderivative_test.npz'), X_branch=u_test, X_trunk=y_test, y=G_test)
