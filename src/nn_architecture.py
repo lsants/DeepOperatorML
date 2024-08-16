@@ -1,50 +1,17 @@
 # ------------------- Define Neural Network architecture -------------------
 import torch.nn as nn
 
-nodes_config = [128, 128, 128, 128, 128, 128]
-
-
 class NeuralNetwork(nn.Module):
-    def __init__(self):
+    def __init__(self, layers):
         super().__init__()
-        self.flatten = nn.Flatten()
-        self.dropout = nn.Dropout(0.2)
-        self.linear_relu_stack = nn.Sequential(
-            nn.Linear(4, 128),
-            # nn.Dropout(p=0.5),
-            nn.ReLU(),
-            nn.Linear(128, 128),
-            # nn.Dropout(p=0.5),
-            nn.ReLU(),
-            nn.Linear(128, 128),
-            # nn.Dropout(p=0.5),
-            nn.ReLU(),
-            nn.Linear(128, 128),
-            # nn.Dropout(p=0.5),
-            nn.ReLU(),
-            nn.Linear(128, 128),
-            # nn.Dropout(p=0.5),
-            nn.ReLU(),
-            nn.Linear(128, 128),
-            # nn.Dropout(p=0.5),
-            nn.ReLU(),
-            nn.Linear(128, 128),
-            # nn.Dropout(p=0.5),
-            nn.ReLU(),
-            nn.Linear(128, 128),
-            # nn.Dropout(p=0.5),
-            nn.ReLU(),
-            nn.Linear(128, 128),
-            # nn.Dropout(p=0.5),
-            nn.ReLU(),
-            nn.Linear(128, 128),
-            # nn.Dropout(p=0.5),
-            nn.ReLU(),
-            nn.Linear(128, 1),
-            # nn.Dropout(p=0.5),
-        )
+        self.layers = nn.ModuleList()
+        for L in range(1, len(layers)):
+            self.layers.append(nn.Linear(layers[L-1], layers[L]))
+            if L != len(layers) - 1:
+                self.layers.append(nn.ReLU())
 
     def forward(self, x):
-        x = self.flatten(x)
-        logits = self.linear_relu_stack(x)
-        return logits
+        output = x
+        for i in self.layers:
+            output = i(output)
+        return output
