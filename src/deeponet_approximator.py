@@ -5,7 +5,7 @@ import torch
 import matplotlib.pyplot as plt
 import torch.utils
 import torch.utils.data
-from tqdm import tqdm
+from tqdm.auto import tqdm
 import torch.nn as nn
 
 script_dir = os.path.dirname(os.path.abspath(__file__))
@@ -17,51 +17,33 @@ from src.deeponet_architecture import FNNDeepOnet
 def load_data(data):
     convert_to_tensor = lambda x: torch.tensor(x, dtype=torch.float32)
     vector_to_matrix = lambda x: x.reshape(-1,1) if type(x) == np.ndarray and x.ndim == 1 else x
+    
     return map(convert_to_tensor, list(map(vector_to_matrix, data)))
 
-def train_step(model, dataloader, m, q):
-    running_loss = 0.
-    last_loss = 0.
-    for i, data_point in enumerate(dataloader):
-        u = data_point[:, :m]
-        y = data_point[:, m:m + q]
-        G = data_point[:, m + q:]
+def train_step(model, data):
+    u, y, G = data
 
-        optimizer.zero_grad()
+    model.train()
+    optimizer.zero_grad()
 
-        G_pred = model(u, y)
-        loss = loss_fn(G_pred, G)
-        loss.backward()
-        optimizer.step()
+    G_pred = model(u, y)
+    loss = loss_fn(G_pred, G)
+    
+    loss.backward()
+    optimizer.step()
 
-        running_loss += loss.item()
-        if i % 1000 == 999:
-            last_loss = running_loss / 1000
-            print('  batch {} train loss: {}'.format(i + 1, last_loss))
-            running_loss = 0
+    return loss, G_pred
 
-    return last_loss, G_pred
+def test_step(model, data):
+    u, y, G = data
 
-def test_step(model, dataloader, m, q):
-    running_loss = 0.
-    last_loss = 0.
-    for i, data_point in enumerate(dataloader):
-        u = data_point[:, :m]
-        y = data_point[:, m:m + q]
-        G = data_point[:, m + q:]
+    model.eval()
+    optimizer.zero_grad()
 
-        optimizer.zero_grad()
+    G_pred = model(u, y)
+    loss = loss_fn(G_pred, G)
 
-        G_pred = model(u, y)
-        loss = loss_fn(G_pred, G)
-
-        running_loss += loss.item()
-        if i % 1000 == 999:
-            last_loss = running_loss / 1000
-            print('  batch {} validation loss: {}'.format(i + 1, last_loss))
-            running_loss = 0
-
-    return last_loss, G_pred
+    return loss, G_pred
 
 path_to_data = os.path.join(project_dir, 'data')
 
@@ -73,36 +55,23 @@ d = np.load(f"{path_to_data}/antiderivative_train.npz", allow_pickle=True)
 u_test, y_test, G_u_y_test =  load_data((d['X_branch'], d['X_trunk'], d['y']))
 
 # ---------------- Defining model -------------------
-u_dim = u_train.shape[0]           # Input dimension for branch net -> m
+u_dim = u_train.shape[-1]           # Input dimension for branch net -> m
 p = 50                              # Output dimension for branch and trunk net -> p
 layers_f = [u_dim] + [40]*2 + [p]   # Branch net MLP
 y_dim = 1                           # Input dimension for trunk net -> q
 layers_y = [y_dim] + [40]*2 + [p]   # Branch net MLP
 
 model = FNNDeepOnet(layers_f, layers_y)
-print(model(u_train,y_train))
 
 # --------------- Loss function and optimizer ----------
 loss_fn = nn.MSELoss()
-optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
+optimizer = torch.optim.Adam(model.parameters(), lr=1e-4)
 
 # ---------------- Training ----------------------
-batch_size = 32
 epochs = 10000
 
-train_set = torch.cat([u_train, y_train, G_u_y_train], dim=1)
-train_dataloader = torch.utils.data.DataLoader(
-    train_set,
-    batch_size=batch_size,
-    shuffle=True
-    )
-
-test_set = torch.cat([u_test, y_test, G_u_y_test], dim=1)
-test_dataloader = torch.utils.data.DataLoader(
-    test_set,
-    batch_size=batch_size,
-    shuffle=True
-    )
+train_set = (u_train, y_train, G_u_y_train)
+test_set = (u_test, y_test, G_u_y_test)
 
 train_err_list = []
 train_loss_list = []
@@ -110,8 +79,8 @@ test_err_list = []
 test_loss_list = []
 
 for i in tqdm(range(epochs)):
-    epoch_train_loss, G_train_pred = train_step(model, train_dataloader, u_dim, y_dim)
-    epoch_test_loss, G_test_pred = test_step(model, test_dataloader, u_dim, y_dim)
+    epoch_train_loss, G_train_pred = train_step(model, train_set)
+    epoch_test_loss, G_test_pred = test_step(model, test_set)
 
     train_loss_list.append(epoch_train_loss)
     test_loss_list.append(epoch_test_loss)
@@ -119,8 +88,28 @@ for i in tqdm(range(epochs)):
     if i % 100 == 0:
         print(f"Iteration: {i} Train Loss:{epoch_train_loss}, Test Loss:{epoch_test_loss}")
     with torch.no_grad():
-        print(G_train_pred.shape, G_u_y_train.shape)
         err_train = torch.linalg.vector_norm(G_train_pred - G_u_y_train) / torch.linalg.vector_norm(G_u_y_train)
         err_test = torch.linalg.vector_norm(G_test_pred - G_u_y_test) / torch.linalg.vector_norm(G_u_y_test)
         train_err_list.append(err_train)
         test_err_list.append(err_test)
+
+
+# ------------- Plots -----------------------------
+epochs = range(epochs)
+
+fig, ax = plt.subplots(nrows=1, ncols=2)
+
+ax[0].plot(epochs, [i.item() for i in train_loss_list], label='train_loss')
+ax[0].plot(epochs, [i.item() for i in test_loss_list], label='test_loss')
+ax[0].set_xlabel('epoch')
+ax[0].set_yscale('log')
+ax[0].legend()
+
+ax[1].plot(epochs, train_err_list, label='train_accuracy')
+ax[1].plot(epochs, test_err_list, label='test_accuracy')
+ax[1].set_xlabel('epoch')
+ax[1].set_yscale('log')
+ax[1].legend()
+
+fig.tight_layout()
+fig.show()
