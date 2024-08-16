@@ -34,9 +34,7 @@ class FNNDeepOnet(nn.Module):
         return t
     
     def forward(self, X_branch, X_trunk):
-        print(X_branch.shape, X_trunk.shape)
         b = self.branch(X_branch)
         t = self.trunk(X_trunk)
-        print(b.shape, t.shape)
         output = torch.mm(b,t.T)
-        return output
+        return output   
