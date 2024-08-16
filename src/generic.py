@@ -6,13 +6,13 @@ import numpy as np
 import torch
 import os
 import sys
-script_dir = os.path.dirname(os.getcwd())
+script_dir = os.path.dirname(os.path.abspath(__file__))
 project_dir = os.path.dirname(script_dir)
 sys.path.insert(0, project_dir)
 path_to_data = os.path.join(project_dir, 'data')
 path_to_models = os.path.join(project_dir, 'models')
 path_to_images = os.path.join(project_dir, 'images')
-norm_params = np.load('/home/lsantiago/workspace/ic/project/models/normalization_params.npz')
+norm_params = np.load(os.path.join(path_to_models, 'normalization_params.npz'))
 norm_mean, norm_std = norm_params['mean'], norm_params['std']
 
 # --------------------- Get dataset ---------------------
