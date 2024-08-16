@@ -5,13 +5,14 @@ project_dir = os.path.dirname(script_dir)
 sys.path.insert(0, project_dir)
 import time
 import numpy as np
-from src.trapezoid_rule_implementation import trapezoid_rule
-from src.gaussian_quadrature_implementation import two_point_gaussian_quadrature
 from src import generate_poly_dataset as gen
 from src import generic as gnc
 from src import nn_architecture as NN
 import torch
 import matplotlib.pyplot as plt
+from tqdm import tqdm
+
+path_to_model = os.path.join(os.path.join(project_dir, 'models'), 'model_200.pth')
 
 # Generate dataset for test:
 sample_size = 10000
@@ -20,8 +21,9 @@ X, y = gen.generate_data(sample_size)
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 model = NN.NeuralNetwork().to(device, dtype=torch.float32)
-model.load_state_dict(torch.load(
-    '/home/lsantiago/workspace/ic/project/models/model_200e_200b_0_00001lr.pth'))
+model.load_state_dict(torch.load(path_to_model))
+
+model.eval() # Was not activated
 
 # _______ Print number of model parameters -------
 model_parameters = filter(lambda p: p.requires_grad, model.parameters())
@@ -46,7 +48,7 @@ preds_trap = []
 check = []
 N_points = 5  # for trapezoid rule
 
-for i in input_X[0]:
+for i in tqdm(input_X[0]):
     integral = gnc.compute_integral(i.tolist())
     check.append(integral)
     global alfa, beta, gamma, b
@@ -90,6 +92,8 @@ times_gauss = np.array(times_gauss)
 preds_gauss = np.array(preds_gauss)
 times_trap = np.array(times_trap)
 preds_trap = np.array(preds_trap)
+
+
 print(
     f"NN integration time: {np.mean(times_NN)/1e3 :.3f} ± {np.std(times_NN)/1e3:.3f} us")
 print(f"L1 error norm for NN: {np.mean(abs(preds_NN - check)): .3f}")

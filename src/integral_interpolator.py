@@ -16,10 +16,97 @@ from torch.utils.data import DataLoader
 from torch import nn
 from src.generate_poly_dataset import PolyDataset, ToTensor
 from src import generic as gnc
-from src import model_training as mt
 from src import nn_architecture as NN
 import numpy as np
 import torch
+
+
+class EarlyStopper:
+    def __init__(self, patience=1, min_delta=0):
+        self.patience = patience
+        self.min_delta = min_delta
+        self.counter = 0
+        self.min_validation_loss = float('inf')
+
+    def early_stop(self, validation_loss):
+        if validation_loss < self.min_validation_loss:
+            self.min_validation_loss = validation_loss
+            self.counter = 0
+        elif validation_loss > (self.min_validation_loss + self.min_delta):
+            self.counter += 1
+            if self.counter >= self.patience:
+                return True
+        return False
+
+
+def train(train_dataloader, model, loss_fn, optimizer, device, val_dataloader=None):
+    model.to(device, dtype=torch.float64)
+    loss_fn.to(device)
+    model.train()
+    
+
+    # Training
+    total_train_loss = 0.0
+    for batch, (X, y) in enumerate(train_dataloader):
+        X, y = X.to(device, dtype=torch.float64), y.to(device, dtype=torch.float64)
+
+        # Forward pass
+        y_pred = model(X)
+        y_pred = torch.squeeze(y_pred)
+        loss = loss_fn(y_pred, y)
+
+        # Backward pass and optimization
+        loss.backward()
+        optimizer.step()
+        optimizer.zero_grad()
+
+        total_train_loss += loss.item()
+
+    avg_train_loss = total_train_loss / len(train_dataloader)
+
+    # Validation
+    if val_dataloader is not None:
+        model.eval()
+        total_val_loss = 0.0
+        with torch.no_grad():
+            for X_val, y_val in val_dataloader:
+                X_val, y_val = X_val.to(device, dtype=torch.float64), y_val.to(device, dtype=torch.float64)
+                y_pred_val = model(X_val)
+                y_pred_val = torch.squeeze(y_pred_val)
+                val_loss = loss_fn(y_pred_val, y_val)
+                total_val_loss += val_loss.item()
+
+        avg_val_loss = total_val_loss / len(val_dataloader)
+        return avg_train_loss, avg_val_loss
+
+    return avg_train_loss
+
+
+def test(dataloader, model, device, metric='RMSE', custom=0.1):
+    size = len(dataloader.dataset)
+    num_batches = len(dataloader)
+    model.eval()
+    total_metric = 0
+    with torch.no_grad():
+        for X, y in tqdm(dataloader):
+            X, y = X.to(device, dtype=torch.float64), y.to(device, dtype=torch.float64)
+            y_pred = model(X)
+            y_pred = np.squeeze(y_pred)
+
+            match metric:
+                case 'MAE':
+                    criterion = torch.nn.L1Loss()
+                    batch_metric = criterion(y_pred, y).item()
+                case 'RMSE':
+                    criterion = torch.nn.MSELoss()
+                    batch_metric = torch.sqrt(criterion(y_pred, y)).item()
+                    print(f'{metric} for batch: {batch_metric}')
+            total_metric += batch_metric
+
+    average_metric = total_metric / num_batches
+    print(f"Performance ({metric}): {(average_metric):>8e}")
+    return average_metric
+
 
 # --------------------- Paths ---------------------
 path_to_data = os.path.join(project_dir, 'data')
@@ -35,43 +122,9 @@ epochs = 50
 n_sample = 10000
 full_data = False
 
-# --------------------- Get and normalize dataset ---------------------
-data = np.load(data_path)  # Load polynomials numpy array
-data = data.astype(np.float64)
-if not full_data:
-    data = data[:n_sample]
-
-X, y = data[:, :-1], data[:, -1]
-data_norm = np.zeros((len(data), 5))
-data_norm[:, :-1] = gnc.normalize(X)
-data_norm[:, -1] = y
-# --------------------- Format as torch and split train-test set ---------------------
-training_data_params, val_data_params, test_data_params = gnc.split_dataset(data, seed=42)
-mean_for_normalization, std_for_normalization = np.mean(training_data_params, axis=0)[:-1], np.std(training_data_params, axis=0)[:-1]
-
-np.savez(f'{path_to_models}/normalization_params.npz', mean=mean_for_normalization, std=std_for_normalization)
-
-training_data, val_data, test_data = gnc.split_dataset(data_norm, seed=42)
-
-for i in [training_data, val_data, test_data]:
-    i = i[:, :-1], i[:, -1]  # format for dataset
-
-data_norm = data_norm[:, :-1], data_norm[:, -1]  # format for dataset
-data_size = len(data_norm[0]) if not full_data else None
-
-X_train, y_train = training_data[:, :-1], training_data[:, -1]
-X_val, y_val = val_data[:, :-1], val_data[:, -1]
-X_test, y_test = test_data[:, :-1], test_data[:, -1]
-X_test_mean, X_test_std = np.mean(X_test, axis=0), np.std(X_test, axis=0)
-y_test_mean, y_test_std = np.mean(y_test, axis=0), np.std(y_test, axis=0)
-
-training_data_tensor = PolyDataset(
-    training_data, transform=ToTensor())
-val_data_tensor = PolyDataset(val_data, transform=ToTensor())
-test_data_tensor = PolyDataset(test_data, transform=ToTensor())
-X, y = PolyDataset(data_norm, transform=ToTensor()).features, PolyDataset(
-    data_norm, transform=ToTensor()).labels
-print(X.shape, y.shape)
+# ------------------ Load data -------------------------
+d = np.load(f"{path_to_data}/poly_dataset.npz", allow_pickle=True)
+training_data_tensor, val_data_tensor, test_data_tensor =  ((d['train'], d['val'], d['test']))
 
 # --------------------- Create data loaders ---------------------
 train_dataloader = DataLoader(training_data_tensor,
@@ -85,17 +138,11 @@ test_dataloader = DataLoader(test_data_tensor,
                              shuffle=True)
 
 # --------------------- Define NN architecture ---------------------
-# Get cpu, gpu or mps device for training.
-device = (
-    "cuda"
-    if torch.cuda.is_available()
-    else "mps"
-    if torch.backends.mps.is_available()
-    else "cpu"
-)
-# print(f"Using {device} device")
-model = NN.NeuralNetwork().to(device, dtype=torch.float64)
-nodes_config = NN.nodes_config
+
+input_size = 4
+output_size = 1
+network_size = [input_size] + [128] * 6 + [output_size]
+model = NN.NeuralNetwork(network_size).to(dtype=torch.float32)
 print(model)
 
 # --------------------- Defining loss function and optimizer ---------------------
@@ -114,18 +161,15 @@ print(optimizer)
 # --------------------- Get model filename ---------------------
 if full_data:
     data_size = None
-model_name = gnc.get_model_name(
-    nodes_config, batch_size, lr, epochs, data_size)
-plot_path = os.path.join(path_to_images, model_name)
 
 # --------------------- Train/test the model ---------------------
 if __name__ == '__main__':
     train_losses = []
     val_losses = []
-    early_stopper = mt.EarlyStopper(patience=5, min_delta=5e-3)
+    early_stopper = EarlyStopper(patience=5, min_delta=5e-3)
     for t in tqdm(range(epochs)):
-        train_loss, val_loss = mt.train(
-            train_dataloader, model, loss_fn, optimizer, val_dataloader=val_dataloader, device=device)
+        train_loss, val_loss = train(
+            train_dataloader, model, loss_fn, optimizer, val_dataloader=val_dataloader)
         train_losses.append(train_loss)
         val_losses.append(val_loss)
         if t % 1 == 0:
@@ -139,15 +183,13 @@ if __name__ == '__main__':
 
     # --------------------- Plot loss curves ---------------------
     plots = gnc.plot_loss(
-        train_loss=train_losses, val_loss=val_losses, model_name=model_name)
+        train_loss=train_losses, val_loss=val_losses)
     print(
         f": \n Min {loss_arg} for training: {(np.array(train_losses).min()):>8e}, \nMin {loss_arg} for validation: {(np.array(val_losses).min()):>8e}")
 
-    # --------------------- Save model ---------------------
-
     # --------------------- Testing ---------------------
     model.eval()  # Set the model to evaluation mode
-    metric = mt.test(test_dataloader, model, metric=metric_arg, device=device)
+    metric = test(test_dataloader, model, metric=metric_arg)
 
     # predictions are unnormalized in the function
     y_pred = gnc.predict(model, X_test)
