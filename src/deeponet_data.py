@@ -14,10 +14,10 @@ def G(a, b, y):
     return c*np.sin(b*y.T)
 
 # ----------- Set size of dataset and operator domain -----------
-n, m, = 100, 800 # Number of input functions and sensors (must be fixed)
+n, m, = 500, 800 # Number of input functions and sensors (must be fixed)
 q = 600 # Output locations (can be random)
 start = 0
-end = 1000
+end = 100
 # ------- Branch input ------
 x = np.linspace(start, end, m) # sensors (dont necessarily have to be on a lattice - can be random - linspace is not required)
 a , b = np.random.rand(n).reshape(n, 1), np.random.rand(n).reshape(n, 1) 
@@ -30,11 +30,20 @@ y = end *np.random.rand(q).reshape(q, 1)
 G = G(a, b, y)
 
 # _------ Split training and test set --------
-u_train, u_test, G_train_rows, G_test_rows = train_test_split(u , G, test_size=0.2, random_state=42)
-y_train, y_test, G_train, G_test = train_test_split(y , G_train_rows.T, test_size=0.2, random_state=42)
+test_size = 0.2
+train_rows = int(n * (1 - test_size))
+test_rows = n - train_rows           
 
-G_train = G_train.T
-G_test = G_test.T
+train_cols = int(q * (1 - test_size))
+test_cols = q - train_cols           
+
+# Split G row-wise first (based on the number of rows calculated)
+u_train, u_test = train_test_split(u, test_size=test_size, random_state=42)
+y_train, y_test = train_test_split(y, test_size=test_size, random_state=42)
+G_train_rows, G_test_rows = train_test_split(G, test_size=test_size, random_state=42)
+
+G_train = G_train_rows[:, :train_cols] 
+G_test = G_test_rows[:, :test_cols]  
 
 train_data = (u_train, y_train, G_train)
 test_data = (u_test, y_test, G_test)
@@ -42,7 +51,7 @@ test_data = (u_test, y_test, G_test)
 train_shapes = '\n'.join([str(i.shape) for i in train_data])
 test_shapes = '\n'.join([str(i.shape) for i in test_data])
 
-print(f"Train sizes: \n{train_shapes}, \nTest sizes: \n{test_shapes}")
+print(f"Train sizes (u, y, G): \n{train_shapes}, \nTest sizes (u, y, G): \n{test_shapes}")
 
 # --- Save dataset ---
 if __name__ == '__main__':
