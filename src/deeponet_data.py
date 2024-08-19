@@ -14,10 +14,10 @@ def G(a, b, y):
     return c*np.sin(b*y.T)
 
 # ----------- Set size of dataset and operator domain -----------
-n, m, = 500, 800 # Number of input functions and sensors (must be fixed)
-q = 600 # Output locations (can be random)
+n, m, = 300, 80 # Number of input functions and sensors (must be fixed)
+q = 500 # Output locations (can be random)
 start = 0
-end = 100
+end = 3*np.pi
 # ------- Branch input ------
 x = np.linspace(start, end, m) # sensors (dont necessarily have to be on a lattice - can be random - linspace is not required)
 a , b = np.random.rand(n).reshape(n, 1), np.random.rand(n).reshape(n, 1) 
@@ -37,23 +37,17 @@ test_rows = n - train_rows
 train_cols = int(q * (1 - test_size))
 test_cols = q - train_cols           
 
-u_train, u_test = train_test_split(u, test_size=test_size, random_state=42)
-y_train, y_test = train_test_split(y, test_size=test_size, random_state=42)
-G_train_rows, G_test_rows = train_test_split(G, test_size=test_size, random_state=42)
+u_train, u_test, G_train, G_test = train_test_split(u, G, test_size=test_size, random_state=42)
 
-G_train = G_train_rows[:, :train_cols] 
-G_test = G_test_rows[:, :test_cols] 
-
-
-train_data = (u_train, y_train, G_train)
-test_data = (u_test, y_test, G_test)
+train_data = (u_train, G_train)
+test_data = (u_test, G_test)
 
 train_shapes = '\n'.join([str(i.shape) for i in train_data])
 test_shapes = '\n'.join([str(i.shape) for i in test_data])
 
-print(f"Train sizes (u, y, G): \n{train_shapes}, \nTest sizes (u, y, G): \n{test_shapes}")
+print(f"Train sizes (u, G): \n{train_shapes}, \nTest sizes (u, G): \n{test_shapes}")
 
 # --- Save dataset ---
 if __name__ == '__main__':
-    np.savez(os.path.join(path_to_data, 'antiderivative_train.npz'), X_branch=u_train, X_trunk=y_train, y=G_train, sensors=x)
-    np.savez(os.path.join(path_to_data, 'antiderivative_test.npz'), X_branch=u_test, X_trunk=y_test, y=G_test, sensors=x)
+    np.savez(os.path.join(path_to_data, 'antiderivative_train.npz'), X_branch=u_train, X_trunk=y, y=G_train, sensors=x)
+    np.savez(os.path.join(path_to_data, 'antiderivative_test.npz'), X_branch=u_test, X_trunk=y, y=G_test, sensors=x)

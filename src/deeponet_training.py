@@ -56,9 +56,6 @@ u_train, y_train, G_train =  load_data((d['X_branch'], d['X_trunk'], d['y']))
 d = np.load(f"{path_to_data}/antiderivative_test.npz", allow_pickle=True)
 u_test, y_test, G_test =  load_data((d['X_branch'], d['X_trunk'], d['y']))
 
-print(u_train.shape, y_train.shape, G_train.shape)
-print(u_test.shape, y_test.shape, G_test.shape)
-
 # ---------------- Defining model -------------------
 u_dim = u_train.shape[-1]           # Input dimension for branch net -> m
 p = 50                              # Output dimension for branch and trunk net -> p
@@ -70,10 +67,11 @@ model = FNNDeepOnet(layers_f, layers_y)
 
 # --------------- Loss function and optimizer ----------
 loss_fn = nn.MSELoss()
-optimizer = torch.optim.Adam(model.parameters(), lr=1e-2)
+optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
+scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer, gamma=0.999999999999)
 
 # ---------------- Training ----------------------
-epochs = 1000
+epochs = 15000
 
 train_set = (u_train, y_train, G_train)
 test_set = (u_test, y_test, G_test)
@@ -85,12 +83,14 @@ test_loss_list = []
 
 for i in tqdm(range(epochs), colour='GREEN'):
     epoch_train_loss, G_train_pred = train_step(model, train_set)
+    if i > epochs/50:
+        scheduler.step()
     epoch_test_loss, G_test_pred = test_step(model, test_set)
 
     train_loss_list.append(epoch_train_loss)
     test_loss_list.append(epoch_test_loss)
 
-    if i % 100 == 0:
+    if i  == epochs:
         print(f"Iteration: {i} Train Loss:{epoch_train_loss}, Test Loss:{epoch_test_loss}")
     with torch.no_grad():
         err_train = torch.linalg.vector_norm(G_train_pred - G_train) / torch.linalg.vector_norm(G_train)
@@ -98,6 +98,8 @@ for i in tqdm(range(epochs), colour='GREEN'):
         train_err_list.append(err_train)
         test_err_list.append(err_test)
 
+print(f"Train Loss: {epoch_train_loss}, Test Loss: {epoch_test_loss}")
+print(f"Train error: {err_train}, Test error: {err_test}")
 
 # ------------- Plots -----------------------------
 epochs = range(epochs)
@@ -117,7 +119,12 @@ ax[1].set_yscale('log')
 ax[1].legend()
 
 fig.tight_layout()
-fig.show()
+
+plt.show()
+
+image_path = os.path.join(path_to_models, 'deeponet_accuracy_plots.png')
+
+fig.savefig(image_path)
 
 # ------------ Saving model ----------------
 torch.save(model, os.path.join(path_to_models, 'deeponet_model.pth'))
