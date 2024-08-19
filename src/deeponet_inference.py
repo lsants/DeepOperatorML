@@ -5,8 +5,6 @@ import torch
 import matplotlib.pyplot as plt
 import torch.utils
 import torch.utils.data
-from tqdm.auto import tqdm
-import torch.nn as nn
 
 script_dir = os.path.dirname(os.path.abspath(__file__))
 project_dir = os.path.dirname(script_dir)
@@ -17,7 +15,6 @@ path_to_models = os.path.join(project_dir, 'models')
 
 path_to_first_model = os.path.join(path_to_models, 'deeponet_model.pth')
 
-from src.deeponet_architecture import FNNDeepOnet
 
 def load_data(data):
     convert_to_tensor = lambda x: torch.tensor(x, dtype=torch.float32)
@@ -27,11 +24,33 @@ def load_data(data):
 
 # ---------------- Load data -------------------
 d = np.load(f"{path_to_data}/antiderivative_train.npz", allow_pickle=True)
-u_test, y_test, G_u_y_test =  load_data((d['X_branch'], d['X_trunk'], d['y']))
+x, u_test, y_test, G_test =  load_data((d['sensors'],d['X_branch'], d['X_trunk'], d['y']))
 
 # ---------------- Load model -----------------
 
 model = torch.load(path_to_first_model)
 model.eval()
 
-print(model(u_test, y_test))
+# ---------------- Testing one data point ------
+N = 1000 # number of points for trapezoid method
+
+x = x.T
+
+u1 = torch.cos(x)
+G1_exact = torch.sin(x)
+G_pred = model(u1, x.T)
+
+fig, ax = plt.subplots(nrows=1, ncols=2)
+
+ax[0].plot(x.T, u1.T, label='u(x) = cos(x)')
+ax[0].set_xlabel('x')
+ax[0].legend()
+
+ax[1].plot(x.T, G1_exact.T, label='G(u)(y) = sin(y)')
+ax[1].plot(x.T, G_pred.detach().numpy().T, label='model output')
+ax[1].set_xlabel('x')
+ax[1].legend()
+
+# fig.tight_layout()
+
+plt.show()
