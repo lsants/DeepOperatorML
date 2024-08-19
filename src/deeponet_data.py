@@ -13,6 +13,13 @@ def G(a, b, y):
     c = (a/b).reshape(-1,1) # (n, 1) -> broadcasting row wise
     return c*np.sin(b*y.T)
 
+def split_data(arr):
+    train_spilt = 0.7
+    size = len(arr)
+    sample = int(train_spilt*size)
+    train_data, test_data = arr[:sample, :], arr[sample:, :]
+    return train_data, test_data
+
 # ----------- Set size of dataset and operator domain -----------
 n, m, = 500, 800 # Number of input functions and sensors (must be fixed)
 q = 600 # Output locations (can be random)
@@ -30,20 +37,9 @@ y = end *np.random.rand(q).reshape(q, 1)
 G = G(a, b, y)
 
 # _------ Split training and test set --------
-test_size = 0.2
-train_rows = int(n * (1 - test_size))
-test_rows = n - train_rows           
-
-train_cols = int(q * (1 - test_size))
-test_cols = q - train_cols           
-
-# Split G row-wise first (based on the number of rows calculated)
-u_train, u_test = train_test_split(u, test_size=test_size, random_state=42)
-y_train, y_test = train_test_split(y, test_size=test_size, random_state=42)
-G_train_rows, G_test_rows = train_test_split(G, test_size=test_size, random_state=42)
-
-G_train = G_train_rows[:, :train_cols] 
-G_test = G_test_rows[:, :test_cols]  
+u_train, u_test = split_data(u)
+y_train, y_test = split_data(y)
+G_train, G_test = split_data(G_u_y)
 
 train_data = (u_train, y_train, G_train)
 test_data = (u_test, y_test, G_test)
