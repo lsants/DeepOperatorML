@@ -23,12 +23,9 @@ def trapezoid_rule(f_values, a, b, N):
 
     return integral
 
-# Define the function to integrate
-
-def f(x):
-    return np.cos(x)
-
 if __name__ == '__main__':
+
+    f = lambda x: np.cos(x)
 
     # Define integration limits
     a = 0.1
