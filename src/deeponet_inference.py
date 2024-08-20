@@ -12,7 +12,6 @@ project_dir = os.path.dirname(script_dir)
 sys.path.insert(0, project_dir)
 path_to_data = os.path.join(project_dir, 'data')
 path_to_models = os.path.join(project_dir, 'models')
-from deeponet_architecture import FNNDeepOnet
 
 def load_data(data):
     convert_to_tensor = lambda x: torch.tensor(x, dtype=torch.float32)
@@ -45,28 +44,31 @@ model.eval()
 # ---------------- Testing one data point ------
 x = x.T
 
-a = float(input()) 
-b = float(input())
+a = 0
+b = 0
+c = 5
 
-u1 = a*torch.cos(b*x)
-G1_exact = (a/b)*torch.sin(b*x)
+u1 = torch.tensor(a*x**2 + b*x + c)
+G1_exact = (a/3*x**3 + b/2*x**2 + c*x)
 G_pred = model(u1, x.T)
 
 fig, ax = plt.subplots(nrows=1, ncols=2, figsize=(10,5))
 
-ax[0].plot(x.T, u1.T, label='u(x) = acos(bx)')
+ax[0].plot(x.T, u1.T, label='u(x) = ax^2 + x + c')
 ax[0].set_xlabel('x')
+ax[0].set_ylim([0,20])
 ax[0].legend()
 
-ax[1].plot(x.T, G1_exact.T, label='G(u)(y) = (a/b)sin(bx)')
+ax[1].plot(x.T, G1_exact.T, label='G(u)(y) = (a/3)x^3 + (b/2)x^2 + cx')
 ax[1].plot(x.T, G_pred.detach().numpy().T, label='model output')
 ax[1].set_xlabel('x')
+ax[1].set_ylim([0,20])
 ax[1].legend()
 
-fig.suptitle('a = {}, b = {}'.format(a,b))
+fig.suptitle('a = {}, b = {}, c = {}'.format(a,b,c))
 # fig.tight_layout()
 
 plt.show()
 
 date = datetime.today().strftime('%Y%m%d')
-fig_name = f"deeponet_accuracy_plots_{date}.png"
+fig_name = f"deeponet_prediction_plots_{date}.png"
