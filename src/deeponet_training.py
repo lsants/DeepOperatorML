@@ -6,6 +6,7 @@ import matplotlib.pyplot as plt
 import torch.utils
 import torch.utils.data
 from tqdm.auto import tqdm
+from datetime import datetime
 import torch.nn as nn
 
 script_dir = os.path.dirname(os.path.abspath(__file__))
@@ -16,6 +17,7 @@ from src.deeponet_architecture import FNNDeepOnet
 
 path_to_data = os.path.join(project_dir, 'data')
 path_to_models = os.path.join(project_dir, 'models')
+date = datetime.today().strftime('%Y%m%d')
 
 def load_data(data):
     convert_to_tensor = lambda x: torch.tensor(x, dtype=torch.float32)
@@ -68,10 +70,10 @@ model = FNNDeepOnet(layers_f, layers_y)
 # --------------- Loss function and optimizer ----------
 loss_fn = nn.MSELoss()
 optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
-scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer, gamma=0.999999999999)
+scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer, gamma=0.9)
 
 # ---------------- Training ----------------------
-epochs = 15000
+epochs = 10000
 
 train_set = (u_train, y_train, G_train)
 test_set = (u_test, y_test, G_test)
@@ -83,8 +85,8 @@ test_loss_list = []
 
 for i in tqdm(range(epochs), colour='GREEN'):
     epoch_train_loss, G_train_pred = train_step(model, train_set)
-    if i > epochs/50:
-        scheduler.step()
+    if i % 500 == 0:
+        scheduler.step() # reduce the learning rate every k epochs
     epoch_test_loss, G_test_pred = test_step(model, test_set)
 
     train_loss_list.append(epoch_train_loss)
@@ -122,9 +124,11 @@ fig.tight_layout()
 
 plt.show()
 
-image_path = os.path.join(path_to_models, 'deeponet_accuracy_plots.png')
+fig_name = f"deeponet_accuracy_plots_{date}.png"
+image_path = os.path.join(path_to_data, fig_name)
 
 fig.savefig(image_path)
 
 # ------------ Saving model ----------------
-torch.save(model, os.path.join(path_to_models, 'deeponet_model.pth'))
+model_name = f"deeponet_model_{date}.pth"
+torch.save(model, os.path.join(path_to_models, model_name))
