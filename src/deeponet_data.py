@@ -9,28 +9,29 @@ path_to_data = os.path.join(project_dir, 'data')
 
 np.random.seed(42)
 
-def G(a, b, y):
-    c = (a/b).reshape(-1,1) # (n, 1) -> broadcasting row wise
-    return c*np.sin(b*y.T)
+def G(params, y):
+    a,b,c = list(map(lambda x: x.reshape(-1,1), params))
+    return (a/3)*y.T**3 + (b/2)*y.T**2 + c*y.T
 
 # ----------- Set size of dataset and operator domain -----------
-n, m, = 300, 80 # Number of input functions and sensors (must be fixed)
+n = 300 # Number of input functions
 q = 500 # Output locations (can be random)
-start = 0
-end = 3*np.pi
+start = -5
+end = 5
+n_params = 3
+
 # ------- Branch input ------
-x = np.linspace(start, end, m) # sensors (dont necessarily have to be on a lattice - can be random - linspace is not required)
-a , b = np.random.rand(n).reshape(n, 1), np.random.rand(n).reshape(n, 1) 
-u = np.array([a[i] * np.cos(b[i]*x) for i in range(n)]) # function is u_n = a_n * cos(b_n*x)
+params = np.random.uniform(start, end, n_params*n).reshape(-1, n_params)
+u = params
 
 # ------- Trunk input -------
-y = end *np.random.rand(q).reshape(q, 1)
+y = np.random.uniform(start, end, q).reshape(q, 1)
 
 # ------- Output -----------
-G = G(a, b, y)
+G = G(u.T, y)
 
 # _------ Split training and test set --------
-test_size = 0.3
+test_size = 0.2
 train_rows = int(n * (1 - test_size))
 test_rows = n - train_rows           
 
@@ -49,5 +50,5 @@ print(f"Train sizes (u, G): \n{train_shapes}, \nTest sizes (u, G): \n{test_shape
 
 # --- Save dataset ---
 if __name__ == '__main__':
-    np.savez(os.path.join(path_to_data, 'antiderivative_train.npz'), X_branch=u_train, X_trunk=y, y=G_train, sensors=x)
-    np.savez(os.path.join(path_to_data, 'antiderivative_test.npz'), X_branch=u_test, X_trunk=y, y=G_test, sensors=x)
+    np.savez(os.path.join(path_to_data, 'antiderivative_train.npz'), X_branch=u_train, X_trunk=y, y=G_train, sensors=y)
+    np.savez(os.path.join(path_to_data, 'antiderivative_test.npz'), X_branch=u_test, X_trunk=y, y=G_test, sensors=y)
