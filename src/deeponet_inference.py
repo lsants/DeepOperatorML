@@ -42,7 +42,9 @@ def G(data, x):
 # ---------------- Load data -------------------
 d = np.load(f"{path_to_data}/antiderivative_train.npz", allow_pickle=True)
 y, u_test, y_test, G_test =  load_data((d['sensors'],d['X_branch'], d['X_trunk'], d['y']))
+y = np.sort(y, axis=0)
 q = y.shape[0]
+start, end = y[0], y[-1]
 
 # ---------------- Load model -----------------
 loaded_model_path = get_last_model(path_to_models)
@@ -50,11 +52,11 @@ model = torch.load(loaded_model_path)
 model.eval()
 
 # ---------------- Testing one data point ------
-x = torch.tensor(np.linspace(y[0], y[-1],q))
+x = torch.tensor(np.linspace(start, end,q))
 
-a = 0.5 # x^2
-b = 1 # x
-c = 1 # 1
+a = 0 # x^2
+b = 0 # x
+c = 0.5 # 1
 d = 0
 
 f = [a,b,c]
@@ -66,15 +68,15 @@ G_pred = model(u1, x)
 # -------------- Plots -------------------
 fig, ax = plt.subplots(nrows=1, ncols=2, figsize=(10,5))
 
-ax[0].plot(x, G(u1, x).T, label='u(x) = ax^2 + x + c')
+ax[0].plot(x, G(u1, x).T, label=r'$u(x) = ax^2 + bx + c$')
 ax[0].set_xlabel('x')
-ax[0].set_xlim([-10,10])
+ax[0].set_xlim([start,end])
 ax[0].legend()
 
-ax[1].plot(x, G1_exact, label='G(u)(y) = (a/3)x^3 + (b/2)x^2 + cx + d')
-ax[1].plot(x, G_pred.detach().numpy().T, label='model output')
+ax[1].plot(x, G1_exact, label=r'$G(u)(y) = \frac{{a}}{{3}}x^3 + \frac{{b}}{{2}}x^2 + cx + d$', linewidth=2)
+ax[1].plot(x, G_pred.detach().numpy().T, label='model output', linewidth=1)
 ax[1].set_xlabel('x')
-ax[1].set_xlim([-10,10])
+ax[1].set_xlim([start,end])
 ax[1].legend()
 
 fig.suptitle('a = {}, b = {}, c = {}, d = {}'.format(a,b,c,d))
