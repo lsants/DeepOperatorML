@@ -10,8 +10,12 @@ from datetime import datetime
 script_dir = os.path.dirname(os.path.abspath(__file__))
 project_dir = os.path.dirname(script_dir)
 sys.path.insert(0, project_dir)
+
 path_to_data = os.path.join(project_dir, 'data')
+path_to_images = os.path.join(project_dir, 'images')
 path_to_models = os.path.join(project_dir, 'models')
+
+precision = torch.float32
 
 def load_data(data):
     convert_to_tensor = lambda x: torch.tensor(x, dtype=torch.float32)
@@ -31,10 +35,14 @@ def get_last_model(path):
             searched_file = file
     return searched_file
 
+def G(data, x):
+    a,b,c = data.T
+    return (a)*x.T**2 + (b)*x.T + c
 
 # ---------------- Load data -------------------
 d = np.load(f"{path_to_data}/antiderivative_train.npz", allow_pickle=True)
-x, u_test, y_test, G_test =  load_data((d['sensors'],d['X_branch'], d['X_trunk'], d['y']))
+y, u_test, y_test, G_test =  load_data((d['sensors'],d['X_branch'], d['X_trunk'], d['y']))
+q = y.shape[0]
 
 # ---------------- Load model -----------------
 loaded_model_path = get_last_model(path_to_models)
@@ -42,33 +50,41 @@ model = torch.load(loaded_model_path)
 model.eval()
 
 # ---------------- Testing one data point ------
-x = x.T
+x = torch.tensor(np.linspace(y[0], y[-1],q))
 
-a = 0
-b = 0
-c = 5
+a = 0.5 # x^2
+b = 1 # x
+c = 1 # 1
+d = 0
 
-u1 = torch.tensor(a*x**2 + b*x + c)
-G1_exact = (a/3*x**3 + b/2*x**2 + c*x)
-G_pred = model(u1, x.T)
+f = [a,b,c]
 
+u1 = torch.tensor(f, dtype=precision).reshape(1,-1)
+G1_exact = (a/3*x**3 + b/2*x**2 + c*x + d)
+G_pred = model(u1, x)
+
+# -------------- Plots -------------------
 fig, ax = plt.subplots(nrows=1, ncols=2, figsize=(10,5))
 
-ax[0].plot(x.T, u1.T, label='u(x) = ax^2 + x + c')
+ax[0].plot(x, G(u1, x).T, label='u(x) = ax^2 + x + c')
 ax[0].set_xlabel('x')
-ax[0].set_ylim([0,20])
+ax[0].set_xlim([-10,10])
 ax[0].legend()
 
-ax[1].plot(x.T, G1_exact.T, label='G(u)(y) = (a/3)x^3 + (b/2)x^2 + cx')
-ax[1].plot(x.T, G_pred.detach().numpy().T, label='model output')
+ax[1].plot(x, G1_exact, label='G(u)(y) = (a/3)x^3 + (b/2)x^2 + cx + d')
+ax[1].plot(x, G_pred.detach().numpy().T, label='model output')
 ax[1].set_xlabel('x')
-ax[1].set_ylim([0,20])
+ax[1].set_xlim([-10,10])
 ax[1].legend()
 
-fig.suptitle('a = {}, b = {}, c = {}'.format(a,b,c))
+fig.suptitle('a = {}, b = {}, c = {}, d = {}'.format(a,b,c,d))
 # fig.tight_layout()
 
 plt.show()
 
 date = datetime.today().strftime('%Y%m%d')
 fig_name = f"deeponet_prediction_plots_{date}.png"
+
+image_path = os.path.join(path_to_images, fig_name)
+
+fig.savefig(image_path)
