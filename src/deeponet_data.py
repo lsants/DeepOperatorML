@@ -19,9 +19,10 @@ q = 500 # Output locations (can be random)
 start = -5
 end = 5
 n_params = 3
+e = 1/(start - end)
 
 # ------- Branch input ------
-params = np.random.uniform(start, end, n_params*n).reshape(-1, n_params)
+params = np.random.uniform(start - e, end + e, n_params*n).reshape(-1, n_params)
 u = params
 
 # ------- Trunk input -------
