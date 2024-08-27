@@ -55,8 +55,8 @@ model.eval()
 x = torch.tensor(np.linspace(start, end,q))
 
 a = 0 # x^2
-b = 0 # x
-c = 0.5 # 1
+b = 0.2 # x
+c = 0 # 1
 d = 0
 
 f = [a,b,c]
