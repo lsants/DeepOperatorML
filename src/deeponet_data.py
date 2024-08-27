@@ -16,8 +16,8 @@ def G(params, y):
 # ----------- Set size of dataset and operator domain -----------
 n = 300 # Number of input functions
 q = 500 # Output locations (can be random)
-start = -5
-end = 5
+start = 0.1
+end = 1
 n_params = 3
 e = 1/(start - end)
 
