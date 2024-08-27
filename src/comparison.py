@@ -1,114 +1,81 @@
+import time
 import os
+import glob
 import sys
+import torch
+import numpy as np
+import matplotlib.pyplot as plt
+from tqdm import tqdm
 script_dir = os.path.dirname(os.path.abspath(__file__))
 project_dir = os.path.dirname(script_dir)
 sys.path.insert(0, project_dir)
-import time
-import numpy as np
-from src import generate_poly_dataset as gen
-from src import generic as gnc
-from src import nn_architecture as NN
-import torch
-import matplotlib.pyplot as plt
-from tqdm import tqdm
 from src.implemented_methods_test import trapezoid_rule, gauss_quadrature_two_points
 
-path_to_model = os.path.join(os.path.join(project_dir, 'models'), 'model_200.pth')
+path_to_data = os.path.join(project_dir, 'data')
+path_to_images = os.path.join(project_dir, 'images')
+path_to_models = os.path.join(project_dir, 'models')
+precision = torch.float32
 
-# Generate dataset for test:
-sample_size = 10000
-np.random.seed(42)
-X, y = gen.generate_data(sample_size)
+def load_data(data):
+    convert_to_tensor = lambda x: torch.tensor(x, dtype=precision)
+    vector_to_matrix = lambda x: x.reshape(-1,1) if type(x) == np.ndarray and x.ndim == 1 else x
+    
+    return map(convert_to_tensor, list(map(vector_to_matrix, data)))
 
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-model = NN.NeuralNetwork().to(device, dtype=torch.float32)
-model.load_state_dict(torch.load(path_to_model))
+def G(data, x):
+    a,b,c = data.T
+    a,b,c = list(map(lambda x: x.reshape(-1,1), [a,b,c]))
+    return (a)*x**2 + (b)*x + c
 
-model.eval() # Was not activated
+def compute_integral(coefs, a=0.1, b=1):
+    alpha, beta, gamma = coefs[:,0], coefs[:, 1], coefs[:, 2]
+    integrals = (alpha / 3) * (b**3 - a**3) + (beta / 2) * (b**2 - a**2) + \
+            gamma * (b - a)
+    return integrals
 
-# _______ Print number of model parameters -------
-model_parameters = filter(lambda p: p.requires_grad, model.parameters())
-params = sum([np.prod(p.size()) for p in model_parameters])
-print(f'Neural network has a total of {params} parameters')
+def get_last_timestamp(path):
+    begin = -12
+    end = -4
+    file_list = glob.glob(path + '/*.pth')
+    last_timestamp = ''
+    for file in file_list:
+        if file[begin:end] > last_timestamp:
+            last_timestamp = file[begin:end]
+    return last_timestamp
 
+def G(data, x):
+    a,b,c = data.T
+    return (a)*x.T**2 + (b)*x.T + c
 
-# ------- Inputs for integration models ----------
-input_X = torch.tensor(X, dtype=torch.float32).to(device)  # NN
-a = 0.1
+# ----------- Load models ------------
+last_timestamp = get_last_timestamp(path_to_models)
+mlp_path = path_to_models + '/' + 'MLP_model_' + last_timestamp + '.pth'
+deeponet_path = path_to_models + '/' + 'deeponet_model_' + last_timestamp + '.pth'
+mlp_model = torch.load(mlp_path)
+deeponet_model = torch.load(deeponet_path)
 
-poly_coefs = input_X[:-1].tolist()
+mlp_model.eval()
+deeponet_model.eval()
 
-# -------- Neural Network ------------
-input_X = input_X.unsqueeze(0)
-times_NN = []
-preds_NN = []
-times_gauss = []
-preds_gauss = []
-times_trap = []
-preds_trap = []
-check = []
-N_points = 5  # for trapezoid rule
-
-for i in tqdm(input_X[0]):
-    integral = gnc.compute_integral(i.tolist())
-    check.append(integral)
-    global alfa, beta, gamma, b
-    alfa, beta, gamma, b = i
-    # Polynomial
-
-    def f(x):
-        return alfa*x**2 + beta*x + gamma
-    # Neural Network
-    i_norm = gnc.normalize(i).to(dtype=torch.float32)
-    i_nn = torch.atleast_2d(i_norm)
-    with torch.no_grad():
-        start = time.perf_counter_ns()
-        y_pred = model(i_nn)
-        end = time.perf_counter_ns()
-        duration = end - start
-        prediction = y_pred.cpu().numpy().squeeze()
-    times_NN.append(duration)
-    preds_NN.append(y_pred.item() - integral)
-
-    # Implemented 2-pt Gaussian quadrature
-    start = time.perf_counter_ns()
-    y_gauss = gauss_quadrature_two_points(f, a, b)
-    end = time.perf_counter_ns()
-    duration = end - start
-    times_gauss.append(duration)
-    preds_gauss.append(y_gauss - integral)
-
-    # Implemented Trapezoid rule
-    start = time.perf_counter_ns()
-    y_trap = trapezoid_rule(f, a, b, N_points)
-    end = time.perf_counter_ns()
-    duration = end - start
-    times_trap.append(duration)
-    preds_trap.append(y_trap - integral)
-
-check = np.array(check)
-times_NN = np.array(times_NN)
-preds_NN = np.array(preds_NN)
-times_gauss = np.array(times_gauss)
-preds_gauss = np.array(preds_gauss)
-times_trap = np.array(times_trap)
-preds_trap = np.array(preds_trap)
+# ---------- Load data --------------
+d = np.load(f"{path_to_data}/mlp_dataset_test.npz", allow_pickle=True)
+X_mlp, y_mlp = load_data((d['X'], d['y']))
+branch_input = X_mlp[:,:-1]
+X = branch_input.detach().numpy()
 
 
-print(
-    f"NN integration time: {np.mean(times_NN)/1e3 :.3f} ± {np.std(times_NN)/1e3:.3f} us")
-print(f"L1 error norm for NN: {np.mean(abs(preds_NN - check)): .3f}")
-print("----------------------------------------------------")
-print(
-    f"Quadrature (2 points) integration time: {np.mean(times_gauss)/1e3 :.3f} ± {np.std(times_gauss)/1e3:.3f} us")
-print(f"L1 error norm for Gaussian quadrature: {np.mean(abs(preds_gauss - check)): .3f}")
-print("----------------------------------------------------")
-print(
-    f"Trapezoid ({N_points} points) integration time: {np.mean(times_trap)/1e3 :.3f} ± {np.std(times_trap)/1e3 :.3f} us")
-print(f"L1 error norm for Trapezoid: {np.mean(abs(preds_trap - check)): .3f}")
-print("----------------------------------------------------")
+# ---------- Parameters -----------
+start, end = 0.1, X_mlp[:,-1].max().ceil().item()
+N = len(branch_input)
 
-plt.hist(times_NN/1e3, bins=300)
-plt.xlabel("Time [us]")
-plt.title(f"Inference time for NN (Sample size = {sample_size})")
-plt.show()
+x = np.linspace(start, end,N)
+x_tensor = torch.tensor(x, dtype=torch.float32).reshape(-1,1)
+trunk_input = x_tensor
+x_expanded = np.concatenate([x]*N, axis=0).reshape(N,-1)
+f_x = G(X, x_expanded)
+
+yp_mlp = mlp_model(X_mlp) # What does this give?
+yp_deeponet = deeponet_model(branch_input, trunk_input) # What does this give??? check
+
+
+# ---------- Computing integrals ---------
