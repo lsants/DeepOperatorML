@@ -9,7 +9,7 @@ from tqdm.auto import tqdm
 from matplotlib import pyplot as plt
 from torch.utils.data import DataLoader, Dataset
 from torch import nn
-from src import nn_architecture as NN
+from src import mlp_architecture as NN
 import numpy as np
 import torch
 
@@ -86,7 +86,7 @@ def compute_integral(coefs, a=0.1):
 
 # --------------------- Parameters ---------------------
 batch_size = 128
-epochs = 1000
+epochs = 100
 
 # ------------------ Load data -------------------------
 d = np.load(f"{path_to_data}/mlp_dataset_train.npz", allow_pickle=True) # If this doesn't run, generate the dataset by running the mlp_data.py file/
