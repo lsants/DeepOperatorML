@@ -19,7 +19,6 @@ precision = torch.float32
 path_to_data = os.path.join(project_dir, 'data')
 path_to_models = os.path.join(project_dir, 'models')
 path_to_images = os.path.join(project_dir, 'images')
-data_path = os.path.join(path_to_data, 'poly_data.npy')
 date = datetime.today().strftime('%Y%m%d')
 
 class PolyDataset(Dataset):
@@ -90,7 +89,7 @@ batch_size = 128
 epochs = 1000
 
 # ------------------ Load data -------------------------
-d = np.load(f"{path_to_data}/mlp_dataset_train.npz", allow_pickle=True)
+d = np.load(f"{path_to_data}/mlp_dataset_train.npz", allow_pickle=True) # If this doesn't run, generate the dataset by running the mlp_data.py file/
 X_train, y_train =  ((d['X'], d['y']))
 
 d = np.load(f"{path_to_data}/mlp_dataset_val.npz", allow_pickle=True)
