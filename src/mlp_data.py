@@ -9,15 +9,15 @@ sys.path.insert(0, project_dir)
 np.random.seed(42)
 
 def generate_data(n_samples):
-    # polynomial coefficients (α, β, γ, B), in the interval [0.1, 1]
+    # polynomial coefficients (α, β, γ, B), in the interval [a, b]
     a = 0.1
-    B = 1
-    alpha_beta_gamma_B = np.random.uniform(a,B, 4*n_samples).reshape(-1,4)
+    b = 1
+    alpha_beta_gamma_B = np.random.uniform(a,b, 4*n_samples).reshape(-1,4)
     integrals = np.zeros((n_samples, 1))
     for i in range(n_samples):
-        alpha, beta, gamma, B = alpha_beta_gamma_B[i]
-        integrals[i] = (alpha / 3) * (B**3 - a**3) + (beta / 2) * (B**2 - a**2) + \
-            gamma * (B - a)
+        alpha, beta, gamma, b = alpha_beta_gamma_B[i]
+        integrals[i] = (alpha / 3) * (b**3 - a**3) + (beta / 2) * (b**2 - a**2) + \
+            gamma * (b - a)
 
     return alpha_beta_gamma_B, integrals
 
