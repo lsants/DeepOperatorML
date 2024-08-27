@@ -51,11 +51,11 @@ def G(data, x):
 last_timestamp = get_last_timestamp(path_to_models)
 mlp_path = path_to_models + '/' + 'MLP_model_' + last_timestamp + '.pth'
 deeponet_path = path_to_models + '/' + 'deeponet_model_' + last_timestamp + '.pth'
-mlp_model = torch.load(mlp_path)
-deeponet_model = torch.load(deeponet_path)
+mlp = torch.load(mlp_path)
+deeponet = torch.load(deeponet_path)
 
-mlp_model.eval()
-deeponet_model.eval()
+mlp.eval()
+deeponet.eval()
 
 # ---------- Load data --------------
 d = np.load(f"{path_to_data}/mlp_dataset_test.npz", allow_pickle=True)
@@ -74,8 +74,42 @@ trunk_input = x_tensor
 x_expanded = np.concatenate([x]*N, axis=0).reshape(N,-1)
 f_x = G(X, x_expanded)
 
-yp_mlp = mlp_model(X_mlp) # What does this give?
-yp_deeponet = deeponet_model(branch_input, trunk_input) # What does this give??? check
+mlp_time, deeponet_time, gauss_time, trap_time = [], [], [], []
+for i in range(N):
+    with torch.no_grad():
+        start = time.perf_counter_ns()
+        yp_mlp = mlp(X_mlp[i].reshape(1,-1)) 
+        end = time.perf_counter_ns()
+        duration = (end - start)/1000
+        mlp_time.append(duration)
+
+        start = time.perf_counter_ns()
+        yp_deeponet = deeponet(branch_input[i].reshape(1,-1), trunk_input)
+        end = time.perf_counter_ns()
+        duration = (end - start)/1000
+        deeponet_time.append(duration)
 
 
 # ---------- Computing integrals ---------
+    start = time.perf_counter_ns()
+    yp_gauss = gauss_quadrature_two_points(f_x[i].reshape(1,-1), start, end)
+    end = time.perf_counter_ns()
+    duration = (end - start)/1000
+    gauss_time.append(duration)
+    
+    start = time.perf_counter_ns()
+    yp_trap = trapezoid_rule(f_x[i].reshape(1,-1), start, end, N)
+    end = time.perf_counter_ns()
+    duration = (end - start)/1000
+    trap_time.append(duration)
+
+# MAKE SURE YOUR RESULTS ARE ACTUALLY THE SAME !!! (they're not)
+mlp_time, deeponet_time, gauss_time, trap_time = list(map(lambda x: np.array(x), 
+                                                          [mlp_time, deeponet_time, gauss_time, trap_time]))
+
+
+# --------- Results -------------
+print(f"Runtime for MLP: {mlp_time.mean():.3f} ±  {mlp_time.std():.3f} us")
+print(f"Runtime for DeepONet: {deeponet_time.mean():.3f} ±  {deeponet_time.std():.3f} us")
+print(f"Runtime for Gauss: {gauss_time.mean():.3f} ±  {gauss_time.std():.3f} us")
+print(f"Runtime for Trapezoid: {trap_time.mean():.3f} ±  {trap_time.std():.3f} us")
