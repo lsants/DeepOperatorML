@@ -11,6 +11,7 @@ from src import nn_architecture as NN
 import torch
 import matplotlib.pyplot as plt
 from tqdm import tqdm
+from src.implemented_methods_test import trapezoid_rule, gauss_quadrature_two_points
 
 path_to_model = os.path.join(os.path.join(project_dir, 'models'), 'model_200.pth')
 
@@ -71,7 +72,7 @@ for i in tqdm(input_X[0]):
 
     # Implemented 2-pt Gaussian quadrature
     start = time.perf_counter_ns()
-    y_gauss = two_point_gaussian_quadrature(f, a, b)
+    y_gauss = gauss_quadrature_two_points(f, a, b)
     end = time.perf_counter_ns()
     duration = end - start
     times_gauss.append(duration)
