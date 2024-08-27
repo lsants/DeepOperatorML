@@ -59,7 +59,6 @@ def test_step(model, data):
     u, y, G = data
 
     model.eval()
-    optimizer.zero_grad()
 
     G_pred = model(u, y)
     loss = loss_fn(G_pred, G)
@@ -74,12 +73,6 @@ u_train, y_train, G_train =  load_data((d['X_branch'], d['X_trunk'], d['y']))
 
 d = np.load(f"{path_to_data}/antiderivative_test.npz", allow_pickle=True)
 u_test, y_test, G_test =  load_data((d['X_branch'], d['X_trunk'], d['y']))
-
-# u_train = nn.functional.normalize(u_train)
-# y_train = nn.functional.normalize(y_train)
-
-# u_test = nn.functional.normalize(u_test)
-# y_test = nn.functional.normalize(y_test)
 
 # ---------------- Defining model -------------------
 u_dim = u_train.shape[-1]           # Input dimension for branch net -> m
