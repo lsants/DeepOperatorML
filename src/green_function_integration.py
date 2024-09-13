@@ -1,34 +1,43 @@
 # --------------- Modules ---------------
+import os
+import sys
+import time
 import numpy as np
 import matplotlib.pyplot as plt
 import scipy.special as sc
 from scipy import integrate
-import time
+from datetime import datetime
+from numerical_methods import trapezoid_rule
+script_dir = os.path.dirname(os.path.abspath(__file__))
+project_dir = os.path.dirname(script_dir)
+sys.path.insert(0, project_dir)
 
-# --------------- Parameters ---------------
-images_path = '/home/lsantiago/workspace/ic/Relatorio/Imagens'
+# ---------------- Paths -------------------
+path_to_data = os.path.join(project_dir, 'data')
+path_to_images = os.path.join(project_dir, 'images')
+date = datetime.today().strftime('%Y%m%d')
 
 # --------------- Number of points in mesh ---------------
 start = 0  # starting from zero for improper integral
-end = np.inf  # going to infinity
-N = 10000 # Sensors for plot
+end = 10 # going to infinity
+N = 1000 # Sensors for plot
 epsilon = 1e-10  # (to avoid division by zero)
 
-# --------------- Material properties and problem scope ---------------
+# --------------- Properties and problem scope ---------------
 #   Young modulus (E), Poisson's ratio (ν) and soil density (ρ)
-E = 2.5e9  # [Pa]
+E = 3e6  # [Pa]
 ν = 0.25
-ρ = 1e3  # [Kg/m^3]
+ρ = 2e3  # [Kg/m^3]
 
 # Application of an uniformly distributed load (circular surface area: s_1 = 0) on a point (r,z).
-# Values are arbitrary
-p_0 = 1e5  # [N]
-ω = 1e3  # [Hz]
+p_0 = 1e6  # [N]
+ω = 3e0  # [Hz]
 s_1 = 0  # [m]
-s_2 = 1  # [m]
+s_2 = 12.5  # [m]
 a = s_2 - s_1  # Load radius [m]
-# [m] (point for which we're calculating the vertical displacement)
-r, z = (2, 1e-3)
+
+# Point for which we're calculating vertical displacement u_z
+r, z = (1e-1, 1e-1)
 
 # Constants for ISOTROPIC material (Barros Thesis, 2.7)
 c_11 = E*(1-ν)/((1+ν)*(1-2*ν))
@@ -37,7 +46,7 @@ c_33 = c_11
 c_13 = c_12
 c_44 = (0.5)*(c_11 - c_12)
 
-# --------------- Parameters for Hankel transforms ---------------
+# --------------- Coefficients in Hankel transformed variable ---------------
 α = (c_33/c_44)
 β = (c_11/c_44)
 κ = (c_13 + c_44)/(c_44)
@@ -62,46 +71,47 @@ def kernel(ζ):
     b_52 = (1 + υ_2)*δ*ξ_2*(-δ*ζ*sc.jv(1, δ*ζ*r))
 
     denominator = b_21*b_52 - b_51*b_22 + epsilon
-    A = np.where(denominator != 0, (b_52/(denominator)) * (H_0/c_44), 0)
-    C = np.where(denominator != 0, -(b_51/(denominator)) * (H_0/c_44), 0)
+    A = (b_52/(denominator)) * (H_0/c_44)
+    C = -(b_51/(denominator)) * (H_0/c_44)
 
     kernel = -(a_7*A*np.exp(-δ*ξ_1*z) + a_8*C*np.exp(-δ*ξ_2*z))
     
     return kernel
 
-# Perform adaptive Gaussian quadrature for real and imaginary parts separately
-start_time = time.perf_counter()
-result_real, error_real = integrate.quad(lambda x: np.real(kernel(x)) * x, start, end)
-result_imag, error_imag = integrate.quad(lambda x: np.imag(kernel(x)) * x, start, end)
-end_time = time.perf_counter()
-runtime = end_time - start_time
+# ---------- Integration ----------------
+ζ = np.linspace(start, end, N)
+y = kernel(ζ)
+l_bound, u_bound = 0, np.inf
 
-# Combine the real and imaginary parts to get the full complex result
+start_time_real = time.perf_counter()
+result_real, error_real = integrate.quad(lambda x: np.real(kernel(x)) * x, l_bound, u_bound)
+end_time_real = time.perf_counter()
+
+start_time_imag = time.perf_counter()
+result_imag, error_imag = integrate.quad(lambda x: np.imag(kernel(x)) * x, l_bound, u_bound)
+end_time_imag = time.perf_counter()
+
+runtime_real = end_time_real - start_time_real
+runtime_imag = end_time_imag - start_time_imag
+
+result = result_real
 result = result_real + 1j * result_imag
 error = error_real + 1j * error_imag
 
 print(f"Integral result: {result}")
 print(f"Estimated error: {error}")
-print(f"Runtime: {runtime:.3f} seconds")
+print(f"Runtime: {runtime_real:.3f} seconds for real part and {runtime_imag:.3f} seconds for the imaginary part.")
 
 # --------------------------- Plots ------------------------------
-# Generate points for plotting the kernel
-ζ = np.linspace(start, 10, N)  # Limited range for plotting purposes
-y = kernel(ζ)
 l_map = {
     'zeta': f"$\zeta$",
     'uz*': f"$|u_z^*|$"
 }
 
-valid_indices = np.abs(y) > 0
-x_valid = ζ[valid_indices]
-y_valid = np.abs(y)[valid_indices]
-
 plt.figure(figsize=(6, 4))
-plt.plot(x_valid, y_valid)
-# plt.plot(ζ, y)
+plt.plot(ζ, np.abs(y))
 plt.title(l_map['uz*'], fontsize=14)
 plt.xlabel(l_map['zeta'], fontsize=12)
-plt.yscale('log')
+# plt.yscale('log')
 plt.tight_layout()
 plt.show()
