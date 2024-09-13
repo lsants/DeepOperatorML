@@ -8,21 +8,29 @@ import numpy.typing as npt
     Point: (r,z)
 '''
 
-def kernel(ζ:npt.NDArray[np.complex128], material_params: tuple, load_params: tuple, point:tuple) -> npt.NDArray[np.complex128]:
+def kernel(ζ, material_params: tuple, load_params: tuple, point:tuple) -> npt.NDArray:
     """Generate influence function kernel based on mesh and parameters
 
     Args:
-        ζ (npt.NDArray[np.complex128]): Mesh for the scaled Hankel space variable.
+        ζ: Scaled Hankel space variable.
         material_params (tuple): tuple consisting of Young moduli, Poisson's ratios and densities of the soil
-        load_params (tuple): tuple consisting of load magnitude, points of the load radius (s1 & s2) and load frequency
+        load_params (tuple): tuple consisting of load frequency (in this problem the load magnitude and geometry is fixed)
         point (tuple): coordinates r and z where the influence function shall be evaluated
 
     Returns:
         npt.NDArray[np.complex128]: Kernel for influence function. Will be used for integration.
     """
+    ζ = complex(ζ)
+    
     # Parameters
     E, ν, ρ = material_params
-    p_0, s_1, s_2, ω = load_params
+    ρ_steel = 7.85e3
+    h = 78 # Example tower in Amanda Oliveira et al.
+    g = 9.81
+    p_0 = ρ_steel*g*h
+    s_1 = 0
+    s_2 = 12.5
+    ω = load_params
     r,z = point
     epsilon = 1e-10
 
