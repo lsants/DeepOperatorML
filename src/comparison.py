@@ -50,10 +50,11 @@ def G(data, x):
     return x**2*a[:, np.newaxis] + x*b[:, np.newaxis] + c[:, np.newaxis]
 
 # ---------- Parameters -----------
-N = 300 # Has to be less than mlp dataset length
+N = 5000 # Has to be less than mlp dataset length
 lower_bound = 0.1
 
 # ----------- Load models ------------
+print("Loading models...")
 last_timestamp = get_last_timestamp(path_to_models)
 mlp_path = path_to_models + '/' + 'MLP_model_' + last_timestamp + '.pth'
 deeponet_path = path_to_models + '/' + 'deeponet_model_' + last_timestamp + '.pth'
@@ -61,8 +62,10 @@ mlp = torch.load(mlp_path)
 deeponet = torch.load(deeponet_path)
 mlp.eval()
 deeponet.eval()
+print("Ok!")
 
 # ---------- Load data --------------
+print("Loading data...")
 d = np.load(f"{path_to_data}/mlp_dataset_test.npz", allow_pickle=True)
 X_mlp, y_mlp = load_data((d['X'], d['y']))
 X_mlp, y_mlp = X_mlp[:N], y_mlp[:N]
@@ -70,6 +73,7 @@ branch_input = X_mlp[:,:-1]
 X = branch_input.detach().numpy()
 upper_bound = X_mlp[:,-1]
 lower_bound, upper_bound = torch.tensor(lower_bound, dtype=precision).reshape(1,1).expand(1, len(upper_bound)), upper_bound.reshape(1,-1)
+print("Ok!")
 
 #----------- Inputs --------------
 bounds = torch.cat([lower_bound, upper_bound], axis=0).T # inference only on extremes of domain
@@ -81,8 +85,25 @@ f_x = G(X, x)
 mlp_results, deeponet_results, gauss_results, trap_results = [], [], [], []
 mlp_time, deeponet_time, gauss_time, trap_time = [], [], [], []
 
+print("Computing predictions...")
 # -------------------- Inference ---------------
 for i in tqdm(range(N), colour='GREEN'):
+    # ---------- Timing the numerical methods ---------
+    data_point_num = f_x[i].reshape(1,-1)
+    start = time.perf_counter_ns()
+    yp_trap = trapezoid_rule(data_point_num, lower_bound[i], upper_bound[i], N)
+    end = time.perf_counter_ns()
+    duration = (end - start)/1000
+    trap_results.append(yp_trap.item())
+    trap_time.append(duration)
+    
+    start = time.perf_counter_ns()
+    yp_gauss = gauss_quadrature_two_points(data_point_num, lower_bound[i], upper_bound[i])
+    end = time.perf_counter_ns()
+    duration = (end - start)/1000
+    gauss_results.append(yp_gauss.item())
+    gauss_time.append(duration)
+    
     # --------------- Timing the deep learning models --------
     with torch.no_grad():
         data_point_mlp = X_mlp[i].reshape(1,-1)
@@ -102,21 +123,7 @@ for i in tqdm(range(N), colour='GREEN'):
         deeponet_results.append(integral_don)
         deeponet_time.append(duration)
 
-    # ---------- Timing the numerical methods ---------
-    data_point_num = f_x[i].reshape(1,-1)
-    start = time.perf_counter_ns()
-    yp_gauss = gauss_quadrature_two_points(data_point_num, lower_bound[i], upper_bound[i])
-    end = time.perf_counter_ns()
-    duration = (end - start)/1000
-    gauss_results.append(yp_gauss.item())
-    gauss_time.append(duration)
-    
-    start = time.perf_counter_ns()
-    yp_trap = trapezoid_rule(data_point_num, lower_bound[i], upper_bound[i], N)
-    end = time.perf_counter_ns()
-    duration = (end - start)/1000
-    trap_results.append(yp_trap.item())
-    trap_time.append(duration)
+print("Done!")
 
 mlp_time, deeponet_time, gauss_time, trap_time = list(map(lambda x: np.array(x), 
                                                           [mlp_time, deeponet_time, gauss_time, trap_time]))
@@ -125,15 +132,15 @@ mlp_results, deeponet_results, gauss_results, trap_results = list(map(lambda x: 
 
 # ----------------- Results ----------------------
 print("------------- Runtimes ---------------")
-print(f"Runtime for MLP: {mlp_time.mean():.3f} ±  {mlp_time.std():.3f} us")
-print(f"Runtime for DeepONet: {deeponet_time.mean():.3f} ±  {deeponet_time.std():.3f} us")
-print(f"Runtime for Gauss: {gauss_time.mean():.3f} ±  {gauss_time.std():.3f} us")
-print(f"Runtime for Trapezoid: {trap_time.mean():.3f} ±  {trap_time.std():.3f} us\n")
+print(f"Runtime for MLP: {mlp_time.mean():.2f} ±  {mlp_time.std():.2f} us")
+print(f"Runtime for DeepONet: {deeponet_time.mean():.2f} ±  {deeponet_time.std():.2f} us")
+print(f"Runtime for Gauss: {gauss_time.mean():.2f} ±  {gauss_time.std():.2f} us")
+print(f"Runtime for Trapezoid: {trap_time.mean():.2f} ±  {trap_time.std():.2f} us\n")
 
 y_sol = compute_integral(X_mlp).detach().numpy()
 
 print("------------- Results ---------------")
-print(f"L2 error [%] for MLP: {np.linalg.norm((mlp_results - y_sol)/np.linalg.norm(y_sol)):.3%}")
-print(f"L2 error [%] for DeepONet: {np.linalg.norm((deeponet_results - y_sol)/np.linalg.norm(y_sol)):.3%}")
-print(f"L2 error [%] for Gauss: {np.linalg.norm((gauss_results - y_sol)/np.linalg.norm(y_sol)):.3%}")
-print(f"L2 error [%] for Trapezoid: {np.linalg.norm((trap_results - y_sol)/np.linalg.norm(y_sol)):.3%}")
+print(f"L2 error [%] for MLP: {np.linalg.norm((mlp_results - y_sol)/np.linalg.norm(y_sol)):.2%}")
+print(f"L2 error [%] for DeepONet: {np.linalg.norm((deeponet_results - y_sol)/np.linalg.norm(y_sol)):.2%}")
+print(f"L2 error [%] for Gauss: {np.linalg.norm((gauss_results - y_sol)/np.linalg.norm(y_sol)):.2%}")
+print(f"L2 error [%] for Trapezoid: {np.linalg.norm((trap_results - y_sol)/np.linalg.norm(y_sol)):.2%}")
