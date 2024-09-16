@@ -22,6 +22,7 @@ class FNNDeepOnet(nn.Module):
                 self.trunk_layers.append(nn.Linear(in_features, out_features))
                 if i < len(trunk_layers) - 2:
                     self.trunk_layers.append(nn.ReLU())
+        self.bias = nn.Parameter(torch.zeros(1))
 
     def branch(self, X):
         b = X
@@ -38,5 +39,5 @@ class FNNDeepOnet(nn.Module):
     def forward(self, X_branch, X_trunk):
         b = self.branch(X_branch)
         t = self.trunk(X_trunk)
-        output = torch.mm(b,t.T)
+        output = torch.mm(b,t.T) + self.bias
         return output   
