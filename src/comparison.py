@@ -49,7 +49,7 @@ def G(data, x):
     a,b,c = data.T
     return x**2*a[:, np.newaxis] + x*b[:, np.newaxis] + c[:, np.newaxis]
 
-# ---------- Parameters -----------
+# ----------- Parameters --------------
 N = 5000 # Has to be less than mlp dataset length
 lower_bound = 0.1
 
