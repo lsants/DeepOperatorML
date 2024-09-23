@@ -19,9 +19,10 @@ def get_kernels(mesh, material, load, point, n_samples):
     for i in range(n_samples):
         m = material[0][i], material[1][i], material[2][i]
         l = load[0][i]
+        params = m + l
         p = point[0][i], point[1][i]
         for j,e in enumerate(mesh):
-            kernels[i][j] = kernel(e, m, l, p)
+            kernels[i][j] = kernel(e, params, p)
     return kernels
 
 def integrate_kernels(branch_vars, trunk_vars, lower_bound, upper_bound):
@@ -30,16 +31,17 @@ def integrate_kernels(branch_vars, trunk_vars, lower_bound, upper_bound):
     durations = []
     n = len(branch_vars)
     q = len(trunk_vars)
-    material = branch_vars
-    load = trunk_vars[:,0]
-    point = trunk_vars[:, 1:]
+    material = branch_vars[:, :3]
+    load = branch_vars[:,-1]
+    point = trunk_vars
     for i in tqdm(range(n), colour='GREEN'):
         for j in range(q):
             m = material[i]
             l = load[j]
             p = point[j]
+            params = m + l
             start = time.perf_counter_ns()
-            integral, error = integrate.quad(lambda ζ: ζ*kernel(ζ, m, l, p), lower_bound, upper_bound, complex_func=True)
+            integral, error = integrate.quad(lambda ζ: ζ*kernel(ζ, params, p), lower_bound, upper_bound, complex_func=True)
             end = time.perf_counter_ns()
             duration = (end - start)/1e6
             # print(integral, error)
@@ -52,7 +54,7 @@ def integrate_kernels(branch_vars, trunk_vars, lower_bound, upper_bound):
 
 # ------- All SI units ----------
 # Dataset size
-N = 50 # Branch
+N = 30 # Branch
 q = 25 # Trunk
 
 # ---------------------------------- Material data (E, ν, ρ) ------------------------
@@ -82,8 +84,8 @@ z = np.random.uniform(z_0, d, N)
 p = (r,z)
 
 features = np.asarray(m_params + l_params + p).T
-branch_features = features[:,:3]
-trunk_features = features[:,3:]
+branch_features = features[:,:4]
+trunk_features = features[:,4:]
 # ---------------------------- Computing kernel for plot -----------------------------------
 start, end = 0, 10
 n_mesh = 300
@@ -132,10 +134,6 @@ test_shapes = '\n'.join([str(i.shape) for i in test_data])
 print(f"Train sizes (u, G): \n{train_shapes}, \nTest sizes (u, G): \n{test_shapes}")
 
 # ----------------------------- Saving data -------------------------------------
-G_train = G_train.reshape(-1,1)
-G_test = G_test.reshape(-1,1)
-
-# --- Save dataset ---
 if __name__ == '__main__':
     np.savez(os.path.join(path_to_data, 'iss_dataset.npz'), X=features, y=labels)
     np.savez(os.path.join(path_to_data, 'iss_train.npz'), X_branch=u_train, X_trunk=trunk_features, y=G_train)
