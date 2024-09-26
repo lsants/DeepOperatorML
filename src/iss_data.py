@@ -144,10 +144,8 @@ test_shapes = '\n'.join([str(i.shape) for i in test_data])
 
 print(f"Train sizes (u, Gr, Gz): \n{train_shapes}, \nTest sizes (u, Gr, Gz): \n{test_shapes}")
 
-
 # ----------------------------- Saving data -------------------------------------
-branch_features = branch_features[:, -1].reshape(-1,1) # Only using frequency in branch for now
 if __name__ == '__main__':
-    np.savez(os.path.join(path_to_data, 'iss_dataset.npz'), X_branch=branch_features, X_trunk=trunk_features, y_r=integrals_r, y_z=integrals_z)
-    np.savez(os.path.join(path_to_data, 'iss_train.npz'), X_branch=u_train, X_trunk=trunk_features, y_r=labels_train_r, y_z=labels_train_z)
-    np.savez(os.path.join(path_to_data, 'iss_test.npz'), X_branch=u_test, X_trunk=trunk_features, y_r=labels_test_r, y_z=labels_test_z)
+    np.savez(os.path.join(path_to_data, 'iss_dataset_full_fixed.npz'), X_branch=branch_features, X_trunk=trunk_features, y_r=integrals_r, y_z=integrals_z)
+    np.savez(os.path.join(path_to_data, 'iss_train_fixed.npz'), X_branch=u_train, X_trunk=trunk_features, y_r=labels_train_r, y_z=labels_train_z)
+    np.savez(os.path.join(path_to_data, 'iss_test_fixed.npz'), X_branch=u_test, X_trunk=trunk_features, y_r=labels_test_r, y_z=labels_test_z)
