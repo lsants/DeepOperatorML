@@ -39,6 +39,26 @@ class ISSDataset(torch.utils.data.Dataset):
         Gz = self.Gz_data[idx]
         return u, Gr, Gz
     
+class ComplexLoss(nn.Module):
+    """Loss function for (split) complex output.
+
+    Args:
+        output_real (np.array): Prediction of real part.
+        output_imag (np.array): Prediction of imaginary part.
+        target (np.array): 2 column array with the labels for real and imaginary part.
+
+    Returns:
+        loss: Mean squared error of (Re(u_pred) - Re(u) + Imag(u_pred) - Imag(u)).
+    """
+    def __init__(self):
+        super(ComplexLoss, self).__init__()
+
+    def forward(self, output_real, output_imag, target):
+        target_real = target[:,:, 0]
+        target_imag = target[:,:, -1]
+        loss = torch.mean(((output_real - target_real) + (output_imag - target_imag))**2)
+        return loss
+    
 def load_data(data):
     convert_to_tensor = lambda x: torch.tensor(x, dtype=precision)
     vector_to_matrix = lambda x: x.reshape(-1,1) if type(x) == np.ndarray and x.ndim == 1 else x
@@ -73,26 +93,6 @@ def test_step(model, data):
     loss = (loss_r, loss_z)
     return loss, G_pred
 
-class ComplexLoss(nn.Module):
-    """Loss function for complex output.
-
-    Args:
-        output_real (np.array): Prediction of real part.
-        output_imag (np.array): Prediction of imaginary part.
-        target (np.array): 2 column array with the labels for real and imaginary part.
-
-    Returns:
-        loss: Mean squared error of (Re(u_pred) - Re(u) + Imag(u_pred) - Imag(u)).
-    """
-    def __init__(self):
-        super(ComplexLoss, self).__init__()
-
-    def forward(self, output_real, output_imag, target):
-        target_real = target[:,:, 0]
-        target_imag = target[:,:, -1]
-        loss = torch.mean(((output_real - target_real) + (output_imag - target_imag))**2)
-        return loss
-
 # ---------------- Load training data -------------------
 d = np.load(f"{path_to_data}/iss_train_processed.npz", allow_pickle=True)
 u_train, y_train, G_train_r, G_train_z =  load_data((d['X_branch'], d['X_trunk'], d['y_r'], d['y_z']))
@@ -119,7 +119,7 @@ optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
 # scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer, gamma=0.7)
 
 # ---------------- Training ----------------------
-epochs = 3000
+epochs = 5000
 batch_size = 100
 
 train_dataset = ISSDataset(u_train, G_train_r, G_train_z)
@@ -224,7 +224,7 @@ ax[0][0].plot(x, [i.item() for i in train_loss_r_list], label='train_r')
 ax[0][0].plot(x, [i.item() for i in test_loss_r_list], label='test_r', linewidth=0.8)
 ax[0][0].set_xlabel('epoch')
 ax[0][0].set_ylabel('MSE')
-ax[0][0].set_yscale('log')
+# ax[0][0].set_yscale('log')
 ax[0][0].set_title(r'$u_{r}$ Loss')
 ax[0][0].legend()
 
@@ -233,7 +233,7 @@ ax[0][1].plot(x, [i.item() for i in train_loss_z_list], label='train_z')
 ax[0][1].plot(x, [i.item() for i in test_loss_z_list], label='test_z', linewidth=0.8)
 ax[0][1].set_xlabel('epoch')
 ax[0][1].set_ylabel('MSE')
-ax[0][1].set_yscale('log')
+# ax[0][1].set_yscale('log')
 ax[0][1].set_title(r'$u_{z}$ Loss')
 ax[0][1].legend()
 
@@ -243,7 +243,7 @@ ax[1][0].plot(x, [err.item() * 100 for err in test_err_r_real_list], label='test
 ax_10_sec = ax[1][0].twinx()
 ax[1][0].set_xlabel('epoch')
 ax[1][0].set_ylabel(r"$L_2$ error [%]")
-ax[1][0].set_yscale('log')
+# ax[1][0].set_yscale('log')
 ax[1][0].set_title(r'$Re(u_{r})$ error')
 ax[1][0].legend()
 # ax_1_sec.plot(x, lr, "k--", label='lr', linewidth=0.5)
@@ -251,12 +251,12 @@ ax[1][0].legend()
 # ax_1_sec.set_yscale('log')
 # ax_10_sec.legend()
 
-# Error for iMAGINARY Part of u_r
+# Error for Imaginary Part of u_r
 ax[1][1].plot(x, [err.item() * 100 for err in train_err_r_imag_list], label='train_Im(ur)')
 ax[1][1].plot(x, [err.item() * 100 for err in test_err_r_imag_list], label='test_Im(ur)', linewidth=0.8)
 ax[1][1].set_xlabel('epoch')
 ax[1][1].set_ylabel(r"$L_2$ error [%]")
-ax[1][1].set_yscale('log')
+# ax[1][1].set_yscale('log')
 ax[1][1].set_title(r'$Im(u_{r})$ error')
 ax[1][1].legend()
 
@@ -265,7 +265,7 @@ ax[2][0].plot(x, [err.item() * 100 for err in train_err_z_real_list], label='tra
 ax[2][0].plot(x, [err.item() * 100 for err in test_err_z_real_list], label='test_Re(uz)', linewidth=0.8)
 ax[2][0].set_xlabel('epoch')
 ax[2][0].set_ylabel(r"$L_2$ error [%]")
-ax[2][0].set_yscale('log')
+# ax[2][0].set_yscale('log')
 ax[2][0].set_title(r'$Re(u_{z})$ Error')
 ax[2][0].legend()
 
@@ -274,7 +274,7 @@ ax[2][1].plot(x, [err.item() * 100 for err in train_err_z_imag_list], label='tra
 ax[2][1].plot(x, [err.item() * 100 for err in test_err_z_imag_list], label='test_Im(uz)', linewidth=0.8)
 ax[2][1].set_xlabel('epoch')
 ax[2][1].set_ylabel(r"$L_2$ error [%]")
-ax[2][1].set_yscale('log')
+# ax[2][1].set_yscale('log')
 ax[2][1].set_title(r'$Im(u_{z})$ Error')
 ax[2][1].legend()
 

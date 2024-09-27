@@ -10,51 +10,9 @@ script_dir = os.path.dirname(os.path.abspath(__file__))
 project_dir = os.path.dirname(script_dir)
 sys.path.insert(0, project_dir)
 path_to_data = os.path.join(project_dir, 'data')
-from influence_function_kernel import kernel_r, kernel_z
+from influence_function import kernel_r, kernel_z, get_kernels, integrate_kernels
 
 np.random.seed(42)
-
-def get_kernels(mesh, params, point, n_samples):
-    kernels_r = np.zeros((n_samples, len(mesh)))
-    kernels_z = np.zeros((n_samples, len(mesh)))
-    E, ν, ρ, ω  = params
-    for i in range(n_samples):
-        instance = (E[i], ν[i], ρ[i], ω[i])
-        p = point[0][i], point[1][i]
-        for j,e in enumerate(mesh):
-            kernels_r[i][j] = kernel_r(e, instance, p)
-            kernels_z[i][j] =  kernel_z(e, instance, p)
-    return (kernels_r, kernels_r)
-
-def integrate_kernels(branch_vars, trunk_vars, lower_bound, upper_bound):
-    integrals_r = []
-    integrals_z = []
-    errors_r = []
-    errors_z = []
-    durations = []
-    n = len(branch_vars)
-    q = len(trunk_vars)
-    E, ν, ρ, ω = branch_vars.T
-    point = trunk_vars
-    for i in tqdm(range(n), colour='GREEN'):
-        for j in range(q):
-            instance = (E[i], ν[i], ρ[i], ω[i])
-            p = point[j]
-            start = time.perf_counter_ns()
-            integral_r, error_r = integrate.quad(lambda ζ: ζ*kernel_r(ζ, instance, p), lower_bound, upper_bound, complex_func=True)
-            integral_z, error_z = integrate.quad(lambda ζ: ζ*kernel_z(ζ, instance, p), lower_bound, upper_bound, complex_func=True)
-            end = time.perf_counter_ns()
-            duration = (end - start)/1e6
-            # print(integral_r, error_r)
-            # print(f"Integration took: {duration:.2f} ms")
-            integrals_r.append(integral_r)
-            integrals_z.append(integral_z)
-            errors_r.append(error_r)
-            errors_z.append(error_z)
-            durations.append(duration)
-    integrals_r = np.array(integrals_r).reshape(len(branch_vars), len(trunk_vars))
-    integrals_z = np.array(integrals_z).reshape(len(branch_vars), len(trunk_vars))
-    return np.array(integrals_r), np.array(integrals_z), np.array(errors_r), np.array(errors_z), np.array(durations)
 
 # ------- All SI units ----------
 # Dataset size
@@ -94,24 +52,13 @@ branch_features[:, :-1] = branch_features[0,:-1] # Fixing material for tacking s
 trunk_features = np.asarray(p).T
 
 # ---------------------------- Computing kernel for plot -----------------------------------
-start, end = 0, 10
-n_mesh = 100
-ζ = np.linspace(start, end, n_mesh)
-u_star_r, u_star_z = get_kernels(ζ, params, p, N)
-
-# ---------------------------- Integrating ------------------------------------------------
-l_bound = start
-u_bound = np.inf
-integrals_r, integrals_z, errors_r, errors_z, durations = integrate_kernels(branch_features, trunk_features, l_bound, u_bound)
-
-print('-----------------------------------------------------------------------')
-print(f"Runtime for integration: {durations.mean():.2f} ±  {durations.std():.2f} ms")
-print('-----------------------------------------------------------------------')
-
-integrals = np.concatenate((integrals_r, integrals_z), axis=1)
-labels = integrals
+# start, end = 0, 10
+# n_mesh = 100
+# ζ = np.linspace(start, end, n_mesh)
+# u_star_r, u_star_z = get_kernels(ζ, params, p)
 
 # ------------------------------ Plots -------------------------------------------------------
+# params_test = branch_features.
 # ω_test = ω[np.argmin(ω)]
 # print(f'ω min. = {ω_test:.3f} Hz')
 # print(f'p_0 = {p_0:.3E} N')
@@ -122,6 +69,19 @@ labels = integrals
 # plt.ylim([-1e-3, 1e1])
 # plt.tight_layout()
 # plt.show()
+
+# ---------------------------- Integrating ------------------------------------------------
+l_bound = 0
+u_bound = np.inf
+integrals_r, integrals_z, errors_r, errors_z, durations = integrate_kernels(branch_features, trunk_features, l_bound, u_bound)
+
+print('-----------------------------------------------------------------------')
+print(f"Runtime for integration: {durations.mean():.2f} ±  {durations.std():.2f} s")
+print('-----------------------------------------------------------------------')
+
+integrals = np.concatenate((integrals_r, integrals_z), axis=1)
+labels = integrals
+
 
 #-------------------------------- Split training and test set -----------------------------
 test_size = 0.2
@@ -146,6 +106,6 @@ print(f"Train sizes (u, Gr, Gz): \n{train_shapes}, \nTest sizes (u, Gr, Gz): \n{
 
 # ----------------------------- Saving data -------------------------------------
 if __name__ == '__main__':
-    np.savez(os.path.join(path_to_data, 'iss_dataset_full_fixed.npz'), X_branch=branch_features, X_trunk=trunk_features, y_r=integrals_r, y_z=integrals_z)
-    np.savez(os.path.join(path_to_data, 'iss_train_fixed.npz'), X_branch=u_train, X_trunk=trunk_features, y_r=labels_train_r, y_z=labels_train_z)
-    np.savez(os.path.join(path_to_data, 'iss_test_fixed.npz'), X_branch=u_test, X_trunk=trunk_features, y_r=labels_test_r, y_z=labels_test_z)
+    np.savez(os.path.join(path_to_data, 'iss_dataset_full_fixed_correct.npz'), X_branch=branch_features, X_trunk=trunk_features, y_r=integrals_r, y_z=integrals_z)
+    np.savez(os.path.join(path_to_data, 'iss_train_fixed_correct.npz'), X_branch=u_train, X_trunk=trunk_features, y_r=labels_train_r, y_z=labels_train_z)
+    np.savez(os.path.join(path_to_data, 'iss_test_fixed_correct.npz'), X_branch=u_test, X_trunk=trunk_features, y_r=labels_test_r, y_z=labels_test_z)
