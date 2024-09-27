@@ -1,0 +1,22 @@
+seed: 42
+
+folder: ./data
+filename: iss_data
+
+samples: 50
+sensors: 100
+
+E: [360e6, 36e6] # Soil is ~360 MPa, Concrete is 30 GPa. took 10% std. There is a very wide range, so I'm just doing soil for now and adding concrete later
+nu: [0.2, 0.5]
+rho: [2e3, 5e2] 
+
+rho_steel: 7.85e3
+h: 78 # Example tower in Amanda Oliveira et al. (Fixed wind turbine)
+g: 9.81
+s1: 0
+s2: 12.5
+omega: [0, 100]
+
+r0: 0.001
+z0: 0.001
+d: 10 # length of square centered at the origin where the trunk will be trained (space domain, must define a bound)
