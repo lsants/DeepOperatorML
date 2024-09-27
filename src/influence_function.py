@@ -1,6 +1,9 @@
+import time
 import numpy as np
 import scipy.special as sc
 import numpy.typing as npt
+from scipy.integrate import quad_vec
+from tqdm.auto import tqdm
 
 ''' For kernel: material parameters, load parameters (geometry, position, frequency and magnitude), point
     Material parameters: (E, ν, ρ)
@@ -8,18 +11,42 @@ import numpy.typing as npt
     Point: (r,z)
 '''
 
+
+class IntegrandWrapper:
+    def __init__(self, kernel_func, instance, points, desc=''):
+        self.kernel_func = kernel_func
+        self.instance = instance
+        self.points = points
+        self.call_count = 0
+        self.progress_bar = tqdm(
+            total=None,
+            leave=False,
+            colour='blue',
+            unit='call'
+        )
+
+    def __call__(self, ζ):
+        self.call_count += 1
+        self.progress_bar.update(1)
+        result = ζ * np.array([self.kernel_func(ζ, self.instance, p) for p in self.points])
+
+        return result
+
+    def close(self):
+        self.progress_bar.close()
+
 def kernel_z(ζ, params: tuple, point:tuple) -> npt.NDArray:
     """Generate influence function kernel in r based on mesh and parameters
 
     Args:
         ζ: Scaled Hankel space variable.
-        material_params (tuple): tuple consisting of Young modulus, Poisson's ratio density of the medium and load frequency.
+        material_params (tuple): tuple consisting of Young modulus, Poisson's ratio density of the medium and load frequency. 
         point (tuple): coordinates r and z where the influence function shall be evaluated
 
     Returns:
         npt.NDArray[np.complex128]: Kernel for influence function in the z direction. Will be used for integration.
     """
-    ζ = complex(ζ)
+    ζ = np.asarray(ζ, dtype=np.complex128)
     
     # Parameters
     E, ν, ρ, ω = params
@@ -77,7 +104,7 @@ def kernel_r(ζ, params: tuple, point:tuple) -> npt.NDArray:
     Returns:
         npt.NDArray[np.complex128]: Kernel for influence function in the r direction. Will be used for integration.
     """
-    ζ = complex(ζ)
+    ζ = np.asarray(ζ, dtype=np.complex128)
     
     # Parameters
     E, ν, ρ, ω = params
@@ -123,3 +150,73 @@ def kernel_r(ζ, params: tuple, point:tuple) -> npt.NDArray:
     kernel = a_1*A*np.exp(-δ*ξ_1*z) + a_2*C*np.exp(-δ*ξ_2*z)
     
     return kernel
+
+def get_kernels(mesh, params, points):
+    E, ν, ρ, ω = params
+    r_points, z_points = points
+
+    n_samples = len(E)
+    n_points = len(r_points)
+    n_mesh = len(mesh)
+    kernels_r = np.zeros((n_samples, n_points, n_mesh), dtype=np.complex128)
+    kernels_z = np.zeros((n_samples, n_points, n_mesh), dtype=np.complex128)
+
+    for i in tqdm(range(n_samples), colour='GREEN'):
+        instance = (E[i], ν[i], ρ[i], ω[i])
+        for j in range(n_points):
+            p = (r_points[j], z_points[j])
+            kernels_r[i, j, :] = kernel_r(mesh, instance, p)
+            kernels_z[i, j, :] = kernel_z(mesh, instance, p)
+
+    return kernels_r, kernels_z
+
+
+def integrate_kernels(branch_vars, trunk_vars, lower_bound, upper_bound):
+    n = len(branch_vars)
+    q = len(trunk_vars)
+    E, ν, ρ, ω = branch_vars.T
+    points = trunk_vars
+
+    integrals_r = np.zeros((n, q), dtype=complex)
+    integrals_z = np.zeros((n, q), dtype=complex)
+    errors_r = np.zeros((n, q))
+    errors_z = np.zeros((n, q))
+    durations = np.zeros(n)
+
+    for i in tqdm(range(n), desc='Integrating over samples', colour='green'):
+        instance = (E[i], ν[i], ρ[i], ω[i])
+
+        integrand_r = IntegrandWrapper(kernel_r, instance, points, desc=f'Integrand_r sample {i+1}/{n}')
+        integrand_z = IntegrandWrapper(kernel_z, instance, points, desc=f'Integrand_z sample {i+1}/{n}')
+
+        start = time.perf_counter_ns()
+        integral_r, error_r = quad_vec(
+            integrand_r,
+            lower_bound,
+            upper_bound,
+            epsabs=1e-1,
+            epsrel=1e-1,
+            norm='max'
+        )
+        integral_z, error_z = quad_vec(
+            integrand_z,
+            lower_bound,
+            upper_bound,
+            epsabs=1e-1,
+            epsrel=1e-1,
+            norm='max'
+        )
+
+        integrand_r.close()
+        integrand_z.close()
+
+        end = time.perf_counter_ns()
+        duration = (end - start) / 1e9
+
+        integrals_r[i, :] = integral_r
+        integrals_z[i, :] = integral_z
+        errors_r[i, :] = error_r
+        errors_z[i, :] = error_z
+        durations[i] = duration
+
+    return integrals_r, integrals_z, errors_r, errors_z, durations
