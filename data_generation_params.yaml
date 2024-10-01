@@ -1,22 +1,33 @@
 seed: 42
 
-folder: ./data
-filename: iss_data
+raw_data_path: ./data/raw
+processed_data_path: ./data/raw
+data_info_path: ./data/info 
+data_filename: iss_data
 
-samples: 50
-sensors: 100
+problem: iss
 
-E: [360e6, 36e6] # Soil is ~360 MPa, Concrete is 30 GPa. took 10% std. There is a very wide range, so I'm just doing soil for now and adding concrete later
-nu: [0.2, 0.5]
-rho: [2e3, 5e2] 
+n: 2 # Number of samples
+q: 10 # Number of sensors (points in spatial domain)
+
+component: r # Solve for r or z component
+
+E_max: 360e6
+E_min: 360e6 # Soil is ~360 MPa, Concrete is 30 GPa. took 10% std -> [360MPa +- 36MPa]. There is a very wide range, so I'm just doing soil for now and adding concrete later
+nu_max: 2.42277267e-01 # Usuallly 0.2
+nu_min: 2.42277267e-01 # Usually 0.5
+rho_max: 1.73511990e+03 # 2000
+rho_min: 1.73511990e+03 # 500
 
 rho_steel: 7.85e3
-h: 78 # Example tower in Amanda Oliveira et al. (Fixed wind turbine)
 g: 9.81
+h: 78 # Example tower in Amanda Oliveira et al. (Fixed wind turbine)
 s1: 0
 s2: 12.5
-omega: [0, 100]
+omega_max: 0
+omega_min: 100
 
-r0: 0.001
-z0: 0.001
-d: 10 # length of square centered at the origin where the trunk will be trained (space domain, must define a bound)
+r_min: 0
+r_max: 10
+z_min: 0
+z_max: 10
