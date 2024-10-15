@@ -1,0 +1,21 @@
+# Parameters for training DeepONets, loaded by train_model.py.
+
+# Location of .npz data file
+DATAFILE: /users/lsantia9/Documents/base script 160321/influencia_data.mat # Path to input file
+PRECISION: torch.float64
+
+# Model location
+MODEL_FOLDER: ./models/
+
+# Plots directory
+IMAGES_FOLDER: ./images/
+
+# Training parameters
+BRANCH_INPUT_SIZE: 1
+TRUNK_INPUT_SIZE: 2
+BASIS_FUNCTIONS: 30
+LEARNING_RATE: 0.001                   # float: learning rate used in training
+N_EPOCHS: 100                         # int: number of training epochs
+ITERATIONS_PER_EPOCHS: 100               # int: number of steps performed in one epoch
+TRAIN_PERC: 0.8                         # float: the percentage of data used for training
+VAL_PERC: 0.2                           # float: the percentage of training data used for validation
