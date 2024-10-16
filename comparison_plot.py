@@ -1,22 +1,21 @@
+import argparse
+import yaml
 import numpy as np
 import matplotlib.pyplot as plt
 import scipy.io as sio
-import time
-import yaml
-import torch
-import torch.nn as nn
-from tqdm.auto import tqdm
 from datetime import datetime
-from torch import autograd
-from modules.preprocessing import preprocessing
 
 with open('params_model.yaml') as file:
     p = yaml.safe_load(file)
 
 date = datetime.today().strftime('%Y%m%d')
-precision = eval(p['PRECISION'])
 
-plot = input()
+parser = argparse.ArgumentParser()
+
+parser.add_argument("plot", type=str, help="define which output to be plotted")
+args = parser.parse_args()
+
+plot = args.plot.lower()
 
 # ----------------Get Labels -----------------
 path = '/users/lsantia9/Documents/base script 160321/influencia_data.mat'
@@ -44,7 +43,7 @@ wd_flip = np.flip(wd[1:, :], axis=0)
 wd_full = np.concatenate((wd_flip, wd), axis=0)
 
 # -------------- Get Preds -------------------
-data_preds = np.load("/users/lsantia9/research/high_performance_integration/data/info/test_output.npz", allow_pickle=True)
+data_preds = np.load("./data/info/test_output.npz", allow_pickle=True)
 
 u, xt, g_u_real, g_u_imag, mu_u, sd_u, mu_xt, sd_xt = data_preds["u"], data_preds["xt"], data_preds["real"], data_preds["imag"], data_preds['mu_u'], data_preds['sd_u'], data_preds['mu_xt'], data_preds['sd_xt']
 
@@ -60,7 +59,6 @@ print(f"Test freqs: {u.flatten()*sd_u + mu_u}")
 print(f"Test coords: {xt.shape}")
 print(f"Test g_u real: {g_u_real.shape}")
 print(f"Test g_u imag: {g_u_imag.shape}")
-
 
 try:
     if plot == 'abs':
