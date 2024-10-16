@@ -17,8 +17,23 @@ The primary objective of this project is to develop state of the art high-perfor
 ## Project Structure
 
 The repository is organized as follows:
-
-```bash
-  ├── src/              # Source code for the mathematical models
-  ├── data/             # Datasets and data-related resources
+```
+📦 
+├─ .gitignore
+├─ README.md
+├─ comparison_plot.py
+├─ data_generation_params.yaml
+├─ green_function_integration.py
+├─ modules
+│  ├─ deeponet_architecture.py
+│  ├─ deeponet_inference.py
+│  ├─ evaluate_params.py
+│  ├─ mlp_architecture.py
+│  ├─ mlp_training.py
+│  ├─ plotting.py
+│  └─ preprocessing.py
+├─ params_model.yaml
+├─ requirements.txt
+├─ test_model.py
+└─ train_model.py
 ```
