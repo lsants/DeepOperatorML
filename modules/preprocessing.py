@@ -12,7 +12,6 @@ def preprocessing(u, g_u, train_perc=0.8,
         u_train, g_u_train, u_test, g_u_test, = train_test_split(u=u,
                                                                 g_u=g_u,
                                                                 train_perc=train_perc)
-        
     g_u_real_train, g_u_imag_train = extract_real_imag_parts(g_u_train)
     g_u_real_test, g_u_imag_test = extract_real_imag_parts(g_u_test)
 
