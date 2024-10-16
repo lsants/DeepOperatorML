@@ -155,3 +155,5 @@ cython_debug/
 #Data files
 /data
 /axsgrscelib
+/images
+/models
