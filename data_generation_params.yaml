@@ -1,14 +1,14 @@
 seed: 42
 
 raw_data_path: ./data/raw
-processed_data_path: ./data/raw
+processed_data_path: ./data/processed
 data_info_path: ./data/info 
 data_filename: iss_data
 
 problem: iss
 
-n: 2 # Number of samples
-q: 10 # Number of sensors (points in spatial domain)
+n: 50 # Number of samples
+q: 100 # Number of sensors (points in spatial domain)
 
 component: r # Solve for r or z component
 

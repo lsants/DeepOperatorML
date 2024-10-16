@@ -1,7 +1,7 @@
 # Parameters for training DeepONets, loaded by train_model.py.
 
 # Location of .npz data file
-DATAFILE: /users/lsantia9/Documents/base script 160321/influencia_data.mat # Path to input file
+DATAFILE: ./data/raw/influencia_data.mat # Path to input file
 PRECISION: torch.float64
 
 # Model location
