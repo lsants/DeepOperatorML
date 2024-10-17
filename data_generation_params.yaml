@@ -1,33 +1,48 @@
-seed: 42
-
 raw_data_path: ./data/raw
 processed_data_path: ./data/processed
 data_info_path: ./data/info 
 data_filename: iss_data
 
-problem: iss
+n_r: 10
+n_z: 10
+seed: 42
 
-n: 50 # Number of samples
-q: 100 # Number of sensors (points in spatial domain)
+E: 360E+06
+poisson: 2.42277267E-01
+damp: 0.0
+dens: 1.73511990E+03
+load: 6006663.0
+n_freq : 4
 
-component: r # Solve for r or z component
+freq_min: 0
+freq_max: 100
 
-E_max: 360e6
-E_min: 360e6 # Soil is ~360 MPa, Concrete is 30 GPa. took 10% std -> [360MPa +- 36MPa]. There is a very wide range, so I'm just doing soil for now and adding concrete later
-nu_max: 2.42277267e-01 # Usuallly 0.2
-nu_min: 2.42277267e-01 # Usually 0.5
-rho_max: 1.73511990e+03 # 2000
-rho_min: 1.73511990e+03 # 500
+component: 1 # uzz : 1
+              # urz : 2
+              # szzz : 3
+              # srzz : 4
+              # srrz : 5
+              # uzr : 6
+              # urr : 7
+              # szzr : 8
+              # srzr : 9
+              # srrr : 10
 
-rho_steel: 7.85e3
-g: 9.81
-h: 78 # Example tower in Amanda Oliveira et al. (Fixed wind turbine)
-s1: 0
-s2: 12.5
-omega_max: 0
-omega_min: 100
+loadtype: 3  # pointload 1
+              # ringload 2
+              # diskload 3
+              # cylinderload 4
+              # anularload 5
 
-r_min: 0
+bvptype: 2 # loadinfullspace : 1
+          # loadoverhalfspace : 2
+          # loadinhalfspace : 3
+          # cylinderload : 4
+          # anularload : 5
+
+
 r_max: 10
-z_min: 0
 z_max: 10
+z_fonte: 0
+l_fonte: 0
+r_fonte: 1
