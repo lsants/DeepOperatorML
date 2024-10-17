@@ -2,31 +2,39 @@
 
 ### Description
 
-Welcome to the repository for the High Performance Numeric Integration project, a Scientific Initiation Project, financed by the São Paulo Research Foundation and affiliated to Unicamp's Mechanical Engineering Faculty's Laboratory of Soil-Structure Interaction. This initiative focuses on advancing the field of large-scale mathematical modeling, particularly in the context of significant projects like the Sirius Particle Accelerator in Brazil.
+This project aims to develop a fast and high-performance method for integrating influence functions. The set of functions explored by this method frequently appear in various physical and engineering problems. Problems of this nature with unbounded domains are usually solved with the Boundary Element Method (BEM), which requires computing influence functions through integration at a significant number of points.
+
+Traditional numerical integration techniques often struggle with these functions due to their complex nature, including singularities and improper integrals extending to infinity. By leveraging the field of operator learning and utilizing Deep Operator Networks (DeepONets), this project seeks to learn the underlying mathematical operators governing these problems, providing a more efficient and accurate integration approach that should reduce the overall cost of methods such as BEM.
 
 ### Project Overview
 
-The primary objective of this project is to develop state of the art high-performance mathematical models tailored for large-scale applications. Specifically, it's goal is to enhance the efficiency of numeric integral computations through the application of neural networks.
+- **Goal**: To create a high-performance integration method for complex functions common in physical and engineering contexts, particularly those involving improper integrals with singularities and infinite upper limits.
 
-## Key Features
+- **Approach**: Utilize operator learning through DeepONets to model and learn the underlying mathematical operators that define the problem, enabling faster and more efficient computation.
 
-- **Advanced Numeric Integration:** This project aims to explore a different approach to numeric integration methods, with a focus on speed and scalability.
+- **Problem Statement**: Compute influence functions that describe the response of an isotropic half-space to a line load applied at a plane at the origin. These influence functions are computationally expensive to calculate due to the nature of the integrals involved.
   
-- **Python Implementation:** All models are implemented in Python, leveraging the capabilities of PyTorch's API.
+- **Implementation**: The model is developed in Python using PyTorch's deep learning API.
+
+---
 
 ## Project Structure
 
 The repository is organized as follows:
 ```
 📦 
-├─ .gitignore
-├─ README.md
-├─ comparison_plot.py
+.gitignore
+README.md
+comparison_plot.py
+data_generation
+│  ├─ axsgrsce.so
+│  └─ influence.py
 ├─ data_generation_params.yaml
+├─ get_data.py
 ├─ modules
-│  ├─ deeponet_architecture.py
-│  ├─ deeponet_inference.py
-│  ├─ evaluate_params.py
+deeponet_architecture.py
+deeponet_inference.py
+evaluate_params.py
 │  ├─ mlp_architecture.py
 │  ├─ mlp_training.py
 │  ├─ plotting.py
