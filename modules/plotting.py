@@ -1,14 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 
-def plot_labels(freqs, r ,z, wd, freq_index=None, plot_type='abs', full=True, points=False):
-
-    # wd = u.transpose(1,0,2)
-    wd = wd.reshape(len(r), len(z), len(freqs))
-
-    if not freq_index:
-        freq_index = 0
-    wd = wd[:,:,freq_index]
+def plot_labels(r ,z, wd, freq, plot_type='abs', full=True, points=False):
 
     if full:
         r_full = np.concatenate((-np.flip(r[1:]), r))
@@ -52,11 +45,11 @@ def plot_labels(freqs, r ,z, wd, freq_index=None, plot_type='abs', full=True, po
     cbar.ax.set_ylabel(l, rotation=270, labelpad=15)
 
     if plot_type == 'abs':
-        plt.title(f'Absolute Displacement at ω = {freqs[freq_index]:.2f} rad/s')
+        plt.title(r'$|u_{z}|$' + f' at ω = {freq:.2f} rad/s')
     elif plot_type == 'real':
-        plt.title(f'Real Displacement at ω = {freqs[freq_index]:.2f} rad/s')
+        plt.title(r'$\Re(u_{z})$' + f' at ω = {freq:.2f} rad/s')
     else:
-        plt.title(f'Imaginary Displacement at ω = {freqs[freq_index]:.2f} rad/s')
+        plt.title(r'$\Im(u_{z})$' + f' at ω = {freq:.2f} rad/s')
     plt.legend()
 
     plt.show()
