@@ -39,19 +39,28 @@ bvptype = p['bvptype']
 loadtype = p['loadtype']
 component = p['component']
 
-
-## --------------- Normalization (we normalize the material constants, frequency, load radius and mesh)
-
+# Defining mesh
 r_field = np.linspace(r_min, r_max, n)
 z_field = np.linspace(z_min, z_max, m)
-
 wd = np.zeros((n,m, num_freqs), dtype=complex)
+
+'''Normalization (we normalize the material constants, frequency, load radius and mesh
+in order to compare results with Rajapakse & Wang (1993)):
+'''
+c11_normalized = c11/c44
+c12_normalized = c12/c44
+c13_normalized = c13/c44
+c33_normalized = c33/c44
+c44_normalized = c44/c44
+dens_normalized = dens/dens
+
+load_stress = loadmag/(np.pi*r_max**2)
 
 ## -------------- Calling function ----------------
 for k in tqdm(range(len(freqs)), colour='Green'):
     for i in range(len(r_field)):
         for j in range(len(z_field)):
-            wd[i, j, k] = (loadmag/np.pi*r_max**2)*influence(
+            wd[i, j, k] = load_stress*influence(
                             c11, c12, c13, c33, c44,
                             dens, damp,
                             r_field[i], z_field[j],
@@ -61,7 +70,7 @@ for k in tqdm(range(len(freqs)), colour='Green'):
                         )
 
 try:
-    os.makedirs(filename, exist_ok=True)
+    os.makedirs(p['raw_data_path'], exist_ok=True)
 except FileExistsError as e:
     print('Rewriting previous data file...')
 
