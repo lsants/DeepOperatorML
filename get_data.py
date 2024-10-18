@@ -9,7 +9,7 @@ from modules.plotting import plot_labels
 with open('data_generation_params.yaml') as file:
     p  =  yaml.safe_load(file)
 
-filename = p['raw_data_path'] + p['data_filename'] + '.npz'
+filename = p['data_filename']
 
 print(filename)
 
@@ -72,8 +72,10 @@ for k in tqdm(range(len(freqs_normalized)), colour='Green'):
                             bvptype, loadtype, component
                         )
 
+
 try:
-    os.makedirs(p['raw_data_path'], exist_ok=True)
+    directory = os.path.dirname(filename)
+    os.makedirs(directory, exist_ok=True)
 except FileExistsError as e:
     print('Rewriting previous data file...')
 

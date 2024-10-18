@@ -1,5 +1,5 @@
+import os
 import numpy as np
-import scipy.io as sio
 import time
 import yaml
 import torch
@@ -176,4 +176,13 @@ x = range(num_epochs)
 plot_training(x, train_loss_list, train_err_real_list, train_err_imag_list, test_err_real_list, test_err_imag_list)
 
 # ----------- Save output ------------
-np.savez("/users/lsantia9/research/high_performance_integration/data/output/test_output.npz", u=u_test, xt=xt, real=g_u_pred_real_test, imag=g_u_pred_imag_test, mu_u=mu_u, sd_u=sd_u, mu_xt=mu_xt, sd_xt=sd_xt)
+
+
+filename = p["TEST_PREDS_DATA_FILE"]
+try:
+    directory = os.path.dirname(filename)
+    os.makedirs(directory, exist_ok=True)
+except FileExistsError as e:
+    print('Rewriting previous data file...')
+
+# np.savez(filename, u=u_test, xt=xt, real=g_u_pred_real_test, imag=g_u_pred_imag_test, mu_u=mu_u, sd_u=sd_u, mu_xt=mu_xt, sd_xt=sd_xt)
