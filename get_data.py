@@ -39,6 +39,9 @@ bvptype = p['bvptype']
 loadtype = p['loadtype']
 component = p['component']
 
+
+## --------------- Normalization (we normalize the material constants, frequency, load radius and mesh)
+
 r_field = np.linspace(r_min, r_max, n)
 z_field = np.linspace(z_min, z_max, m)
 
@@ -57,7 +60,11 @@ for k in tqdm(range(len(freqs)), colour='Green'):
                             bvptype, loadtype, component
                         )
 
-os.makedir(filename, exist_ok=True)
+try:
+    os.makedirs(filename, exist_ok=True)
+except FileExistsError as e:
+    print('Rewriting previous data file...')
+
 np.savez(filename, freqs=freqs, r_field=r_field, z_field=z_field, wd=wd)
 
 ## ----------- Plot -------------
