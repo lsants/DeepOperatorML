@@ -1,3 +1,4 @@
+import os
 import yaml
 import numpy as np
 from tqdm.auto import tqdm
@@ -56,6 +57,7 @@ for k in tqdm(range(len(freqs)), colour='Green'):
                             bvptype, loadtype, component
                         )
 
+os.makedir(filename, exist_ok=True)
 np.savez(filename, freqs=freqs, r_field=r_field, z_field=z_field, wd=wd)
 
 ## ----------- Plot -------------
