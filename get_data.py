@@ -8,6 +8,10 @@ from modules.plotting import plot_labels
 with open('data_generation_params.yaml') as file:
     p  =  yaml.safe_load(file)
 
+filename = p['raw_data_path'] + p['data_filename'] + '.npz'
+
+print(filename)
+
 n = p['n_r']
 m = p['n_z']
 Es = eval(p['E'])
@@ -22,40 +26,42 @@ damp = p['damp']
 dens =  p['dens']
 loadmag = p['load']
 num_freqs = p['n_freq']
-freqs  =  np.random.rand(num_freqs) * p['freq_max']
+freqs  =  p['freq_min'] + np.random.rand(num_freqs) * (p['freq_max'] - p['freq_min'])
+r_min = eval(p['r_min'])
+z_min = eval(p['z_min'])
 r_max = p['r_max']
 z_max = p['z_max']
-z_fonte = p['z_fonte']
-r_fonte = p['r_fonte']
-l_fonte = p['l_fonte']
+z_source = p['z_source']
+r_source = p['r_source']
+l_source = p['l_source']
 bvptype = p['bvptype']
 loadtype = p['loadtype']
 component = p['component']
 
-r_campo = np.linspace(0,r_max, n)
-z_campo = np.linspace(0, z_max, m)
+r_field = np.linspace(r_min, r_max, n)
+z_field = np.linspace(z_min, z_max, m)
 
 wd = np.zeros((n,m, num_freqs), dtype=complex)
 
 ## -------------- Calling function ----------------
 for k in tqdm(range(len(freqs)), colour='Green'):
-    for i in range(len(r_campo)):
-        for j in range(len(z_campo)):
-            wd[i, j, k] = loadmag*influence(
+    for i in range(len(r_field)):
+        for j in range(len(z_field)):
+            wd[i, j, k] = (loadmag/np.pi*r_max**2)*influence(
                             c11, c12, c13, c33, c44,
                             dens, damp,
-                            r_campo[i], z_campo[j],
-                            z_fonte, r_fonte, l_fonte,
+                            r_field[i], z_field[j],
+                            z_source, r_source, l_source,
                             freqs[k],
                             bvptype, loadtype, component
                         )
 
-## ----------- Plot -------------
-R, Z = r_campo, z_campo
-f_index = 0
+np.savez(filename, freqs=freqs, r_field=r_field, z_field=z_field, wd=wd)
 
+## ----------- Plot -------------
+R, Z = r_field, z_field
+f_index = 0
 wd_transposed = wd.transpose(2,1,0)
 wd_f = wd_transposed[f_index]
 wd_plot = wd_f
-
 plot_labels(R,Z,wd_plot, freqs[f_index], plot_type='abs')
