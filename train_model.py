@@ -69,10 +69,11 @@ device = torch.device("cpu")
 print("Using device:", device)
 
 # -------------- Data processing -------------------
-data = sio.loadmat(p["DATAFILE"])
+# data = sio.loadmat(p["DATAFILE"])
+data = np.load(p['DATAFILE'])
 omega = np.squeeze(data['freqs'])        # Shape: (num_freqs,)
-r = np.squeeze(data['r_campo'])          # Shape: (n,)
-z = np.squeeze(data['z_campo'])          # Shape: (n,)
+r = np.squeeze(data['r_field'])          # Shape: (n,)
+z = np.squeeze(data['z_field'])          # Shape: (n,)
 wd = data['wd'].transpose(2,0,1)                           # Shape: (freqs, r, z)
 
 u = omega.reshape(-1,1)
@@ -90,10 +91,6 @@ u_train, g_u_real_train, g_u_imag_train, u_test, g_u_real_test, g_u_imag_test = 
     processed_data['g_u_real_test'], \
     processed_data['g_u_imag_test']
 
-print(u_train.shape, u_test.shape)
-print(xt.shape)
-print(g_u_real_train.shape, g_u_imag_train.shape)
-
 mu_u = np.mean(u_train, axis=0)
 sd_u = np.std(u_train, axis=0)
 mu_xt = np.mean(xt, axis=0)
@@ -104,14 +101,18 @@ u_test = (u_test - mu_u) / sd_u
 
 xt = (xt - mu_xt)/sd_xt
 
-u_train = torch.tensor(u_train, dtype=precision).to(device)
-xt = torch.tensor(xt, dtype=precision).to(device)
-g_u_real_train = torch.tensor(g_u_real_train, dtype=precision).to(device)
-g_u_imag_train = torch.tensor(g_u_imag_train, dtype=precision).to(device)
-u_train = torch.tensor(u_train, dtype=precision).to(device)
-u_test = torch.tensor(u_test, dtype=precision).to(device)
-g_u_real_test = torch.tensor(g_u_real_test, dtype=precision).to(device)
-g_u_imag_test = torch.tensor(g_u_imag_test, dtype=precision).to(device)
+print(f"Branch normalization: mu={mu_u.item():.2f}, sd={sd_u.item():.2f}")
+print(f"Branch train/test shapes: {u_train.shape}, {u_test.shape}")
+print(xt.shape)
+print(g_u_real_train.shape, g_u_imag_train.shape)
+
+u_train = torch.tensor(u_train, dtype=precision, device=device)
+u_test = torch.tensor(u_test, dtype=precision, device=device)
+xt = torch.tensor(xt, dtype=precision, device=device)
+g_u_real_train = torch.tensor(g_u_real_train, dtype=precision, device=device)
+g_u_imag_train = torch.tensor(g_u_imag_train, dtype=precision, device=device)
+g_u_real_test = torch.tensor(g_u_real_test, dtype=precision, device=device)
+g_u_imag_test = torch.tensor(g_u_imag_test, dtype=precision, device=device)
 
 # ---------- Model definition -----------
 u_dim = p["BRANCH_INPUT_SIZE"]
@@ -136,8 +137,6 @@ train_err_real_list = []
 train_err_imag_list = []
 test_err_real_list = []
 test_err_imag_list = []
-
-print(f"u_train: {u_train.shape}")
 
 for epoch in range(num_epochs):
     epoch_loss = 0
