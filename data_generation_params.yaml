@@ -1,48 +1,50 @@
-raw_data_path: ./data/raw
+raw_data_path: ./data/raw/
 processed_data_path: ./data/processed
 data_info_path: ./data/info 
-data_filename: iss_data
+data_filename: data_damped
 
-n_r: 10
-n_z: 10
 seed: 42
 
-E: 360E+06
-poisson: 2.42277267E-01
-damp: 0.0
-dens: 1.73511990E+03
-load: 6006663.0
-n_freq : 4
+n_r: 20                 # Mesh points for r coordinate
+n_z: 20                 # Mesh points for z coordinate
+r_min: 1e-2               # Max. r coordinate sampled
+z_min: 1e-2               # Max. z coordinate sampled
+r_max: 20               # Max. r coordinate sampled
+z_max: 20               # Max. z coordinate sampled
 
-freq_min: 0
-freq_max: 100
+n_freq : 4              # Number of frequency samples
+freq_min: 75             # Min. sampled frequency
+freq_max: 100           # Max. sampled frequency
 
-component: 1 # uzz : 1
-              # urz : 2
-              # szzz : 3
-              # srzz : 4
-              # srrz : 5
-              # uzr : 6
-              # urr : 7
-              # szzr : 8
-              # srzr : 9
-              # srrr : 10
+E: 360E+06              # Young Modulus
+poisson: 2.42277267E-01 # Poisson's ratio
+damp: 0.01             # Damping factor
+dens: 1.73511990E+03    # Density
+load: 6006663.0         # Load magnitude
 
-loadtype: 3  # pointload 1
-              # ringload 2
-              # diskload 3
-              # cylinderload 4
-              # anularload 5
+component: 1            # uzz : 1
+                        # urz : 2
+                        # szzz : 3
+                        # srzz : 4
+                        # srrz : 5
+                        # uzr : 6
+                        # urr : 7
+                        # szzr : 8
+                        # srzr : 9
+                        # srrr : 10
 
-bvptype: 2 # loadinfullspace : 1
-          # loadoverhalfspace : 2
-          # loadinhalfspace : 3
-          # cylinderload : 4
-          # anularload : 5
+loadtype: 3             # pointload 1
+                        # ringload 2
+                        # diskload 3
+                        # cylinderload 4
+                        # anularload 5
 
+bvptype: 2              # loadinfullspace : 1
+                        # loadoverhalfspace : 2
+                        # loadinhalfspace : 3
+                        # cylinderload : 4
+                        # anularload : 5
 
-r_max: 10
-z_max: 10
-z_fonte: 0
-l_fonte: 0
-r_fonte: 1
+z_source: 0             # Position of source load in z axis
+l_source: 0             # Dimension of source load in z axis
+r_source: 1             # Dimension of source load in r axis
