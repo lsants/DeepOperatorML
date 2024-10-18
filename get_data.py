@@ -53,19 +53,22 @@ c13_normalized = c13/c44
 c33_normalized = c33/c44
 c44_normalized = c44/c44
 dens_normalized = dens/dens
-
-load_stress = loadmag/(np.pi*r_max**2)
+freqs_normalized = freqs*r_source*np.sqrt(dens/c44)
+r_source_normalized = r_source/r_source
+load_stress = loadmag/(np.pi*r_source**2)
+r_normalized = r_field / r_source
+z_normalized = r_field / r_source
 
 ## -------------- Calling function ----------------
-for k in tqdm(range(len(freqs)), colour='Green'):
-    for i in range(len(r_field)):
-        for j in range(len(z_field)):
-            wd[i, j, k] = load_stress*influence(
-                            c11, c12, c13, c33, c44,
-                            dens, damp,
-                            r_field[i], z_field[j],
+for k in tqdm(range(len(freqs_normalized)), colour='Green'):
+    for i in range(len(r_normalized)):
+        for j in range(len(z_normalized)):
+            wd[i, j, k] = load_stress*(r_source/c44)*influence(
+                            c11_normalized, c12_normalized, c13_normalized, c33_normalized, c44_normalized,
+                            dens_normalized, damp,
+                            r_normalized[i], z_normalized[j],
                             z_source, r_source, l_source,
-                            freqs[k],
+                            freqs_normalized[k],
                             bvptype, loadtype, component
                         )
 
@@ -76,7 +79,7 @@ except FileExistsError as e:
 
 np.savez(filename, freqs=freqs, r_field=r_field, z_field=z_field, wd=wd)
 
-## ----------- Plot -------------
+## ----------- Plot ------------- EDIT PLOT UNITS
 R, Z = r_field, z_field
 f_index = 0
 wd_transposed = wd.transpose(2,1,0)
