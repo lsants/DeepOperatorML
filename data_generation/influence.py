@@ -1,4 +1,6 @@
 from ctypes import CDLL, c_double, c_long, POINTER, byref
+import platform
+import os
 
 def influence(c11_val, c12_val, c13_val, c33_val, c44_val,
                dens_val, damp_val,
@@ -7,7 +9,20 @@ def influence(c11_val, c12_val, c13_val, c33_val, c44_val,
                freq_val,
                bvptype_val, loadtype_val, component_val):
     
-    lib = CDLL('./data_generation/axsgrsce.so')
+    system = platform.system()
+
+    if system == 'Windows':
+        lib_name = 'axsgrsce.dll'
+    elif system == 'Darwin':
+        lib_name = 'axsgrsce.dylib'
+    elif system == 'Linux':
+        lib_name = 'axsgrsce.so'
+    else:
+        raise OSError('Unsupported operating system')
+    
+    lib_path = os.path.join('./data_generation/', lib_name)
+    
+    lib = CDLL(lib_path)
 
     lib.axsanisgreen.argtypes = [
         POINTER(c_double), POINTER(c_double), POINTER(c_double), POINTER(c_double), POINTER(c_double), #c11,c12,c13,c33,c44
