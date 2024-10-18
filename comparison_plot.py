@@ -8,8 +8,11 @@ from matplotlib.colors import Normalize
 
 f_index = 0
 
+with open('data_generation_params.yaml') as file:
+    p_labels = yaml.safe_load(file)
+
 with open('params_model.yaml') as file:
-    p = yaml.safe_load(file)
+    p_preds = yaml.safe_load(file)
 
 date = datetime.today().strftime('%Y%m%d')
 
@@ -17,7 +20,7 @@ date = datetime.today().strftime('%Y%m%d')
 # path = '/users/lsantia9/Documents/base script 160321/influencia_data.mat'
 # data_labels = sio.loadmat(path)
 
-data_labels = np.load("./data/raw/data_damped.npz", allow_pickle=True)
+data_labels = np.load(f"{p_labels['raw_data_path'] + p_labels['data_filename']}", allow_pickle=True)
 
 # Extract variables and remove singleton dimensions
 omega = np.squeeze(data_labels['freqs'])        # Shape: (num_freqs,)
@@ -33,7 +36,7 @@ print('u shape:', wd.shape)
 
 wd = wd.reshape(len(r), len(z), len(omega))
 
-f_label_index = len(omega) - int(p['TRAIN_PERC']*len(omega)) + f_index
+f_label_index = len(omega) - int(p_preds['TRAIN_PERC']*len(omega)) + f_index
 f_label = omega[f_label_index]
 wd = wd[:,:,f_label_index]
 
@@ -51,7 +54,7 @@ wd_plot_imag = np.imag(wd_full)
 l_imag = r'Im($u_z$)'
 
 # -------------- Get Preds -------------------
-data_preds = np.load("./data/output/test_output.npz", allow_pickle=True)
+data_preds = np.load(f"{p_preds['DATAFILE']}", allow_pickle=True)
 
 u, xt, g_u_real, g_u_imag, mu_u, sd_u, mu_xt, sd_xt = data_preds["u"], data_preds["xt"], data_preds["real"], data_preds["imag"], data_preds['mu_u'], data_preds['sd_u'], data_preds['mu_xt'], data_preds['sd_xt']
 

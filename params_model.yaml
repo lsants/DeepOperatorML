@@ -9,6 +9,7 @@ MODEL_FOLDER: ./models/
 
 # Plots directory
 IMAGES_FOLDER: ./images/
+IMAGES_FILENAME: loss_plots.png
 
 # Training parameters
 BRANCH_INPUT_SIZE: 1
