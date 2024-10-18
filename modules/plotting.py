@@ -92,4 +92,4 @@ def plot_training(epochs, train_loss, train_error_real, train_error_imag, test_e
     ax[1][1].legend()
 
     plt.grid
-    fig.show()
+    plt.show()
