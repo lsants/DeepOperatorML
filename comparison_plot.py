@@ -14,13 +14,16 @@ with open('data_generation_params.yaml') as file:
 with open('params_model.yaml') as file:
     p_preds = yaml.safe_load(file)
 
+with open('data_generation_params.yaml') as file:
+    p_labels = yaml.safe_load(file)
+
 date = datetime.today().strftime('%Y%m%d')
 
 # ----------------Get Labels -----------------
 # path = '/users/lsantia9/Documents/base script 160321/influencia_data.mat'
 # data_labels = sio.loadmat(path)
 
-data_labels = np.load(f"{p_labels['raw_data_path'] + p_labels['data_filename']}", allow_pickle=True)
+data_labels = np.load(p_labels["data_filename"], allow_pickle=True)
 
 # Extract variables and remove singleton dimensions
 omega = np.squeeze(data_labels['freqs'])        # Shape: (num_freqs,)
@@ -37,6 +40,7 @@ print('u shape:', wd.shape)
 wd = wd.reshape(len(r), len(z), len(omega))
 
 f_label_index = len(omega) - int(p_preds['TRAIN_PERC']*len(omega)) + f_index
+print('label index is', f_label_index)
 f_label = omega[f_label_index]
 wd = wd[:,:,f_label_index]
 
@@ -54,11 +58,12 @@ wd_plot_imag = np.imag(wd_full)
 l_imag = r'Im($u_z$)'
 
 # -------------- Get Preds -------------------
-data_preds = np.load(f"{p_preds['DATAFILE']}", allow_pickle=True)
+data_preds = np.load(p_preds["TEST_PREDS_DATA_FILE"], allow_pickle=True)
 
 u, xt, g_u_real, g_u_imag, mu_u, sd_u, mu_xt, sd_xt = data_preds["u"], data_preds["xt"], data_preds["real"], data_preds["imag"], data_preds['mu_u'], data_preds['sd_u'], data_preds['mu_xt'], data_preds['sd_xt']
 
 f_pred_index = f_index
+print('pred index is', f_pred_index)
 f_pred = (u.flatten()*sd_u + mu_u)[f_pred_index].item()
 
 r_len = len(r)
@@ -110,10 +115,11 @@ norm_real = Normalize(vmin=real_min, vmax=real_max)
 norm_imag = Normalize(vmin=imag_min, vmax=imag_max)
 
 print("-------------------------")
-# print(f"Predicted/label frequencies: {f_pred:.2f}, {f_label:.2f}")
-logs = [eval(str(i)[:4]) for i in u.flatten()*sd_u + mu_u]
-print("Frequencies: ")
-print(*logs)
+print(f"Predicted/label frequencies: {f_pred:.2f}, {f_label:.2f}")
+print(u*sd_u + mu_u, omega)
+# logs = [eval(str(i)[:4]) for i in u.flatten()*sd_u + mu_u]
+# print("Frequencies: ")
+# print(*logs)
 fig, ax = plt.subplots(nrows=3,
                        ncols=2,
                        figsize=(14, 10),
@@ -165,4 +171,4 @@ cbar_preds_imag.ax.set_ylabel(l_imag, rotation=270, labelpad=15)
 plt.tight_layout()
 plt.show()
 
-fig.savefig(f"{p['IMAGES_FOLDER']}/plot_comparison_{date}.png")
+# fig.savefig(f"{p['IMAGES_FOLDER']}/plot_comparison_{date}.png")
