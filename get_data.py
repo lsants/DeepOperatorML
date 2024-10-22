@@ -3,7 +3,7 @@ import yaml
 import numpy as np
 from tqdm.auto import tqdm
 from data_generation.influence import influence
-from modules.plotting import plot_labels
+from modules.plotting import plot_label_contours, plot_label_axis
 
 ## ------------- Get parameters --------------
 with open('data_generation_params.yaml') as file:
@@ -43,11 +43,15 @@ loadtype = p['loadtype']
 component = p['component']
 r_min = eval(p['r_min'])*r_source
 z_min = p['z_min']
+load_pressure = loadmag/(np.pi*r_source**2)
 
 # Defining mesh
 r_field = np.linspace(r_min, r_max, n)
 z_field = np.linspace(z_min, z_max, m)
-wd = np.zeros((n,m, num_freqs), dtype=complex)
+wd = np.zeros((num_freqs, n, m), dtype=complex)
+wd_normalized = wd
+
+scaling_factor = (load_pressure*r_source)/c44
 
 '''Normalization (we normalize the material constants, frequency, load radius and mesh
 in order to compare results with Rajapakse & Wang (1993)):
@@ -60,23 +64,23 @@ c44_normalized = c44/c44
 dens_normalized = dens/dens
 freqs_normalized = freqs*r_source*np.sqrt(dens/c44)
 r_source_normalized = r_source/r_source
-load_stress = loadmag/(np.pi*r_source**2)
 r,z = r_field, z_field
 r_normalized = r_field / r_source
-z_normalized = r_field / r_source
+z_normalized = z_field / r_source
 
 ## -------------- Calling function ----------------
-for k in tqdm(range(len(freqs_normalized)), colour='Green'):
-    for i in range(len(r_normalized)):
-        for j in range(len(z_normalized)):
-            wd[i, j, k] = load_stress*(r_source/c44)*influence(
+for i in tqdm(range(len(freqs_normalized)), colour='Green'):
+    for j in range(len(r_normalized)):
+        for k in range(len(z_normalized)):
+            wd_normalized[i, j, k] = influence(
                             c11_normalized, c12_normalized, c13_normalized, c33_normalized, c44_normalized,
                             dens_normalized, damp,
-                            r_normalized[i], z_normalized[j],
+                            r_normalized[j], z_normalized[k],
                             z_source, r_source_normalized, l_source,
-                            freqs_normalized[k],
+                            freqs_normalized[i],
                             bvptype, loadtype, component
                         )
+wd = wd_normalized * scaling_factor
 
 try:
     directory = os.path.dirname(filename)
@@ -86,11 +90,13 @@ except FileExistsError as e:
 
 np.savez(filename, freqs=freqs, r_field=r_field, z_field=z_field, wd=wd)
 
-## ----------- Plot ------------- EDIT PLOT UNITS
+## ----------- Plot -------------
 R, Z = r_normalized, z_normalized
 f_index = 0
-wd_transposed = wd.transpose(2,0,1)
-wd_f = wd_transposed[f_index]
-wd_plot = wd_f
-fig = plot_labels(R,Z,wd_plot, freqs_normalized[f_index], r_source, full=True)
+# wd = wd.transpose(2,0,1)
+wd_plot = wd_normalized[f_index]
 
+print(wd_plot.shape)
+
+# fig = plot_label_contours(R,Z,wd_plot, freqs_normalized[f_index], full=True)
+plot_label_axis(R, Z, wd_plot, freqs_normalized[f_index], axis='r', plane=Z.min())
