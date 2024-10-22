@@ -1,20 +1,17 @@
-raw_data_path: ./data/raw/
-processed_data_path: ./data/processed
-data_info_path: ./data/info 
-data_filename: data_damped
+data_filename: ./data/raw/data_damped.npz
 
 seed: 42
 
-n_r: 20                 # Mesh points for r coordinate
-n_z: 20                 # Mesh points for z coordinate
+n_r: 50                 # Mesh points for r coordinate
+n_z: 50                 # Mesh points for z coordinate
 r_min: 1e-2               # Max. r coordinate sampled
-z_min: 1e-2               # Max. z coordinate sampled
-r_max: 20               # Max. r coordinate sampled
-z_max: 20               # Max. z coordinate sampled
+z_min: 0               # Max. z coordinate sampled
+r_max: 250               # Max. r coordinate sampled
+z_max: 250               # Max. z coordinate sampled
 
-n_freq : 4              # Number of frequency samples
-freq_min: 75             # Min. sampled frequency
-freq_max: 100           # Max. sampled frequency
+n_freq : 1              # Number of frequency samples
+freq_min: 1             # Min. sampled frequency
+freq_max: 1.0           # Max. sampled frequency
 
 E: 360E+06              # Young Modulus
 poisson: 2.42277267E-01 # Poisson's ratio
@@ -47,4 +44,4 @@ bvptype: 2              # loadinfullspace : 1
 
 z_source: 0             # Position of source load in z axis
 l_source: 0             # Dimension of source load in z axis
-r_source: 1             # Dimension of source load in r axis
+r_source: 12.5             # Dimension of source load in r axis
