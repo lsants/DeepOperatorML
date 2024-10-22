@@ -10,6 +10,8 @@ with open('data_generation_params.yaml') as file:
     p  =  yaml.safe_load(file)
 
 filename = p['SAVED_DATA_PATH']
+seed = p['seed']
+np.random.seed(seed)
 
 print(filename)
 
@@ -27,9 +29,10 @@ damp = p['damp']
 dens =  p['dens']
 loadmag = p['load']
 num_freqs = p['n_freq']
-freqs  =  p['freq_min'] + np.random.rand(num_freqs) * (p['freq_max'] - p['freq_min'])
-r_min = eval(p['r_min'])
-z_min = eval(p['z_min'])
+f_min, f_max = p['freq_min'], p['freq_max']
+if isinstance(f_min, str) or isinstance(f_max, str):
+    f_min, f_max = eval(f_min), eval(f_max)
+freqs  =  f_min + np.random.rand(num_freqs, ) * (f_max - f_min)
 r_max = p['r_max']
 z_max = p['z_max']
 z_source = p['z_source']
@@ -38,6 +41,8 @@ l_source = p['l_source']
 bvptype = p['bvptype']
 loadtype = p['loadtype']
 component = p['component']
+r_min = eval(p['r_min'])*r_source
+z_min = p['z_min']
 
 # Defining mesh
 r_field = np.linspace(r_min, r_max, n)
@@ -56,6 +61,7 @@ dens_normalized = dens/dens
 freqs_normalized = freqs*r_source*np.sqrt(dens/c44)
 r_source_normalized = r_source/r_source
 load_stress = loadmag/(np.pi*r_source**2)
+r,z = r_field, z_field
 r_normalized = r_field / r_source
 z_normalized = r_field / r_source
 
@@ -67,7 +73,7 @@ for k in tqdm(range(len(freqs_normalized)), colour='Green'):
                             c11_normalized, c12_normalized, c13_normalized, c33_normalized, c44_normalized,
                             dens_normalized, damp,
                             r_normalized[i], z_normalized[j],
-                            z_source, r_source, l_source,
+                            z_source, r_source_normalized, l_source,
                             freqs_normalized[k],
                             bvptype, loadtype, component
                         )
@@ -81,9 +87,10 @@ except FileExistsError as e:
 np.savez(filename, freqs=freqs, r_field=r_field, z_field=z_field, wd=wd)
 
 ## ----------- Plot ------------- EDIT PLOT UNITS
-R, Z = r_field, z_field
+R, Z = r_normalized, z_normalized
 f_index = 0
-wd_transposed = wd.transpose(2,1,0)
+wd_transposed = wd.transpose(2,0,1)
 wd_f = wd_transposed[f_index]
 wd_plot = wd_f
-plot_labels(R,Z,wd_plot, freqs[f_index], plot_type='abs')
+fig = plot_labels(R,Z,wd_plot, freqs_normalized[f_index], r_source, full=True)
+
