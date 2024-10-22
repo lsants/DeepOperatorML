@@ -9,7 +9,7 @@ from modules.plotting import plot_labels
 with open('data_generation_params.yaml') as file:
     p  =  yaml.safe_load(file)
 
-filename = p['data_filename']
+filename = p['SAVED_DATA_PATH']
 
 print(filename)
 
@@ -71,7 +71,6 @@ for k in tqdm(range(len(freqs_normalized)), colour='Green'):
                             freqs_normalized[k],
                             bvptype, loadtype, component
                         )
-
 
 try:
     directory = os.path.dirname(filename)
