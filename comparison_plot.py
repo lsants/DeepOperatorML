@@ -182,4 +182,4 @@ cbar_preds_imag.ax.set_ylabel(l_imag, rotation=270, labelpad=15)
 plt.tight_layout()
 plt.show()
 
-# fig.savefig(f"{p['IMAGES_FOLDER']}/plot_comparison_{date}.png")
+fig.savefig(f"{p_labels['IMAGES_FOLDER']}/plot_comparison_{date}.png")
