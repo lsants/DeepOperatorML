@@ -26,19 +26,19 @@ def plot_label_contours(r ,z, wd, freq, full=True):
     ax[0].invert_yaxis()
     ax[0].set_xlabel(r'$\frac{r}{a}$', fontsize=14)
     ax[0].set_ylabel(r'$\frac{z}{a}$', fontsize=14)
-    ax[0].set_title(r'$|u_{zz}|$' + r' at $a_0$' + f' = {freq:.2E} Hz')
+    ax[0].set_title(r'$|u_{zz}|$' + r' at $a_0$' + f' = {freq:.2E}')
 
     contour_real = ax[1].contourf(R,Z, u_real, cmap="viridis")
     ax[1].invert_yaxis()
     ax[1].set_xlabel(r'$\frac{r}{a}$', fontsize=14)
     ax[1].set_ylabel(r'$\frac{z}{a}$', fontsize=14)
-    ax[1].set_title(r'$\Re(u_{zz})$' + r' at $a_0$' + f' = {freq:.2E} Hz')
+    ax[1].set_title(r'$\Re(u_{zz})$' + r' at $a_0$' + f' = {freq:.2E}')
 
     contour_imag = ax[2].contourf(R,Z, u_imag, cmap="viridis")
     ax[2].invert_yaxis()
     ax[2].set_xlabel(r'$\frac{r}{a}$', fontsize=14)
     ax[2].set_ylabel(r'$\frac{z}{a}$', fontsize=14)
-    ax[2].set_title(r'$\Im(u_{zz})$' + r' at $a_0$' + f' = {freq:.2E} Hz')
+    ax[2].set_title(r'$\Im(u_{zz})$' + r' at $a_0$' + f' = {freq:.2E}')
 
     cbar_abs = fig.colorbar(contour_abs, label=l_abs, ax=ax[0])
     cbar_abs.ax.set_ylabel(l_abs, rotation=270, labelpad=15)
@@ -52,15 +52,17 @@ def plot_label_contours(r ,z, wd, freq, full=True):
     plt.tight_layout()
     plt.show()
 
-def plot_label_axis(r ,z, wd, freq, axis, plane=0):
+def plot_label_axis(r ,z, wd, freq, axis):
     wd_plot = wd
     try:
         if axis == 'z':
             var = z
+            plane=r.min()
             mask = np.where(r == plane)[0].item()
             wd_plot = wd[mask]
         elif axis == 'r':
             var = r
+            plane=z.min()
             mask = np.where(z == plane)[0].item()
             wd_plot = wd[:,mask]
         else:
@@ -91,7 +93,7 @@ def plot_label_axis(r ,z, wd, freq, axis, plane=0):
     else:
         ax[0].plot(var, u_abs, '.-k')
         ax[0].set_xlabel(r_label, fontsize=14)
-    ax[0].set_title(l_abs + r' at $a_0$' + f' = {freq:.2E} Hz')
+    ax[0].set_title(l_abs + r' at $a_0$' + f' = {freq:.2E}')
 
     if axis == 'z':
         ax[1].plot(u_real, var, '.-k')
@@ -100,7 +102,7 @@ def plot_label_axis(r ,z, wd, freq, axis, plane=0):
     else:
         ax[1].plot(var, u_real, '.-k')
         ax[1].set_xlabel(r_label, fontsize=14)
-    ax[1].set_title(l_real + r' at $a_0$' + f' = {freq:.2E} Hz')
+    ax[1].set_title(l_real + r' at $a_0$' + f' = {freq:.2E}')
 
     if axis == 'z':
         ax[2].plot(u_imag, var, '.-k')
@@ -109,7 +111,7 @@ def plot_label_axis(r ,z, wd, freq, axis, plane=0):
     else:
         ax[2].plot(var, u_imag, '.-k')
         ax[2].set_xlabel(r_label, fontsize=14)
-    ax[2].set_title(l_imag + r' at $a_0$' + f' = {freq:.2E} Hz')
+    ax[2].set_title(l_imag + r' at $a_0$' + f' = {freq:.2E}')
 
     plt.tight_layout()
     plt.show()
