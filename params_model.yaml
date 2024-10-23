@@ -10,7 +10,7 @@ MODEL_FOLDER: ./models/
 
 # Plots directory
 IMAGES_FOLDER: ./images/
-PLOT_FILENAME: 
+PLOT_FILENAME: ./images/comparison.png
 
 # Training parameters
 BRANCH_INPUT_SIZE: 1
