@@ -51,8 +51,6 @@ z_field = np.linspace(z_min, z_max, m)
 wd = np.zeros((num_freqs, n, m), dtype=complex)
 wd_normalized = wd
 
-scaling_factor = (load_pressure*r_source)/c44
-
 '''Normalization (we normalize the material constants, frequency, load radius and mesh
 in order to compare results with Rajapakse & Wang (1993)):
 '''
@@ -64,9 +62,12 @@ c44_normalized = c44/c44
 dens_normalized = dens/dens
 freqs_normalized = freqs*r_source*np.sqrt(dens/c44)
 r_source_normalized = r_source/r_source
+z_source_normalized = z_source/r_source
 r,z = r_field, z_field
 r_normalized = r_field / r_source
 z_normalized = z_field / r_source
+
+scaling_factor = (load_pressure*r_source)/c44
 
 ## -------------- Calling function ----------------
 for i in tqdm(range(len(freqs_normalized)), colour='Green'):
@@ -76,7 +77,7 @@ for i in tqdm(range(len(freqs_normalized)), colour='Green'):
                             c11_normalized, c12_normalized, c13_normalized, c33_normalized, c44_normalized,
                             dens_normalized, damp,
                             r_normalized[j], z_normalized[k],
-                            z_source, r_source_normalized, l_source,
+                            z_source_normalized, r_source_normalized, l_source,
                             freqs_normalized[i],
                             bvptype, loadtype, component
                         )
@@ -88,15 +89,13 @@ try:
 except FileExistsError as e:
     print('Rewriting previous data file...')
 
-np.savez(filename, freqs=freqs, r_field=r_field, z_field=z_field, wd=wd)
+# np.savez(filename, freqs=freqs, r_field=r_field, z_field=z_field, wd=wd)
 
 ## ----------- Plot -------------
 R, Z = r_normalized, z_normalized
 f_index = 0
-# wd = wd.transpose(2,0,1)
+
 wd_plot = wd_normalized[f_index]
 
-print(wd_plot.shape)
-
-# fig = plot_label_contours(R,Z,wd_plot, freqs_normalized[f_index], full=True)
-plot_label_axis(R, Z, wd_plot, freqs_normalized[f_index], axis='r', plane=Z.min())
+fig = plot_label_contours(R,Z,wd_plot, freqs_normalized[f_index], full=True)
+# plot_label_axis(R, Z, wd_plot, freqs_normalized[f_index], axis=p['axis_plot'])
