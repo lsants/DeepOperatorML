@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 from datetime import datetime
 from matplotlib.colors import Normalize
 
-f_index = 5
+f_index = 6
 
 date = datetime.today().strftime('%Y%m%d')
 
@@ -35,21 +35,23 @@ data_labels = np.load(p_labels["SAVED_DATA_PATH"], allow_pickle=True)
 omega = np.squeeze(data_labels['freqs'])        # Shape: (num_freqs,)
 r = np.squeeze(data_labels['r_field'])          # Shape: (n,)
 z = np.squeeze(data_labels['z_field'])          # Shape: (n,)
-wd = data_labels['wd'].transpose(0,1,2)                           # Shape: (n, n, num_freqs)
+wd = data_labels['wd']                           # Shape: (n, n, num_freqs)
 
 # Print shapes for debugging
 print('omega shape:', omega.shape)
 print('r shape:', r.shape)
 print('z shape:', z.shape)
-print('u shape:', wd.shape)
 
-wd = wd.reshape(len(r), len(z), len(omega))*(c44/(p_labels['r_source']*loadmag))
+wd = wd.reshape(len(omega), len(r), len(z))*(c44/(p_labels['r_source']*loadmag))
+print('u shape:', wd.shape)
 
 f_label_index = int(p_preds['TRAIN_PERC']*len(omega)) + f_index
 print('label index is', f_label_index)
 
+print
+
 f_label = (p_labels['r_source']*(omega[f_label_index])*np.sqrt(p_labels['dens']/c44))
-wd = wd[:,:,f_label_index]
+wd = wd[f_label_index, :, :]
 
 wd_flip = np.flip(wd[1:, :], axis=0)
 wd_full = np.concatenate((wd_flip, wd), axis=0)
@@ -81,8 +83,8 @@ r, z = (xt[:,0][:r_len]*sd_xt[0] + mu_xt[0])/p_labels['r_source'], (np.unique(xt
 
 r_full = np.concatenate((-np.flip(r[1:]), r))
 
-g_u_real_normalized = (g_u_real.reshape(len(r), len(z), - 1))*(c44/(p_labels['r_source']*loadmag))
-g_u_imag_normalized = (g_u_imag.reshape(len(r), len(z), - 1))*(c44/(p_labels['r_source']*loadmag))
+g_u_real_normalized = (g_u_real.reshape(-1, len(r), len(z)))*(c44/(p_labels['r_source']*loadmag))
+g_u_imag_normalized = (g_u_imag.reshape(-1, len(r), len(z)))*(c44/(p_labels['r_source']*loadmag))
 
 print(g_u_real_normalized.shape)
 print(f"Normalization parameters for branch: mu={mu_u}, sd={sd_u}")
@@ -94,18 +96,17 @@ print('\n')
 
 g_u_abs = np.sqrt(g_u_real_normalized**2 + g_u_imag_normalized**2)
 
+g_u_flip_abs = np.flip(g_u_abs[:, 1:, :], axis=0)
+g_u_full_abs = np.concatenate((g_u_flip_abs, g_u_abs), axis=1)
+g_u_full_abs_plot = g_u_full_abs[f_pred_index, :, :]
 
-g_u_flip_abs = np.flip(g_u_abs[1:, :, :], axis=0)
-g_u_full_abs = np.concatenate((g_u_flip_abs, g_u_abs), axis=0)
-g_u_full_abs_plot = g_u_full_abs[:, :, f_pred_index]
+g_u_flip_real = np.flip(g_u_real_normalized[:, 1:, :], axis=1)
+g_u_full_real = np.concatenate((g_u_flip_real, g_u_real_normalized), axis=1)
+g_u_full_real_plot = g_u_full_real[f_pred_index, :, :]
 
-g_u_flip_real = np.flip(g_u_real_normalized[1:, :, :], axis=0)
-g_u_full_real = np.concatenate((g_u_flip_real, g_u_real_normalized), axis=0)
-g_u_full_real_plot = g_u_full_real[:, :, f_pred_index]
-
-g_u_flip_imag = np.flip(g_u_imag_normalized[1:, :, :], axis=0)
-g_u_full_imag = np.concatenate((g_u_flip_imag, g_u_imag_normalized), axis=0)
-g_u_full_imag_plot = g_u_full_imag[:, :, f_pred_index]
+g_u_flip_imag = np.flip(g_u_imag_normalized[:, 1:, :], axis=1)
+g_u_full_imag = np.concatenate((g_u_flip_imag, g_u_imag_normalized), axis=1)
+g_u_full_imag_plot = g_u_full_imag[f_pred_index, :, :]
 
 
 print('\n')
@@ -141,28 +142,28 @@ contour_preds_abs = ax[0][0].contourf(r_full,z,g_u_full_abs_plot.T,  cmap="virid
 ax[0][0].invert_yaxis()
 ax[0][0].set_xlabel(r'$\frac{r}{a}$')
 ax[0][0].set_ylabel(r'$\frac{z}{a}$')
-ax[0][0].set_title(r'$|u_{z}|_{\mathrm{Pred}}$' + r' at $a_{0}$' + f'= {f_pred:.1e} Hz')
+ax[0][0].set_title(r'$|u_{z}|_{\mathrm{Pred}}$' + r' at $a_{0}$' + f'= {f_pred:.1e}')
 
 contour_labels_abs = ax[0][1].contourf(r_full,z,wd_plot_abs.T,  cmap="viridis", norm=norm_abs)
-ax[0][1].set_title(r'$|u_{z}|_{\mathrm{Label}}$' + r' at $a_{0}$' + f'= {f_label:.1e} Hz')
+ax[0][1].set_title(r'$|u_{z}|_{\mathrm{Label}}$' + r' at $a_{0}$' + f'= {f_label:.1e}')
 
 contour_preds_real = ax[1][0].contourf(r_full,z,g_u_full_real_plot.T,  cmap="viridis", norm=norm_real)
 ax[1][0].invert_yaxis()
 ax[1][0].set_xlabel(r'$\frac{r}{a}$')
 ax[1][0].set_ylabel(r'$\frac{z}{a}$')
-ax[1][0].set_title(r'$\Re(u_{z})_{\mathrm{Pred}}$' + r' at $a_{0}$' + f'= {f_pred:.1e} Hz')
+ax[1][0].set_title(r'$\Re(u_{z})_{\mathrm{Pred}}$' + r' at $a_{0}$' + f'= {f_pred:.1e}')
 
 contour_labels_real = ax[1][1].contourf(r_full,z,wd_plot_real.T,  cmap="viridis", norm=norm_real)
-ax[1][1].set_title(r'$\Re(u_{z})_{\mathrm{Label}}$' + r' at $a_{0}$' + f'= {f_label:.1e} Hz')
+ax[1][1].set_title(r'$\Re(u_{z})_{\mathrm{Label}}$' + r' at $a_{0}$' + f'= {f_label:.1e}')
 
 contour_preds_imag = ax[2][0].contourf(r_full,z,g_u_full_imag_plot.T,  cmap="viridis", norm=norm_imag)
 ax[2][0].invert_yaxis()
 ax[2][0].set_xlabel(r'$\frac{r}{a}$')
 ax[2][0].set_ylabel(r'$\frac{z}{a}$')
-ax[2][0].set_title(r'$\Im(u_{z})_{\mathrm{Pred}}$' + r' at $a_{0}$' + f'= {f_pred:.1e} Hz')
+ax[2][0].set_title(r'$\Im(u_{z})_{\mathrm{Pred}}$' + r' at $a_{0}$' + f'= {f_pred:.1e}')
 
 contour_labels_imag = ax[2][1].contourf(r_full,z,wd_plot_imag.T,  cmap="viridis", norm=norm_imag)
-ax[2][1].set_title(r'$\Im(u_{z})_{\mathrm{Label}}$' + r' at $a_{0}$' + f'= {f_label:.1e} Hz')
+ax[2][1].set_title(r'$\Im(u_{z})_{\mathrm{Label}}$' + r' at $a_{0}$' + f'= {f_label:.1e}')
 
 cbar_labels_abs = fig.colorbar(contour_labels_abs, label=l_abs, ax=ax[0][1], norm=norm_abs)
 cbar_preds_abs = fig.colorbar(contour_preds_abs, label=l_abs, ax=ax[0][0], norm=norm_abs)
@@ -182,4 +183,4 @@ cbar_preds_imag.ax.set_ylabel(l_imag, rotation=270, labelpad=15)
 plt.tight_layout()
 plt.show()
 
-fig.savefig(f"{p_labels['IMAGES_FOLDER']}/plot_comparison_{date}.png")
+fig.savefig(f"{p_preds['IMAGES_FOLDER']}/plot_comparison_{date}.png")
