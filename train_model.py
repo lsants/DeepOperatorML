@@ -34,8 +34,8 @@ def train_step():
     optimizer.zero_grad()
     
     out_B = branch(u_train)
-    out_B_real = out_B[:,:G_dim]
-    out_B_imag = out_B[:,G_dim:]
+    out_B_real = out_B[:, :G_dim]
+    out_B_imag = out_B[:, G_dim:]
     out_T = trunk(xt)   
     g_u_pred_real = torch.matmul(out_B_real, torch.transpose(out_T, 0, 1))
     g_u_pred_imag = torch.matmul(out_B_imag, torch.transpose(out_T, 0, 1))
@@ -83,6 +83,8 @@ g_u = wd.reshape(len(u),-1)
 
 processed_data = preprocessing(u, g_u, train_perc=p["TRAIN_PERC"])
 
+print(u)
+
 u_train, g_u_real_train, g_u_imag_train, u_test, g_u_real_test, g_u_imag_test = \
     processed_data['u_train'], \
     processed_data['g_u_real_train'],\
@@ -119,8 +121,8 @@ u_dim = p["BRANCH_INPUT_SIZE"]
 G_dim = p["BASIS_FUNCTIONS"]
 x_dim = p["TRUNK_INPUT_SIZE"]
 
-layers_B = [u_dim] + [100] * 5 + [G_dim*2]
-layers_T = [x_dim] + [100] * 5 + [G_dim]
+layers_B = [u_dim] + [100] * 4 + [G_dim*2]
+layers_T = [x_dim] + [100] * 4 + [G_dim]
 
 branch = MLP(layers=layers_B, activation=nn.ReLU()).to(device, dtype=precision)
 trunk = MLP(layers=layers_T, activation=nn.ReLU()).to(device, dtype=precision)
@@ -170,19 +172,30 @@ for epoch in range(num_epochs):
 t1 = time.time()
 print(f"Training completed in {t1 - t0:.2f} seconds")
 
-# ---------- Plots ----------------
-x = range(num_epochs)
-
-# plot_training(x, train_loss_list, train_err_real_list, train_err_imag_list, test_err_real_list, test_err_imag_list)
+print(f"L2 Error on test set for final epoch:") 
+print(f"{test_err_real_list[-1]:.2%} for real part")
+print(f"{test_err_imag_list[-1]:.2%} for imaginary part")
 
 # ----------- Save output ------------
+filename = p["PREDS_DATA_FILE"]
+if p['DEBUG']:
+    filename = filename[:-4] + "_" + date + '.npz'
 
-
-filename = p["TEST_PREDS_DATA_FILE"]
+model_folder = p["MODEL_FOLDER"]
 try:
     directory = os.path.dirname(filename)
     os.makedirs(directory, exist_ok=True)
 except FileExistsError as e:
     print('Rewriting previous data file...')
 
+torch.save(branch.state_dict(), model_folder + f"branch_{date}.pth")
+torch.save(trunk.state_dict(), model_folder + f"trunk_{date}.pth")
+
+print("Saving preds:")
 np.savez(filename, u=u_test, xt=xt, real=g_u_pred_real_test, imag=g_u_pred_imag_test, mu_u=mu_u, sd_u=sd_u, mu_xt=mu_xt, sd_xt=sd_xt)
+
+# ---------- Plots ----------------
+x = range(num_epochs)
+
+
+plot_training(x, train_loss_list, train_err_real_list, train_err_imag_list, test_err_real_list, test_err_imag_list)
