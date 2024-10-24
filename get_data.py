@@ -1,6 +1,7 @@
 import os
 import yaml
 import numpy as np
+import matplotlib.pyplot as plt
 from tqdm.auto import tqdm
 from data_generation.influence import influence
 from modules.plotting import plot_label_contours, plot_label_axis
@@ -11,10 +12,12 @@ with open('data_generation_params.yaml') as file:
 
 filename = p['SAVED_DATA_PATH']
 seed = p['seed']
+non_dim = p['non_dim']
 np.random.seed(seed)
 
 print(filename)
 
+# ------- Material --------
 n = p['n_r']
 m = p['n_z']
 Es = eval(p['E'])
@@ -27,61 +30,66 @@ c33 = e1*(1-vs)
 c44 = e1*(1-2*vs)/2
 damp = p['damp']
 dens =  p['dens']
+
+# ----------- Load ------------
+z_source = p['z_source']
+r_source = p['r_source']
+l_source = p['l_source']
 loadmag = p['load']
 num_freqs = p['n_freq']
 f_min, f_max = p['freq_min'], p['freq_max']
 if isinstance(f_min, str) or isinstance(f_max, str):
     f_min, f_max = eval(f_min), eval(f_max)
-freqs  =  f_min + np.random.rand(num_freqs, ) * (f_max - f_min)
-r_max = p['r_max']
-z_max = p['z_max']
-z_source = p['z_source']
-r_source = p['r_source']
-l_source = p['l_source']
+freqs  =  f_min + np.random.rand(num_freqs) * (f_max - f_min)
+q0 = loadmag / (np.pi*r_source**2)
+scaling_factor = (r_source/c44)
+
+# ----------- Problem -----------
 bvptype = p['bvptype']
 loadtype = p['loadtype']
 component = p['component']
+
+# ------------ Mesh --------------
+r_max = p['r_max']
+z_max = p['z_max']
 r_min = eval(p['r_min'])*r_source
 z_min = p['z_min']
-load_pressure = loadmag/(np.pi*r_source**2)
-
-# Defining mesh
 r_field = np.linspace(r_min, r_max, n)
 z_field = np.linspace(z_min, z_max, m)
+
 wd = np.zeros((num_freqs, n, m), dtype=complex)
-wd_normalized = wd
 
-'''Normalization (we normalize the material constants, frequency, load radius and mesh
-in order to compare results with Rajapakse & Wang (1993)):
-'''
-c11_normalized = c11/c44
-c12_normalized = c12/c44
-c13_normalized = c13/c44
-c33_normalized = c33/c44
-c44_normalized = c44/c44
-dens_normalized = dens/dens
-freqs_normalized = freqs*r_source*np.sqrt(dens/c44)
-r_source_normalized = r_source/r_source
-z_source_normalized = z_source/r_source
-r,z = r_field, z_field
-r_normalized = r_field / r_source
-z_normalized = z_field / r_source
+# Modify if computing dimensionless displacement
+if non_dim:
+    scaling_factor = 1
 
-scaling_factor = (load_pressure*r_source)/c44
+freqs_norm = freqs*r_source*np.sqrt(dens/c44)
+c11 = c11/c44
+c12 = c12/c44
+c13 = c13/c44
+c33 = c33/c44
+c44 = c44/c44
+dens = dens/dens
+r_source = r_source / p['r_source']
+z_source = z_source / p['r_source']
+r_field_norm = r_field / p['r_source']
+z_field_norm = z_field / p['r_source']
+
+print('load', q0)
+print('scaler', scaling_factor)
 
 ## -------------- Calling function ----------------
-for i in tqdm(range(len(freqs_normalized)), colour='Green'):
-    for j in range(len(r_normalized)):
-        for k in range(len(z_normalized)):
-            wd_normalized[i, j, k] = influence(
-                            c11_normalized, c12_normalized, c13_normalized, c33_normalized, c44_normalized,
-                            dens_normalized, damp,
-                            r_normalized[j], z_normalized[k],
-                            z_source_normalized, r_source_normalized, l_source,
-                            freqs_normalized[i],
+for i in tqdm(range(len(freqs_norm)), colour='Green'):
+    for j in range(len(r_field_norm)):
+        for k in range(len(z_field_norm)):
+            wd[i, j, k] = scaling_factor * q0 * influence(
+                            c11, c12, c13, c33, c44,
+                            dens, damp,
+                            r_field_norm[j], z_field_norm[k],
+                            z_source, r_source, l_source,
+                            freqs_norm[i],
                             bvptype, loadtype, component
                         )
-wd = wd_normalized * scaling_factor
 
 try:
     directory = os.path.dirname(filename)
@@ -89,13 +97,10 @@ try:
 except FileExistsError as e:
     print('Rewriting previous data file...')
 
-# np.savez(filename, freqs=freqs, r_field=r_field, z_field=z_field, wd=wd)
+R, Z = r_field, z_field
 
-## ----------- Plot -------------
-R, Z = r_normalized, z_normalized
-f_index = 0
+if non_dim:
+    R, Z = R / p['r_source'], Z / p['r_source']
+    freqs = freqs_norm
 
-wd_plot = wd_normalized[f_index]
-
-fig = plot_label_contours(R,Z,wd_plot, freqs_normalized[f_index], full=True)
-# plot_label_axis(R, Z, wd_plot, freqs_normalized[f_index], axis=p['axis_plot'])
+np.savez(filename, freqs=freqs, r_field=R, z_field=Z, wd=wd)
