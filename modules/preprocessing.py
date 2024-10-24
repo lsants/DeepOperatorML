@@ -72,3 +72,6 @@ def extract_real_imag_parts(arr: np.ndarray[np.complex128]):
     real_part = arr.real
     imaginary_part = arr.imag
     return real_part, imaginary_part
+
+def get_setup_load_pressure(load, r_source):
+    return load/(np.pi*r_source**2)
