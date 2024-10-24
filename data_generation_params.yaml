@@ -14,8 +14,8 @@ z_max: 10               # Max. z coordinate sampled [m]
 axis_plot: 'r'
 
 n_freq : 4              # Number of frequency samples
-freq_min: 7250            # Min. sampled frequency [Rad/s]
-freq_max: 7480           # Max. sampled frequency [Rad/s]
+freq_min: 2250            # Min. sampled frequency [Rad/s]
+freq_max: 2480           # Max. sampled frequency [Rad/s]
 
 E: 25E+09              # Young Modulus [Pa]
 poisson: 2.42277267E-01         # Poisson's ratio
