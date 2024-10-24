@@ -1,25 +1,27 @@
-SAVED_DATA_PATH: ./data/raw/data_damped.npz
+SAVED_DATA_PATH: ./data/raw/aaa.npz
 
 seed: 42
 
+non_dim: false
+
 n_r: 40                 # Mesh points for r coordinate
 n_z: 40                 # Mesh points for z coordinate
-r_min: 1e-2               # Max. r coordinate sampled [m]
-r_max: 70               # Max. r coordinate sampled [m]
-z_min: 0               # Max. z coordinate sampled   [m]
-z_max: 70               # Max. z coordinate sampled [m]
+r_min: 0.01               # Min r coordinate sampled [m]
+z_min: 0               # Min. z coordinate sampled   [m]
+r_max: 10               # Max. r coordinate sampled [m]
+z_max: 10               # Max. z coordinate sampled [m]
 
-axis_plot: 'z'
+axis_plot: 'r'
 
-n_freq : 50              # Number of frequency samples
-freq_min: 1            # Min. sampled frequency [Rad/s]
-freq_max: 400           # Max. sampled frequency [Rad/s]
+n_freq : 4              # Number of frequency samples
+freq_min: 7250            # Min. sampled frequency [Rad/s]
+freq_max: 7480           # Max. sampled frequency [Rad/s]
 
-E: 25E+9              # Young Modulus [Pa]
-poisson: 0.25         # Poisson's ratio
+E: 25E+09              # Young Modulus [Pa]
+poisson: 2.42277267E-01         # Poisson's ratio
 damp: 0.01             # Damping factor
 dens: 1.73511990E+03    # Density [Kg.m-3]
-load: 6006663.0          # Load magnitude [N]
+load: 100.0          # Load magnitude [N]
 
 component: 1            # uzz : 1
                         # urz : 2
@@ -46,4 +48,4 @@ bvptype: 2              # loadinfullspace : 1
 
 z_source: 0             # Position of source load in z axis [m]
 l_source: 0             # Dimension of source load in z axis [m]
-r_source: 12.5             # Dimension of source load in r axis [m]
+r_source: 2             # Dimension of source load in r axis [m]
