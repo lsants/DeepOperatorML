@@ -39,9 +39,6 @@ f_label = omega[f_label_index]
 
 r, z = r_label, z_label
 
-if p_labels['non_dim']:
-    r, z = r * p_labels['r_source'], z * p_labels['r_source']
-
 freq = f_label
 
 wd_plot = wd[f_label_index]

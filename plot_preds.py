@@ -45,9 +45,6 @@ g_u = g_u.reshape(-1, len(r_pred), len(z_pred))
 
 r, z = r_pred, z_pred
 
-if p_labels['non_dim']:
-    r, z = r_pred / p_labels['r_source'], z_pred / p_labels['r_source']
-
 freq = f_pred
 g_u_plot = g_u[f_pred_index]
 
