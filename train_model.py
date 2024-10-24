@@ -10,7 +10,6 @@ from modules.preprocessing import preprocessing
 from modules.plotting import plot_training
 
 class MLP(nn.Module):
-
     def __init__(self, layers, activation):
         super(MLP, self).__init__()
         self.linears = nn.ModuleList()
@@ -69,12 +68,12 @@ device = torch.device(p["DEVICE"])
 print("Using device:", device)
 
 # -------------- Data processing -------------------
-# data = sio.loadmat(p["DATAFILE"])
 data = np.load(p['DATAFILE'])
+print(p['DATAFILE'])
 omega = np.squeeze(data['freqs'])        # Shape: (num_freqs,)
 r = np.squeeze(data['r_field'])          # Shape: (n,)
 z = np.squeeze(data['z_field'])          # Shape: (n,)
-wd = data['wd'].transpose(2,0,1)                           # Shape: (freqs, r, z)
+wd = data['wd']                          # Shape: (freqs, r, z)
 
 u = omega.reshape(-1,1)
 R,Z = np.meshgrid(r,z)
@@ -101,7 +100,7 @@ sd_xt = np.std(xt, axis=0)
 u_train = (u_train - mu_u) / sd_u
 u_test = (u_test - mu_u) / sd_u
 
-xt = (xt - mu_xt)/sd_xt
+# xt = (xt - mu_xt)/sd_xt
 
 print(f"Branch normalization: mu={mu_u.item():.2f}, sd={sd_u.item():.2f}")
 print(f"Branch train/test shapes: {u_train.shape}, {u_test.shape}")
@@ -121,13 +120,13 @@ u_dim = p["BRANCH_INPUT_SIZE"]
 G_dim = p["BASIS_FUNCTIONS"]
 x_dim = p["TRUNK_INPUT_SIZE"]
 
-layers_B = [u_dim] + [100] * 4 + [G_dim*2]
-layers_T = [x_dim] + [100] * 4 + [G_dim]
+layers_B = [u_dim] + [100] * 3 + [G_dim*2]
+layers_T = [x_dim] + [100] * 3 + [G_dim]
 
 branch = MLP(layers=layers_B, activation=nn.ReLU()).to(device, dtype=precision)
 trunk = MLP(layers=layers_T, activation=nn.ReLU()).to(device, dtype=precision)
 
-optimizer = torch.optim.Adam(list(branch.parameters()) + list(trunk.parameters()), lr=p["LEARNING_RATE"])
+optimizer = torch.optim.Adam(list(branch.parameters()) + list(trunk.parameters()), lr=p["LEARNING_RATE"], weight_decay=1e-5)
 
 num_epochs = p['N_EPOCHS']
 niter_per_epoch = p['ITERATIONS_PER_EPOCHS']  
