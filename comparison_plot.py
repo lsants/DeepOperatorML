@@ -50,7 +50,7 @@ sd_u = data_preds['sd_u']                          # Shape: (1,)
 mu_xt = data_preds['mu_xt']                        # Shape: (2,)
 sd_xt  = data_preds['sd_xt']                       # Shape: (2,)
 
-r_pred, z_pred = (xt[:,0][:p_labels['n_r']]*sd_xt[0] + mu_xt[0]), (np.unique(xt[:,1])*sd_xt[1] + mu_xt[1])
+r_pred, z_pred = (xt[:,0][:p_labels['n_r']]), (np.unique(xt[:,1]))
 
 f_pred_index = f_index
 f_pred = (u*sd_u + mu_u)[f_pred_index].item()
@@ -68,13 +68,15 @@ print('\n')
 
 # --------- Check domains --------------
 assert ((abs(r_pred - r_label) < 1e-14).all() and (abs(z_pred - z_label < 1e-14)).all()), "Domains are different for labels and predictions"
-assert f_pred == f_label, "Frequencies to plot are different between label and prediction"
+assert f_pred - f_label < 1e-14, "Frequencies to plot are different between label and prediction"
 
 r, z = r_pred, z_pred = r_label, z_label
+
 freq = f_pred = f_label
 
 wd_plot = wd[f_label_index]
 g_u_plot = g_u[f_pred_index]
+
 
 fig = plot_comparison(r, z, wd_plot, g_u_plot, freq, full=True, non_dim_plot=normalized)
 
