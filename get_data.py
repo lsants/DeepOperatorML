@@ -42,7 +42,9 @@ if isinstance(f_min, str) or isinstance(f_max, str):
     f_min, f_max = eval(f_min), eval(f_max)
 freqs  =  f_min + np.random.rand(num_freqs) * (f_max - f_min)
 q0 = loadmag / (np.pi*r_source**2)
-scaling_factor = (r_source/c44)
+scaling_factor = (q0 * r_source/c44)
+
+print(f"Load of {q0} Pa")
 
 # ----------- Problem -----------
 bvptype = p['bvptype']
@@ -52,7 +54,7 @@ component = p['component']
 # ------------ Mesh --------------
 r_max = p['r_max']
 z_max = p['z_max']
-r_min = eval(p['r_min'])*r_source
+r_min = p['r_min']*r_source
 z_min = p['z_min']
 r_field = np.linspace(r_min, r_max, n)
 z_field = np.linspace(z_min, z_max, m)
@@ -61,7 +63,7 @@ wd = np.zeros((num_freqs, n, m), dtype=complex)
 
 # Modify if computing dimensionless displacement
 if non_dim:
-    scaling_factor = 1
+    scaling_factor = q0
 
 freqs_norm = freqs*r_source*np.sqrt(dens/c44)
 c11 = c11/c44
@@ -75,14 +77,11 @@ z_source = z_source / p['r_source']
 r_field_norm = r_field / p['r_source']
 z_field_norm = z_field / p['r_source']
 
-print('load', q0)
-print('scaler', scaling_factor)
-
 ## -------------- Calling function ----------------
 for i in tqdm(range(len(freqs_norm)), colour='Green'):
     for j in range(len(r_field_norm)):
         for k in range(len(z_field_norm)):
-            wd[i, j, k] = scaling_factor * q0 * influence(
+            wd[i, j, k] =  scaling_factor * influence(
                             c11, c12, c13, c33, c44,
                             dens, damp,
                             r_field_norm[j], z_field_norm[k],
