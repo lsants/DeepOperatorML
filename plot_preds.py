@@ -33,7 +33,7 @@ sd_u = data_preds['sd_u']                          # Shape: (1,)
 mu_xt = data_preds['mu_xt']                        # Shape: (2,)
 sd_xt  = data_preds['sd_xt']                       # Shape: (2,)
 
-r_pred, z_pred = (xt[:,0][:p_labels['n_r']]*sd_xt[0] + mu_xt[0]), (np.unique(xt[:,1])*sd_xt[1] + mu_xt[1])
+r_pred, z_pred = (xt[:,0][:p_labels['n_r']]), (np.unique(xt[:,1]))
 
 f_pred_index = f_index
 
@@ -43,12 +43,13 @@ f_pred = real_u[f_pred_index].item()
 g_u = g_u_real + g_u_imag*1j
 g_u = g_u.reshape(-1, len(r_pred), len(z_pred))
 
-r, z = r_pred, z_pred 
+r, z = r_pred, z_pred
+
+if p_labels['non_dim']:
+    r, z = r_pred / p_labels['r_source'], z_pred / p_labels['r_source']
+
 freq = f_pred
 g_u_plot = g_u[f_pred_index]
-
-print(freq)
-
 
 fig = plot_label_contours(r, z, g_u_plot, freq, full=True, non_dim_plot=p_labels['non_dim'])
 plt.show()
