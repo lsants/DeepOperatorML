@@ -1,51 +1,48 @@
-SAVED_DATA_PATH: ./data/raw/aaa.npz
+DATA_FILENAME: ./data/raw/oop_data.npz
 
-seed: 42
+SEED: 42
 
-non_dim: false
+N_R: 10                   # Mesh points for r coordinate
+N_Z: 15                   # Mesh points for z coordinate
+R_MIN: 0               # Min r coordinate sampled [m]
+Z_MIN: 0                  # Min. z coordinate sampled   [m]
+R_MAX: 10                 # Max. r coordinate sampled [m]
+Z_MAX: 10                 # Max. z coordinate sampled [m]
 
-n_r: 40                 # Mesh points for r coordinate
-n_z: 40                 # Mesh points for z coordinate
-r_min: 0.01               # Min r coordinate sampled [m]
-z_min: 0               # Min. z coordinate sampled   [m]
-r_max: 10               # Max. r coordinate sampled [m]
-z_max: 10               # Max. z coordinate sampled [m]
+N : 4              # Number of samples
 
-axis_plot: 'r'
-
-n_freq : 4              # Number of frequency samples
-freq_min: 2250            # Min. sampled frequency [Rad/s]
-freq_max: 2480           # Max. sampled frequency [Rad/s]
+OMEGA_MIN: 0            # Min. sampled frequency [Rad/s]
+OMEGA_MAX: 7480           # Max. sampled frequency [Rad/s]
+LOAD: 6006663.0           # Load magnitude [N]
+Z_SOURCE: 0             # Position of source load in z axis [m]
+L_SOURCE: 0             # Dimension of source load in z axis [m]
+R_SOURCE: 2             # Dimension of source load in r axis [m]
 
 E: 25E+09              # Young Modulus [Pa]
-poisson: 2.42277267E-01         # Poisson's ratio
-damp: 0.01             # Damping factor
-dens: 1.73511990E+03    # Density [Kg.m-3]
-load: 100.0          # Load magnitude [N]
+NU: 2.42277267E-01         # Poisson's ratio
+DAMP: 0.01             # Damping factor
+DENS: 1.73511990E+03    # Density [Kg.m-3]
 
-component: 1            # uzz : 1
-                        # urz : 2
+
+COMPONENT: 1            # uzz :  1
+                        # urz :  2
                         # szzz : 3
                         # srzz : 4
                         # srrz : 5
-                        # uzr : 6
-                        # urr : 7
+                        # uzr :  6
+                        # urr :  7
                         # szzr : 8
                         # srzr : 9
                         # srrr : 10
 
-loadtype: 3             # pointload 1
-                        # ringload 2
-                        # diskload 3
+LOADTYPE: 3             # pointload    1
+                        # ringload     2
+                        # diskload     3
                         # cylinderload 4
-                        # anularload 5
+                        # anularload   5
 
-bvptype: 2              # loadinfullspace : 1
+BVPTYPE: 2              # loadinfullspace :   1
                         # loadoverhalfspace : 2
-                        # loadinhalfspace : 3
-                        # cylinderload : 4
-                        # anularload : 5
-
-z_source: 0             # Position of source load in z axis [m]
-l_source: 0             # Dimension of source load in z axis [m]
-r_source: 2             # Dimension of source load in r axis [m]
+                        # loadinhalfspace :   3
+                        # cylinderload :      4
+                        # anularload :        5
