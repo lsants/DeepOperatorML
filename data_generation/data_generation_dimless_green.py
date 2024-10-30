@@ -14,7 +14,7 @@ class DimensionlessInfluenceFunction(Datagen):
         N, _, _ = self.data_size
         omega_max, omega_min, _, _, _, r_source = self.load_params
         Es, vs, _, dens = self.material_params
-        e1 = Es / ((1 + vs) * (1 - 2*vs))
+        e1 = Es / (1 + vs)/ (1 - 2*vs)
         c44 = e1*(1-2*vs)/2
         omega = omega_min + np.random.rand(N)*(omega_max - omega_min)
         delta = omega*r_source*np.sqrt(dens/c44)
@@ -25,28 +25,28 @@ class DimensionlessInfluenceFunction(Datagen):
         _, _, _, _, _, r_source = self.load_params
         r_min, r_max, z_min, z_max = self.mesh_params
         modified_r_min = r_min + (r_source*1e-2) # To avoid computing at line r=0
-        r_field = np.linspace(modified_r_min, r_max, n_r) / r_source
+        r_field = np.linspace(0, r_max, n_r) / r_source
         z_field = np.linspace(z_min, z_max, n_z) / r_source
         points = r_field, z_field
         return points
     
     def _influencefunc(self, freqs, r_field, z_field):
         # ---------- Get parameters ------------
-        _, n_r, n_z = self.data_size
+        N, n_r, n_z = self.data_size
         Es, vs, damp, dens = self.material_params
         _, _, _, z_source, l_source, r_source = self.load_params
-        bvptype, loadtype, component = self.problem_setup
+        component, loadtype, bvptype = self.problem_setup
 
         # ------------ Material ------------
-        e1 = Es / ((1 + vs)*(1 - 2*vs))
+        e1 = Es/(1 + vs)/(1 - 2*vs)
         c11 = e1*(1 - vs)
         c12 = e1*vs
         c13 = e1*vs
         c33 = e1*(1 - vs)
-        c44 = e1*((1 - 2*vs)*2)
+        c44 = e1*(1 - 2*vs)/2
         
         # ---------- Displacement matrix ------------
-        num_freqs = len(freqs)
+        num_freqs = N
         wd = np.zeros((num_freqs, n_r, n_z), dtype=complex)
 
         # ------- Setting non-dimensional material constants ----------
@@ -56,12 +56,12 @@ class DimensionlessInfluenceFunction(Datagen):
         c33 = c33 / c44
         c44 = c44 / c44
         dens = dens / dens
-        r_source = r_source / r_source
         z_source = z_source / r_source
+        r_source = r_source / r_source
 
         ## -------------- Computing displacement ----------------
         start = time.perf_counter_ns()
-        for i in tqdm(range(num_freqs), colour='Green'):
+        for i in tqdm(range(N), colour='Green'):
             for j in range(n_r):
                 for k in range(n_z):
                     wd[i, j, k] = influence(
