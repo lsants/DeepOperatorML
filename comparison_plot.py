@@ -2,7 +2,7 @@ import yaml
 import numpy as np
 import matplotlib.pyplot as plt
 from datetime import datetime
-from modules.plotting import plot_comparison
+from modules.plotting import plot_field_comparison, plot_axis_comparison
 
 f_index = 0
 
@@ -14,20 +14,19 @@ with open('params_model.yaml') as file:
 with open('data_generation_params.yaml') as file:
     p_labels = yaml.safe_load(file)
 
-normalized = p_labels['non_dim']
-
 preds_datafile = p_preds["PREDS_DATA_FILE"]
 
 if p_preds['DEBUG']:
     preds_datafile = preds_datafile[:-4] + "_" + date + '.npz'
 
 # ----------------Get Labels -----------------
-data_labels = np.load(p_labels["SAVED_DATA_PATH"], allow_pickle=True)
+data_labels = np.load(p_labels["DATA_FILENAME"], allow_pickle=True)
+print(f"Plotting labels from {p_labels['DATA_FILENAME']}")
 
-omega = data_labels['freqs']                # Shape: (num_freqs,)
-r_label = data_labels['r_field']            # Shape: (n,)
-z_label = data_labels['z_field']            # Shape: (m,)
-wd = data_labels['wd']                      # Shape: (num_freqs, n, m)
+omega = data_labels['xb']                # Shape: (num_freqs,)
+r_label = data_labels['r']            # Shape: (n,)
+z_label = data_labels['z']            # Shape: (m,)
+wd = data_labels['g_u']                      # Shape: (num_freqs, n, m)
 
 f_label_index = int(p_preds['TRAIN_PERC']*len(omega)) + f_index
 f_label = omega[f_label_index]
@@ -40,6 +39,7 @@ print("-----------------------")
 
 # -------------- Get Preds -------------------
 data_preds = np.load(preds_datafile, allow_pickle=True)
+print(f"Plotting predictions from {preds_datafile}")
 
 u = data_preds["u"].flatten()                                # Shape: (test_size, 1)
 xt = data_preds["xt"]                              # Shape: (n*m, 2)
@@ -50,7 +50,7 @@ sd_u = data_preds['sd_u']                          # Shape: (1,)
 mu_xt = data_preds['mu_xt']                        # Shape: (2,)
 sd_xt  = data_preds['sd_xt']                       # Shape: (2,)
 
-r_pred, z_pred = (xt[:,0][:p_labels['n_r']]), (np.unique(xt[:,1]))
+r_pred, z_pred = (xt[:,0][:p_labels['N_R']]), (np.unique(xt[:,1]))
 
 f_pred_index = f_index
 f_pred = (u*sd_u + mu_u)[f_pred_index].item()
@@ -78,9 +78,14 @@ wd_plot = wd[f_label_index]
 g_u_plot = g_u[f_pred_index]
 
 
-fig = plot_comparison(r, z, wd_plot, g_u_plot, freq, full=True, non_dim_plot=normalized)
+print(f"Shapes of plotted variables:\n Labels={wd_plot.shape}\n Preds={g_u_plot.shape}")
 
-plt.tight_layout()
+fig = plot_field_comparison(r, z, wd_plot, g_u_plot, freq)
 plt.show()
 
-fig.savefig(f"{p_preds['IMAGES_FOLDER']}/plot_comparison_{date}.png")
+fig.savefig(f"{p_preds['IMAGES_FOLDER']}/plot_field_comparison_{date}.png")
+
+fig = plot_axis_comparison(r, z, wd_plot, g_u_plot, freq)
+plt.show()
+
+fig.savefig(f"{p_preds['IMAGES_FOLDER']}/plot_axis_comparison_{date}.png")

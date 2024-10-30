@@ -14,8 +14,6 @@ with open('params_model.yaml') as file:
 with open('data_generation_params.yaml') as file:
     p_labels = yaml.safe_load(file)
 
-normalized = p_labels['non_dim']
-
 preds_datafile = p_preds["PREDS_DATA_FILE"]
 
 if p_preds['DEBUG']:
@@ -23,6 +21,8 @@ if p_preds['DEBUG']:
 
 # ----------------Get Preds -----------------
 data_preds = np.load(preds_datafile, allow_pickle=True)
+
+print(f"Plotting from: {preds_datafile}")
 
 u = data_preds["u"].flatten()                                # Shape: (test_size, 1)
 xt = data_preds["xt"]                              # Shape: (n*m, 2)
@@ -33,7 +33,7 @@ sd_u = data_preds['sd_u']                          # Shape: (1,)
 mu_xt = data_preds['mu_xt']                        # Shape: (2,)
 sd_xt  = data_preds['sd_xt']                       # Shape: (2,)
 
-r_pred, z_pred = (xt[:,0][:p_labels['n_r']]), (np.unique(xt[:,1]))
+r_pred, z_pred = (xt[:,0][:p_labels['N_R']]), (np.unique(xt[:,1]))
 
 f_pred_index = f_index
 
@@ -48,9 +48,9 @@ r, z = r_pred, z_pred
 freq = f_pred
 g_u_plot = g_u[f_pred_index]
 
-fig = plot_label_contours(r, z, g_u_plot, freq, full=True, non_dim_plot=p_labels['non_dim'])
+fig = plot_label_contours(r, z, g_u_plot, freq, full=True)
 plt.show()
 
-fig = plot_label_axis(r, z, g_u_plot, freq, axis=p_labels['axis_plot'], non_dim_plot=p_labels['non_dim'])
+fig = plot_label_axis(r, z, g_u_plot, freq)
 
 plt.show()
