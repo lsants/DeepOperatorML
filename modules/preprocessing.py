@@ -1,77 +1,58 @@
+import torch
 import numpy as np
 
-def preprocessing(u, g_u, train_perc=0.8,
-                  train_idx=None, val_idx=None, test_idx=None):
+class ToTensor:
+    def __init__(self, dtype):
+        self.dtype = dtype
+
+    def __call__(self, sample):
+        tensor = torch.tensor(sample, dtype=self.dtype)
+        return tensor
     
-    if (train_idx is not None) and (test_idx is not None):
-        u_train, g_u_train = u[train_idx[0]:train_idx[1]], g_u[train_idx[0]:train_idx[1]]
-        u_val, g_u_val = u[val_idx[0]:val_idx[1]], g_u[val_idx[0]:val_idx[1]]
-        u_train, g_u_train = np.concatenate([u_train, u_val], axis=0), np.concatenate([g_u_train, g_u_val], axis=0)
-        u_test, g_u_test = u[test_idx[0]:test_idx[1]], g_u[test_idx[0]:test_idx[1]]
-    else:        
-        u_train, g_u_train, u_test, g_u_test, = train_test_split(u=u,
-                                                                g_u=g_u,
-                                                                train_perc=train_perc)
-    g_u_real_train, g_u_imag_train = extract_real_imag_parts(g_u_train)
-    g_u_real_test, g_u_imag_test = extract_real_imag_parts(g_u_test)
+class Normalize:
+    def __init__(self, mu, std):
+        self.mu = mu
+        self.std = std
 
-    return dict({
-    'u_train': u_train,
-    'u_test': u_test,
-    'g_u_real_train': g_u_real_train,
-    'g_u_real_test': g_u_real_test,
-    'g_u_imag_train': g_u_imag_train,
-    'g_u_imag_test': g_u_imag_test,
-    })
+    def __call__(self, tensor):
+        tensor = (tensor - self.mu) / self.std
 
-def train_test_split(u, g_u, xt=None, train_perc=0.8):
-    """
-    Splits u, xt and g_u into training set.
+class Denormalize:
+    def __init__(self, mu, std):
+        self.mu = mu
+        self.std = std
 
-    Params:
-        @ batch_xt: trunk in batches
+    def __call__(self, tensor):
+        tensor = (tensor * self.std) + self.mu
 
-    if batch_xt:
-        @ u.shape = [bs, x_len]
-        @ xt.shape = [bs, x_len*t_len, 3]
-        @ g_u.shape = [bs, x_len*t_len] 
-    else:
-        @ u.shape = [bs, x_len]
-        @ xt.shape = [x_len*t_len, 2]
-        @ g_u.shape = [bs, x_len*t_len] 
-    """
-    
-    def _split(f, train_size):
-        """
-        Splits f into train and test sets.
-        """
-        if isinstance(f, (list, tuple)):
-            train, test = list(), list()
-            for i, f_i in enumerate(f):
-                train.append(f_i[:train_size])
-                test.append(f_i[train_size:])
-                assert(train[i].shape[-1]==test[i].shape[-1])
-        else:            
-            train, test = f[:train_size], f[train_size:]
-            assert(train.shape[-1]==test.shape[-1])
+def get_branch_normalization_params(loader):
+    samples_sum = torch.zeros(1)
+    samples_square_sum = torch.zeros(1)
+    samples_min = torch.tensor([float('inf')])
+    samples_max = torch.zeros(1)
 
-        return train, test
+    for sample in loader:
+        xb = sample['xb']
+        samples_sum += xb
+        samples_square_sum += xb.pow(2)
+        samples_min = min(xb, samples_min)
+        samples_max = max(xb, samples_max)
 
-    if train_perc > 0.0:
-        train_size = int(np.floor(int(u.shape[0])*train_perc))
+    samples_mean = samples_sum / len(loader)
+    samples_std = (samples_square_sum / len(loader) - samples_mean.pow(2)).sqrt()
 
-        u_train, u_test = _split(u, train_size)
-        g_u_train, g_u_test = _split(g_u, train_size)
+    gaussian_params = {'mean':samples_mean.tolist(), 'std':samples_std.tolist()}
+    min_max_params = {'min':samples_min.tolist(), 'max':samples_max.tolist()}
 
-        return u_train, g_u_train, u_test, g_u_test
-    
-    else:
-        return None, None, u, g_u, xt, xt
-    
-def extract_real_imag_parts(arr: np.ndarray[np.complex128]):
-    real_part = arr.real
-    imaginary_part = arr.imag
-    return real_part, imaginary_part
+    return gaussian_params, min_max_params
 
-def get_setup_load_pressure(load, r_source):
-    return load/(np.pi*r_source**2)
+def trunk_to_meshgrid(arr):
+    z = np.unique(arr[ : , 1])
+    n_r = len(arr) / len(z)
+    r = arr[ : , 0 ][ : int(n_r)]
+    return r, z
+
+def meshgrid_to_trunk(r_values, z_values):
+    R_mesh, Z_mesh = np.meshgrid(r_values, z_values)
+    xt = np.column_stack((R_mesh.flatten(), Z_mesh.flatten()))
+    return xt
