@@ -1,77 +1,87 @@
+import torch
 import numpy as np
 
-def preprocessing(u, g_u, train_perc=0.8,
-                  train_idx=None, val_idx=None, test_idx=None):
+class ToTensor:
+    def __init__(self, dtype, device):
+        self.dtype = dtype
+        self.device = device
+
+    def __call__(self, sample):
+        tensor = torch.tensor(sample, dtype=self.dtype, device=self.device)
+        return tensor
     
-    if (train_idx is not None) and (test_idx is not None):
-        u_train, g_u_train = u[train_idx[0]:train_idx[1]], g_u[train_idx[0]:train_idx[1]]
-        u_val, g_u_val = u[val_idx[0]:val_idx[1]], g_u[val_idx[0]:val_idx[1]]
-        u_train, g_u_train = np.concatenate([u_train, u_val], axis=0), np.concatenate([g_u_train, g_u_val], axis=0)
-        u_test, g_u_test = u[test_idx[0]:test_idx[1]], g_u[test_idx[0]:test_idx[1]]
-    else:        
-        u_train, g_u_train, u_test, g_u_test, = train_test_split(u=u,
-                                                                g_u=g_u,
-                                                                train_perc=train_perc)
-    g_u_real_train, g_u_imag_train = extract_real_imag_parts(g_u_train)
-    g_u_real_test, g_u_imag_test = extract_real_imag_parts(g_u_test)
+class Standardize:
+    def __init__(self, mu, std):
+        self.mu = mu
+        self.std = std
 
-    return dict({
-    'u_train': u_train,
-    'u_test': u_test,
-    'g_u_real_train': g_u_real_train,
-    'g_u_real_test': g_u_real_test,
-    'g_u_imag_train': g_u_imag_train,
-    'g_u_imag_test': g_u_imag_test,
-    })
-
-def train_test_split(u, g_u, xt=None, train_perc=0.8):
-    """
-    Splits u, xt and g_u into training set.
-
-    Params:
-        @ batch_xt: trunk in batches
-
-    if batch_xt:
-        @ u.shape = [bs, x_len]
-        @ xt.shape = [bs, x_len*t_len, 3]
-        @ g_u.shape = [bs, x_len*t_len] 
-    else:
-        @ u.shape = [bs, x_len]
-        @ xt.shape = [x_len*t_len, 2]
-        @ g_u.shape = [bs, x_len*t_len] 
-    """
+    def __call__(self, vals):
+        vals = (vals - self.mu) / self.std
+        return vals
     
-    def _split(f, train_size):
-        """
-        Splits f into train and test sets.
-        """
-        if isinstance(f, (list, tuple)):
-            train, test = list(), list()
-            for i, f_i in enumerate(f):
-                train.append(f_i[:train_size])
-                test.append(f_i[train_size:])
-                assert(train[i].shape[-1]==test[i].shape[-1])
-        else:            
-            train, test = f[:train_size], f[train_size:]
-            assert(train.shape[-1]==test.shape[-1])
+class Destandardize:
+    def __init__(self, mu, std):
+        self.mu = mu
+        self.std = std
 
-        return train, test
-
-    if train_perc > 0.0:
-        train_size = int(np.floor(int(u.shape[0])*train_perc))
-
-        u_train, u_test = _split(u, train_size)
-        g_u_train, g_u_test = _split(g_u, train_size)
-
-        return u_train, g_u_train, u_test, g_u_test
+    def __call__(self, vals):
+        vals = (vals * self.std) + self.mu
+        return vals
     
-    else:
-        return None, None, u, g_u, xt, xt
-    
-def extract_real_imag_parts(arr: np.ndarray[np.complex128]):
-    real_part = arr.real
-    imaginary_part = arr.imag
-    return real_part, imaginary_part
+class Normalize:
+    def __init__(self, v_min, v_max):
+        self.v_min = v_min
+        self.v_max = v_max
 
-def get_setup_load_pressure(load, r_source):
-    return load/(np.pi*r_source**2)
+    def __call__(self, vals):
+        vals = (vals - self.v_min) / (self.v_max - self.v_min)
+        return vals
+
+class Denormalize:
+    def __init__(self, v_min, v_max):
+        self.v_min = v_min
+        self.v_max = v_max
+
+    def __call__(self, vals):
+        vals = (vals * (self.v_max - self.v_min)) + self.v_min
+        return vals
+
+def get_branch_minmax_norm_params(loader):
+    samples_min = torch.tensor([float('inf')])
+    samples_max = torch.zeros(1)
+
+    for sample in loader:
+        xb = sample['xb']
+        samples_min = min(xb, samples_min)
+        samples_max = max(xb, samples_max)
+
+    min_max_params = {'min':samples_min, 'max':samples_max}
+
+    return min_max_params
+
+def get_branch_gaussian_norm_params(loader):
+    samples_sum = torch.zeros(1)
+    samples_square_sum = torch.zeros(1)
+
+    for sample in loader:
+        xb = sample['xb']
+        samples_sum += xb
+        samples_square_sum += xb.pow(2)
+
+    samples_mean = samples_sum / len(loader)
+    samples_std = (samples_square_sum / len(loader) - samples_mean.pow(2)).sqrt()
+
+    gaussian_params = {'mean':samples_mean, 'std':samples_std}
+
+    return gaussian_params
+
+def trunk_to_meshgrid(arr):
+    z = np.unique(arr[ : , 1])
+    n_r = len(arr) / len(z)
+    r = arr[ : , 0 ][ : int(n_r)]
+    return r, z
+
+def meshgrid_to_trunk(r_values, z_values):
+    R_mesh, Z_mesh = np.meshgrid(r_values, z_values)
+    xt = np.column_stack((R_mesh.flatten(), Z_mesh.flatten()))
+    return xt

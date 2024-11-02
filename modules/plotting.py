@@ -2,39 +2,39 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.colors import Normalize
 
-def plot_training(epochs, train_loss, train_error_real, train_error_imag, test_error_real, test_error_imag):
-    fig, ax = plt.subplots(nrows=2, ncols=2, figsize=(15,9))
+def plot_training(epochs, history):
+    loss_data, error_data = history['loss'], history['error']
 
-    ax[0][0].plot(epochs, [i for i in train_loss], label='train_z')
-    ax[0][0].set_xlabel('epoch')
-    ax[0][0].set_ylabel('MSE')
-    ax[0][0].set_yscale('log')
-    ax[0][0].set_title(r'$u_{zz}$ Loss')
-    ax[0][0].legend()
+    train_loss = loss_data['train']
+    val_loss = loss_data['val']
 
-    ax[0][1].plot(epochs, [np.sqrt(i**2 + j**2) for i,j in zip(train_error_real, train_error_imag)], label='abs_train')
-    ax[0][1].plot(epochs, [np.sqrt(i**2 + j**2) for i,j in zip(test_error_real, test_error_imag)], label='abs_test')
-    ax[0][1].set_xlabel('epoch')
-    ax[0][1].set_ylabel(r'$L_2$ norm')
-    ax[0][1].set_yscale('log')
-    ax[0][1].set_title(r'Error for $|u_{zz}|$')
-    ax[0][1].legend()
+    train_error_real = error_data['train']['real']
+    train_error_imag = error_data['train']['imag']
+    val_error_real = error_data['val']['real']
+    val_error_imag = error_data['val']['imag']
 
-    ax[1][0].plot(epochs, [i for i in train_error_real], label='real_train')
-    ax[1][0].plot(epochs, [i for i in test_error_real], label='real_test')
-    ax[1][0].set_xlabel('epoch')
-    ax[1][0].set_ylabel(r'$L_2$ norm')
-    ax[1][0].set_yscale('log')
-    ax[1][0].set_title(r'Error for $Re(u_{zz})$')
-    ax[1][0].legend()
+    fig, ax = plt.subplots(nrows=1, ncols=3, figsize=(15,5))
 
-    ax[1][1].plot(epochs, [i for i in train_error_imag], label='imag_train')
-    ax[1][1].plot(epochs, [i for i in test_error_imag], label='imag_test')
-    ax[1][1].set_xlabel('epoch')
-    ax[1][1].set_ylabel(r'$L_2$ norm')
-    ax[1][1].set_yscale('log')
-    ax[1][1].set_title(r'Error for $Im(u_{zz})$')
-    ax[1][1].legend()
+    ax[0].plot(epochs, train_loss, label='train_loss')
+    ax[0].plot(epochs, val_loss, label='val_loss')
+    ax[0].set_xlabel('epoch')
+    ax[0].set_yscale('log')
+    ax[0].set_title(r'Loss for $u_{zz}$')
+    ax[0].legend()
+
+    ax[1].plot(epochs, train_error_real, label='real_train')
+    ax[1].plot(epochs, val_error_real, label='real_val')
+    ax[1].set_xlabel('epoch')
+    ax[1].set_yscale('log')
+    ax[1].set_title(r'$L_2$ Error for $\Re(u_{zz})$')
+    ax[1].legend()
+
+    ax[2].plot(epochs, train_error_imag, label='imag_train')
+    ax[2].plot(epochs, val_error_imag, label='imag_val')
+    ax[2].set_xlabel('epoch')
+    ax[2].set_yscale('log')
+    ax[2].set_title(r'$L_2$ Error for $\Im(u_{zz})$')
+    ax[2].legend()
     
     fig.tight_layout()
 

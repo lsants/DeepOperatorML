@@ -27,19 +27,30 @@ The repository is organized as follows:
 ├─ README.md
 ├─ comparison_plot.py
 ├─ data_generation
+│  ├─ axsgrsce.dll
+│  ├─ axsgrsce.dylib
 │  ├─ axsgrsce.so
+│  ├─ data_generation_base.py
+│  ├─ data_generation_dimless_green.py
 │  └─ influence.py
 ├─ data_generation_params.yaml
 ├─ get_data.py
 ├─ modules
-│  ├─ deeponet_architecture.py
-│  ├─ deeponet_inference.py
+│  ├─ compose_transformations.py
+│  ├─ dataset_preprocessing.py
 │  ├─ evaluate_params.py
-│  ├─ mlp_architecture.py
-│  ├─ mlp_training.py
+│  ├─ greenfunc_dataset.py
+│  ├─ loss_complex.py
+│  ├─ mlp.py
+│  ├─ model_evaluator.py
 │  ├─ plotting.py
-│  └─ preprocessing.py
+│  ├─ preprocessing.py
+│  ├─ saving.py
+│  ├─ training.py
+│  └─ vanilla_deeponet.py
 ├─ params_model.yaml
+├─ plot_labels.py
+├─ plot_preds.py
 ├─ requirements.txt
 ├─ test_model.py
 └─ train_model.py
