@@ -52,8 +52,8 @@ def get_branch_minmax_norm_params(loader):
 
     for sample in loader:
         xb = sample['xb']
-        samples_min = min(xb, samples_min)
-        samples_max = max(xb, samples_max)
+        samples_min = min(xb.min(), samples_min)
+        samples_max = max(xb.max(), samples_max)
 
     min_max_params = {'min':samples_min, 'max':samples_max}
 
@@ -78,10 +78,14 @@ def get_branch_gaussian_norm_params(loader):
 def trunk_to_meshgrid(arr):
     z = np.unique(arr[ : , 1])
     n_r = len(arr) / len(z)
-    r = arr[ : , 0 ][ : int(n_r)]
+    r = np.array(arr[ : , 0 ][ : int(n_r)]).flatten()
     return r, z
 
 def meshgrid_to_trunk(r_values, z_values):
     R_mesh, Z_mesh = np.meshgrid(r_values, z_values)
     xt = np.column_stack((R_mesh.flatten(), Z_mesh.flatten()))
     return xt
+
+def reshape_from_model(displacements, arr):
+    n_z = len(np.unique(arr[ : , 1]))
+    return (displacements.detach().numpy()).reshape(len(displacements), -1, n_z)
