@@ -20,6 +20,7 @@ class TrainModel:
         return outputs
 
     def train_step(self, sample):
+        self.model.train()
         xb, xt = sample['xb'], sample['xt']
         g_u_real, g_u_imag = sample['g_u_real'], sample['g_u_imag']
 
@@ -32,6 +33,7 @@ class TrainModel:
         return loss.item(), pred_real, pred_imag
 
     def val_step(self, sample):
+        self.model.eval()
         xb, xt = sample['xb'], sample['xt']
         g_u_real, g_u_imag = sample['g_u_real'], sample['g_u_imag']
 
