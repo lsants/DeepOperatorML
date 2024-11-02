@@ -84,6 +84,7 @@ class DimensionlessInfluenceFunction(Datagen):
 
         print(f"Runtime for integration: {times:.2f} s")
         print(f"\nData shapes:\n\t u:\t{xb.shape}\n\t g_u:\t{displacements.shape}\n\t r:\t{r.shape}\n\t z:\t{z.shape}")
+        print(f"\na0_min:\t\t\t{xb.min()} \na0_max:\t\t\t{xb.max()}")
         print(f"\nr_min:\t\t\t{r.min()} \nr_max:\t\t\t{r.max()} \nz_min:\t\t\t{z.min()} \nz_max:\t\t\t{z.max()}")
 
         np.savez(filename, xb=xb, r=r, z=z, g_u=displacements)
