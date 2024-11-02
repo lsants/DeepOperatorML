@@ -1,0 +1,39 @@
+# Parameters for training DeepONets, loaded by train_model.py.
+MODELNAME: vanilla_deeponet_20241101
+
+# Location of test file info
+DATAFILE: ./data/raw/displacements.npz
+INDICES_FILE: ./data/output/indices_vanilla_deeponet_20241101.json
+NORM_PARAMS_FILE: ./data/output/norm_params_vanilla_deeponet_20241101.json
+
+# Model location
+MODEL_FOLDER: ./models/
+
+# History location
+OUTPUT_LOG_FOLDER: ./data/output/ # For split indexes, normalization parameters and loss history
+
+# Plots location
+IMAGES_FOLDER: ./images/
+
+# Data type, device, and error norm
+PRECISION: torch.float64
+DEVICE: cpu
+ERROR_NORM: 2
+
+# Model architecture
+ACTIVATION_FUNCTION: relu
+N_BRANCHES: 2
+BRANCH_INPUT_SIZE: 1
+TRUNK_INPUT_SIZE: 2
+BASIS_FUNCTIONS: 30
+BRANCH_HIDDEN_LAYERS: # MLP
+    - 100 
+    - 100 
+    - 100 
+    - 100 
+
+TRUNK_HIDDEN_LAYERS: # MLP
+    - 100 
+    - 100 
+    - 100 
+    - 100 

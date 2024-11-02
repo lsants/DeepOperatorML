@@ -2,7 +2,7 @@
 MODELNAME: vanilla_deeponet_20241101
 
 # Location of .npz data file
-DATAFILE: ./data/raw/oop_data.npz # Path to input file
+DATAFILE: ./data/raw/displacements.npz # Path to input file
 PRECISION: torch.float64
 DEVICE: cpu
 SEED: 42
@@ -16,31 +16,33 @@ OUTPUT_LOG_FOLDER: ./data/output/ # For split indexes, normalization parameters 
 # Plots location
 IMAGES_FOLDER: ./images/
 
-# Training parameters
+# Model architecture
+ACTIVATION_FUNCTION: relu
 N_BRANCHES: 2
 BRANCH_INPUT_SIZE: 1
 TRUNK_INPUT_SIZE: 2
 BASIS_FUNCTIONS: 30
+BRANCH_HIDDEN_LAYERS: # MLP
+    - 100 
+    - 100 
+    - 100 
+    - 100 
+
+TRUNK_HIDDEN_LAYERS: # MLP
+    - 100 
+    - 100 
+    - 100 
+    - 100 
+
+# Training parameters
 LEARNING_RATE: 0.0001                   # float: learning rate used in training
-N_EPOCHS: 100                         # int: number of training epochs
-BATCH_SIZE: 1                       # int: Size of batch during training
+N_EPOCHS: 1000                         # int: number of training epochs
+BATCH_SIZE: 10                       # int: Size of batch during training
 TRAIN_PERC: 0.8                         # float: the percentage of data used for training
 VAL_PERC: 0.1                           # float: the percentage of training data used for validation
 TEST_PERC: 0.1                           # float: the percentage of training data used for testing
 ERROR_NORM: 2
-ACTIVATION_FUNCTION: relu
 
-BRANCH_HIDDEN_LAYERS: # MLP - Set number of layers and units
-    - 100 
-    - 100 
-    - 100 
-    - 100 
-
-TRUNK_HIDDEN_LAYERS:
-    - 100 
-    - 100 
-    - 100 
-    - 100 
 
 
 L2_REGULARIZATION: 0.00001
