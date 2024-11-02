@@ -2,7 +2,7 @@ import yaml
 import numpy as np
 import matplotlib.pyplot as plt
 from datetime import datetime
-from modules.plotting import plot_label_axis, plot_label_contours
+from modules.plotting import plot_axis, plot_field
 
 f_index = 0
 
@@ -41,10 +41,9 @@ freq = f_label
 
 wd_plot = wd[f_label_index]
 
-
-fig = plot_label_contours(r, z, wd_plot, freq, full=True, non_dim_plot=True)
+fig = plot_field(r, z, wd_plot, freq)
 plt.show()
 
-fig = plot_label_axis(r, z, wd_plot, freq, non_dim_plot=True)
+fig = plot_axis(r, z, wd_plot, freq)
 
 plt.show()
