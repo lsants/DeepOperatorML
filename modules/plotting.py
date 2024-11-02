@@ -28,7 +28,7 @@ def plot_training(epochs, history):
     ax[1].set_xlabel('epoch')
     ax[1].set_ylabel(r'$L_2$ norm')
     ax[1].set_yscale('log')
-    ax[1].set_title(r'Error for $Re(u_{zz})$')
+    ax[1].set_title(r'Error for $\Re(u_{zz})$')
     ax[1].legend()
 
     ax[2].plot(epochs, train_error_imag, label='imag_train')
@@ -36,7 +36,7 @@ def plot_training(epochs, history):
     ax[2].set_xlabel('epoch')
     ax[2].set_ylabel(r'$L_2$ norm')
     ax[2].set_yscale('log')
-    ax[2].set_title(r'Error for $Im(u_{zz})$')
+    ax[2].set_title(r'Error for $\Im(u_{zz})$')
     ax[2].legend()
     
     fig.tight_layout()
