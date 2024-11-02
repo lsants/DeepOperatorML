@@ -1,9 +1,7 @@
 import os
 import json
 import torch
-import matplotlib.pyplot as plt
-
-# To do: implement saving on checkpoints
+import numpy as np
 
 class Saver:
     def __init__(self, model_name, model_folder=None, data_output_folder=None, figures_folder=None):
@@ -12,91 +10,90 @@ class Saver:
         self.data_output_folder = data_output_folder
         self.figures_folder = figures_folder
 
-    def __call__(self, model_state_dict=None, split_indices=None, norm_params=None, history=None, figure=None):
-        if model_state_dict:
+    def __call__(self, model_state_dict=None, split_indices=None, norm_params=None, history=None, figure=None, errors=None, time=None, figure_suffix=None, time_prefix=None):
+        if model_state_dict is not None:
             self.save_model(model_state_dict)
-        if split_indices:
+        if split_indices is not None:
             self.save_indices(split_indices)
-        if norm_params:
+        if norm_params is not None:
             self.save_norm_params(norm_params)
-        if history:
+        if history is not None:
             self.save_history(history)
-        if figure:
-            self.save_plots(figure)
-    
+        if figure is not None:
+            self.save_plots(figure, figure_suffix)
+        if errors is not None:
+            self.save_errors(errors)
+        if time is not None:
+            self.save_time(time, time_prefix)
+
     def save_checkpoint(self, model_state_dict, optimizer_state_dict, epoch):
-            torch.save({
-                        'model_state_dict': model_state_dict,
-                        'optimizer_state_dict': optimizer_state_dict,
-                        'epoch': epoch
-            }, self.model_path)
+        filename = f'model_checkpoint_{self.name}_epoch{epoch}.pth'
+        model_path = self.make_output_dir(self.model_folder, filename)
+        torch.save({
+            'model_state_dict': model_state_dict,
+            'optimizer_state_dict': optimizer_state_dict,
+            'epoch': epoch
+        }, model_path)
+        print(f"Checkpoint saved to {model_path}")
 
     def save_model(self, model_state):
-        output = 'model_state_'
-        extension = '.pth'
-        filename = output + self.name + extension
-        if not self.model_folder:
-            self.make_output_dir(self.model_folder, filename)
-
-        model_path = os.path.join(self.model_folder, filename)
+        filename = f'model_state_{self.name}.pth'
+        model_path = self.make_output_dir(self.model_folder, filename)
         torch.save(model_state, model_path)
-        print(f"Saved model to {model_path}")
+        print(f"Model saved to {model_path}")
 
     def save_indices(self, indices_dict):
-        output = 'indices_'
-        extension = '.json'
-        filename = output + self.name + extension
-        if not self.data_output_folder:
-            self.make_output_dir(self.data_output_folder, filename)
-
-        indices_path = os.path.join(self.data_output_folder, filename)
+        filename = f'indices_{self.name}.json'
+        indices_path = self.make_output_dir(self.data_output_folder, filename)
         with open(indices_path, 'w') as f:
             json.dump(indices_dict, f)
-        print(f"Saved indices to {indices_path}")
+        print(f"Indices saved to {indices_path}")
 
     def save_norm_params(self, norm_params_dict):
-        output = 'norm_params_'
-        extension = '.json'
-        filename = output + self.name + extension
-        if not self.data_output_folder:
-            self.make_output_dir(self.data_output_folder, filename)
-
-        norm_params_path = os.path.join(self.data_output_folder, filename)
+        filename = f'norm_params_{self.name}.json'
+        norm_params_path = self.make_output_dir(self.data_output_folder, filename)
         with open(norm_params_path, 'w') as f:
             json.dump(norm_params_dict, f)
-        print(f"Saved indices to {norm_params_path}")
+        print(f"Normalization parameters saved to {norm_params_path}")
 
     def save_history(self, history_dict):
-        output = 'history_'
-        extension = '.json'
-        filename = output + self.name + extension
-        if not self.data_output_folder:
-            self.make_output_dir(self.data_output_folder, filename)
-
-        history_path = os.path.join(self.data_output_folder, filename)
+        filename = f'history_{self.name}.json'
+        history_path = self.make_output_dir(self.data_output_folder, filename)
         with open(history_path, 'w') as f:
             json.dump(history_dict, f)
-        print(f"Saved history to {history_path}")
+        print(f"Training history saved to {history_path}")
 
-    def save_plots(self, figure):
-        output = 'history_plot_'
-        extension = '.png'
-        filename = output + self.name + extension
-        if not self.figures_folder:
-            self.make_output_dir(self.figures_folder, filename)
-
-        fig_path = os.path.join(self.figures_folder, filename)
+    def save_plots(self, figure, filename_suffix=None):
+        suffix = f"_{filename_suffix}" if filename_suffix else ""
+        filename = f'plot_{self.name}{suffix}.png'
+        fig_path = self.make_output_dir(self.figures_folder, filename)
         figure.savefig(fig_path)
-        print(f"Saved figure to {fig_path}")
+        print(f"Figure saved to {fig_path}")
+
+    def save_errors(self, errors_dict):
+        filename = f"errors_{self.name}.json"
+        errors_path = os.path.join(self.data_output_folder, filename)
+        errors_serializable = {k: float(v) if isinstance(v, np.ndarray) else v for k, v in errors_dict.items()}
+    
+        with open(errors_path, "w") as f:
+            json.dump(errors_serializable, f)
+        print(f"Saved errors to {errors_path}")
+
+    def save_time(self, time_dict, filename_prefix=None):
+        prefix = f"{filename_prefix}_" if filename_prefix else ""
+        filename = f"{prefix}time_{self.name}.json"
+        time_path = os.path.join(self.data_output_folder, filename)
+        time_serializable = {k: float(v) if isinstance(v, np.ndarray) else v for k, v in time_dict.items()}
+    
+        with open(time_path, "w") as f:
+            json.dump(time_serializable, f)
+        print(f"Saved time to {time_path}")
 
     def make_output_dir(self, folder, filename):
-        fname = os.path.join(folder, filename)
-        output_folder = fname
-
-        if not os.path.exists(output_folder):
-            os.makedirs(output_folder)
-        else:
-            output_folder = output_folder + "_copy"
-            os.makedirs(output_folder, exist_ok=True)
-
-        return output_folder
+        if folder is None:
+            raise ValueError(f"The specified folder for saving '{filename}' is None.")
+        
+        if not os.path.exists(folder):
+            os.makedirs(folder)
+        
+        return os.path.join(folder, filename)
