@@ -57,7 +57,7 @@ train_size = int(p['TRAIN_PERC'] * total_samples)
 val_size = int(p['VAL_PERC'] * total_samples)
 test_size = total_samples - train_size - val_size
 
-# ----------------- Setup data normalization functions ---------------
+# ---------------------- Setup data normalization functions ------------------------
 branch_norm_params = ppr.get_branch_minmax_norm_params(train_dataloader)
 trunk_norm_params = data.get_trunk_normalization_params()
 
@@ -70,7 +70,7 @@ norm_params = {'branch': {k:v.item() for k,v in branch_norm_params.items()},
 normalize_branch, normalize_trunk = ppr.Normalize(xb_min, xb_max), ppr.Normalize(xt_min, xt_max)
 denormalize_branch, denormalize_trunk = ppr.Denormalize(xb_min, xb_max), ppr.Denormalize(xt_min, xt_max)
 
-# ----------------- Initialize model -------------------
+# ----------------------------- Initialize model -----------------------------
 u_dim = p["BRANCH_INPUT_SIZE"]
 x_dim = p["TRUNK_INPUT_SIZE"]
 n_branches = p['N_BRANCHES']
@@ -99,7 +99,7 @@ model = VanillaDeepONet(branch_layers=layers_B,
 optimizer = torch.optim.Adam(list(model.parameters()), lr=p["LEARNING_RATE"], weight_decay=p['L2_REGULARIZATION'])
 error_type = p['ERROR_NORM']
 
-# ----------------- Initializing classes for training  ----------------
+# ------------------------- Initializing classes for training  -------------------
 trainer = TrainModel(model, optimizer)
 evaluator = Evaluator(error_type)
 saver = Saver(model_name, model_folder, data_out_folder, fig_folder)
@@ -108,7 +108,7 @@ epochs = p['N_EPOCHS']
 niter_per_train_epoch = len(train_dataloader)
 niter_per_val_epoch = len(val_dataloader)
 
-# ------------------- Train loop --------------------------
+# --------------------------------- Train loop ---------------------------------
 start_time = time.time()
 
 for epoch in tqdm(range(epochs), colour='GREEN'):
@@ -173,13 +173,13 @@ history = {'loss' : loss_history,
 
 print(f"Training concluded in: {end_time - start_time} s")
 
-# ----------------- Plot ---------------
+# ------------------------------------ Plot --------------------------------
 epochs_plot = [i for i in range(epochs)]
 fig = plot_training(epochs_plot, history)
 
 plt.show()
 
-# ----------- Save output ------------
+# --------------------------- Save output -------------------------------
 saver(model_state_dict=model.state_dict(),
       split_indices=dataset_indices,
       norm_params=norm_params,
