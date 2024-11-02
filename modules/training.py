@@ -24,21 +24,19 @@ class TrainModel:
         g_u_real, g_u_imag = sample['g_u_real'], sample['g_u_imag']
 
         self.optimizer.zero_grad()
-
         pred_real, pred_imag = self.model(xb, xt)
         loss = loss_complex(g_u_real, g_u_imag, pred_real, pred_imag)
-
         loss.backward()
         self.optimizer.step()
 
         return loss.item(), pred_real, pred_imag
 
     def val_step(self, sample):
+        xb, xt = sample['xb'], sample['xt']
+        g_u_real, g_u_imag = sample['g_u_real'], sample['g_u_imag']
+
         with torch.no_grad():  
-            xb, xt = sample['xb'], sample['xt']
-            g_u_real, g_u_imag = sample['g_u_real'], sample['g_u_imag']
-
             pred_real, pred_imag = self.model(xb, xt)
-
             loss = loss_complex(g_u_real, g_u_imag, pred_real, pred_imag)
+
         return loss.item(), pred_real, pred_imag
