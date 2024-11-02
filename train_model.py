@@ -1,200 +1,178 @@
-import os
-import numpy as np
-import time
-import yaml
 import torch
-import torch.nn as nn
+import time
+import matplotlib.pyplot as plt
 from tqdm.auto import tqdm
-from datetime import datetime
-from modules.preprocessing import preprocessing
+from modules import dir_functions
+from modules import preprocessing as ppr
+from modules.vanilla_deeponet import VanillaDeepONet
+from modules.compose_transformations import Compose
+from modules.greenfunc_dataset import GreenFuncDataset
+from modules.training import TrainModel
+from modules.model_evaluator import Evaluator
+from modules.saving import Saver
 from modules.plotting import plot_training
 
-class MLP(nn.Module):
-    def __init__(self, layers, activation):
-        super(MLP, self).__init__()
-        self.linears = nn.ModuleList()
-        for i in range(len(layers) - 1):
-            self.linears.append(
-                nn.Linear(
-                    layers[i],
-                    layers[i+1],
-                )
-            )
-        self.activation = activation
+# --------------- Load params file ------------------------
+p = dir_functions.load_params('params_model.yaml')
+path_to_data = p['DATAFILE']
+print(f"Loading data from: {path_to_data}")
 
-    def forward(self, inputs):
-        out = inputs
-        for i in range(len(self.linears) - 1):
-            out = self.linears[i](out)
-            out = self.activation(out)
-        return self.linears[-1](out)
-    
-def train_step():
-    optimizer.zero_grad()
-    
-    out_B = branch(u_train)
-    out_B_real = out_B[:, :G_dim]
-    out_B_imag = out_B[:, G_dim:]
-    out_T = trunk(xt)   
-    g_u_pred_real = torch.matmul(out_B_real, torch.transpose(out_T, 0, 1))
-    g_u_pred_imag = torch.matmul(out_B_imag, torch.transpose(out_T, 0, 1))
-
-    loss_real = torch.mean((g_u_pred_real - g_u_real_train) ** 2)
-    loss_imag = torch.mean((g_u_pred_imag - g_u_imag_train) ** 2)
-    loss = loss_real + loss_imag
-    loss.backward()
-    optimizer.step()
-
-    return loss.item(), g_u_pred_real, g_u_pred_imag
-
-def test_step():
-    with torch.no_grad():  
-        optimizer.zero_grad()
-        out_B = branch(u_test)
-        out_B_real = out_B[:,:G_dim]
-        out_B_imag = out_B[:,G_dim:]
-        out_T = trunk(xt)   
-        g_u_pred_real = torch.matmul(out_B_real, torch.transpose(out_T, 0, 1))
-        g_u_pred_imag = torch.matmul(out_B_imag, torch.transpose(out_T, 0, 1))
-    return g_u_pred_real, g_u_pred_imag
-
-# ------------ Parameters --------------
-with open('params_model.yaml') as file:
-    p = yaml.safe_load(file)
-
-date = datetime.today().strftime('%Y%m%d')
+# ---------------- Defining training parameters and output paths ---------------
+torch.manual_seed(p['SEED'])
 precision = eval(p['PRECISION'])
-device = torch.device(p["DEVICE"])
-print("Using device:", device)
+device = p['DEVICE']
+model_name = p['MODELNAME']
+model_folder = p['MODEL_FOLDER']
+data_out_folder = p['OUTPUT_LOG_FOLDER']
+fig_folder = p['IMAGES_FOLDER']
 
-# -------------- Data processing -------------------
-data = np.load(p['DATAFILE'])
-print(p['DATAFILE'])
-omega = np.squeeze(data['freqs'])        # Shape: (num_freqs,)
-r = np.squeeze(data['r_field'])          # Shape: (n,)
-z = np.squeeze(data['z_field'])          # Shape: (n,)
-wd = data['wd']                          # Shape: (freqs, r, z)
+# --------------- Load dataset ----------------------
+to_tensor_transform = ppr.ToTensor(dtype=precision, device=device)
 
-u = omega.reshape(-1,1)
-R,Z = np.meshgrid(r,z)
-xt = np.column_stack((R.flatten(), Z.flatten()))
-g_u = wd.reshape(len(u),-1)
+transformations = Compose([
+    to_tensor_transform
+])
 
-processed_data = preprocessing(u, g_u, train_perc=p["TRAIN_PERC"])
+data = GreenFuncDataset(path_to_data, transformations)
+xt = data.get_trunk()
 
-print(u)
+train_dataset, val_dataset, test_dataset = torch.utils.data.random_split(data, [p['TRAIN_PERC'], p['VAL_PERC'], p['TEST_PERC']])
 
-u_train, g_u_real_train, g_u_imag_train, u_test, g_u_real_test, g_u_imag_test = \
-    processed_data['u_train'], \
-    processed_data['g_u_real_train'],\
-    processed_data['g_u_imag_train'], \
-    processed_data['u_test'], \
-    processed_data['g_u_real_test'], \
-    processed_data['g_u_imag_test']
+train_dataloader = torch.utils.data.DataLoader(
+    train_dataset, batch_size=p['BATCH_SIZE'], shuffle=True
+)
+val_dataloader = torch.utils.data.DataLoader(
+    val_dataset, batch_size=p['BATCH_SIZE'], shuffle=False
+)
+test_dataloader = torch.utils.data.DataLoader(
+    test_dataset, batch_size=p['BATCH_SIZE'], shuffle=False
+)
 
-mu_u = np.mean(u_train, axis=0)
-sd_u = np.std(u_train, axis=0)
-mu_xt = np.mean(xt, axis=0)
-sd_xt = np.std(xt, axis=0)
+dataset_indices = {'train': train_dataset.indices,
+                   'val': val_dataset.indices,
+                   'test': test_dataset.indices}
 
-u_train = (u_train - mu_u) / sd_u
-u_test = (u_test - mu_u) / sd_u
+total_samples = len(data)
+train_size = int(p['TRAIN_PERC'] * total_samples)
+val_size = int(p['VAL_PERC'] * total_samples)
+test_size = total_samples - train_size - val_size
 
-# xt = (xt - mu_xt)/sd_xt
+# ----------------- Setup data normalization functions ---------------
+branch_norm_params = ppr.get_branch_minmax_norm_params(train_dataloader)
+trunk_norm_params = data.get_trunk_normalization_params()
 
-print(f"Branch normalization: mu={mu_u.item():.2f}, sd={sd_u.item():.2f}")
-print(f"Branch train/test shapes: {u_train.shape}, {u_test.shape}")
-print(xt.shape)
-print(g_u_real_train.shape, g_u_imag_train.shape)
+xb_min, xb_max = branch_norm_params['min'], branch_norm_params['max']
+xt_min, xt_max = trunk_norm_params
 
-u_train = torch.tensor(u_train, dtype=precision, device=device)
-u_test = torch.tensor(u_test, dtype=precision, device=device)
-xt = torch.tensor(xt, dtype=precision, device=device)
-g_u_real_train = torch.tensor(g_u_real_train, dtype=precision, device=device)
-g_u_imag_train = torch.tensor(g_u_imag_train, dtype=precision, device=device)
-g_u_real_test = torch.tensor(g_u_real_test, dtype=precision, device=device)
-g_u_imag_test = torch.tensor(g_u_imag_test, dtype=precision, device=device)
+norm_params = {'branch': {k:v.item() for k,v in branch_norm_params.items()},
+               'trunk': trunk_norm_params.tolist()}
 
-# ---------- Model definition -----------
+print(xt_min)
+
+normalize_branch, normalize_trunk = ppr.Normalize(xb_min, xb_max), ppr.Normalize(xt_min, xt_max)
+denormalize_branch, denormalize_trunk = ppr.Denormalize(xb_min, xb_max), ppr.Denormalize(xt_min, xt_max)
+
+# ----------------- Initialize model -------------------
 u_dim = p["BRANCH_INPUT_SIZE"]
-G_dim = p["BASIS_FUNCTIONS"]
 x_dim = p["TRUNK_INPUT_SIZE"]
+n_branches = p['N_BRANCHES']
+hidden_B = p['BRANCH_HIDDEN_LAYERS']
+hidden_T = p['TRUNK_HIDDEN_LAYERS']
+G_dim = p["BASIS_FUNCTIONS"]
 
-layers_B = [u_dim] + [100] * 3 + [G_dim*2]
-layers_T = [x_dim] + [100] * 3 + [G_dim]
+layers_B = [u_dim] + hidden_B + [G_dim * n_branches]
+layers_T = [x_dim] + hidden_T + [G_dim]
 
-branch = MLP(layers=layers_B, activation=nn.ReLU()).to(device, dtype=precision)
-trunk = MLP(layers=layers_T, activation=nn.ReLU()).to(device, dtype=precision)
+model = VanillaDeepONet(branch_layers=layers_B,
+                        trunk_layers=layers_T,
+                        activation=torch.nn.ReLU()).to(device, precision)
 
-optimizer = torch.optim.Adam(list(branch.parameters()) + list(trunk.parameters()), lr=p["LEARNING_RATE"], weight_decay=1e-5)
+optimizer = torch.optim.Adam(list(model.parameters()), lr=p["LEARNING_RATE"], weight_decay=p['L2_REGULARIZATION'])
+error_type = p['ERROR_NORM']
 
-num_epochs = p['N_EPOCHS']
-niter_per_epoch = p['ITERATIONS_PER_EPOCHS']  
-t0 = time.time()
+# ----------------- Initializing classes for training  ----------------
+trainer = TrainModel(model, optimizer)
+evaluator = Evaluator(error_type)
+saver = Saver(model_name, model_folder, data_out_folder, fig_folder)
 
-# ------------------- Training loop -----------------
-train_loss_list = []
-train_err_real_list = []
-train_err_imag_list = []
-test_err_real_list = []
-test_err_imag_list = []
+epochs = p['N_EPOCHS']
+niter_per_train_epoch = len(train_dataloader)
+niter_per_val_epoch = len(train_dataloader)
 
-for epoch in range(num_epochs):
-    epoch_loss = 0
+start_time = time.time()
 
-    for _ in range(niter_per_epoch):
-        loss, g_u_pred_real_train, g_u_pred_imag_train = train_step()
-        epoch_loss += loss
+for epoch in tqdm(range(epochs), colour='GREEN'):
+    epoch_train_loss = 0
+    epoch_train_error_real = 0
+    epoch_train_error_imag = 0
 
-    avg_epoch_loss = epoch_loss / niter_per_epoch
+    epoch_val_loss = 0
+    epoch_val_error_real = 0
+    epoch_val_error_imag = 0
 
-    with torch.no_grad():
-        g_u_pred_real_test, g_u_pred_imag_test = test_step()  
+    for batch in train_dataloader:
+        model.train()
+        norm_batch = {key : (normalize_branch(value) if key == 'xb' else value) \
+                        for key, value in batch.items()}
+        norm_batch['xt'] = normalize_trunk(xt)
+        batch_train_outputs = trainer(norm_batch)
+        epoch_train_loss += batch_train_outputs['loss']
+        batch_train_error_real = evaluator.compute_batch_error(batch_train_outputs['pred_real'],
+                                                                    norm_batch['g_u_real'])
+        batch_train_error_imag = evaluator.compute_batch_error(batch_train_outputs['pred_imag'],
+                                                                    norm_batch['g_u_imag'])
+        epoch_train_error_real += batch_train_error_real
+        epoch_train_error_imag += batch_train_error_imag
 
-        train_err_real = torch.linalg.vector_norm(g_u_pred_real_train - g_u_real_train) / torch.linalg.vector_norm(g_u_real_train)
-        train_err_imag = torch.linalg.vector_norm(g_u_pred_imag_train - g_u_imag_train) / torch.linalg.vector_norm(g_u_imag_train)
 
-        train_err_real_list.append(train_err_real)
-        train_err_imag_list.append(train_err_imag)
+    avg_epoch_train_loss = epoch_train_loss / niter_per_train_epoch
+    avg_epoch_train_error_real = epoch_train_error_real / niter_per_train_epoch
+    avg_epoch_train_error_imag = epoch_train_error_imag / niter_per_train_epoch
 
-        test_err_real = torch.linalg.vector_norm(g_u_pred_real_test - g_u_real_test) / torch.linalg.vector_norm(g_u_real_test)
-        test_err_imag = torch.linalg.vector_norm(g_u_pred_imag_test - g_u_imag_test) / torch.linalg.vector_norm(g_u_imag_test)
+    evaluator.store_epoch_train_loss(avg_epoch_train_loss)
+    evaluator.store_epoch_train_real_error(avg_epoch_train_error_real)
+    evaluator.store_epoch_train_imag_error(avg_epoch_train_error_imag)
 
-        test_err_real_list.append(test_err_real)
-        test_err_imag_list.append(test_err_imag)
+    for batch in val_dataloader:
+        norm_batch = {key : (normalize_branch(value) if key == 'xb' else value) \
+                        for key, value in batch.items()}
+        norm_batch['xt'] = normalize_trunk(xt)
+        batch_val_outputs = trainer(norm_batch, val=True)
+        epoch_val_loss += batch_val_outputs['loss']
+        batch_val_error_real = evaluator.compute_batch_error(batch_val_outputs['pred_real'],
+                                                                    norm_batch['g_u_real'])
+        batch_val_error_imag = evaluator.compute_batch_error(batch_val_outputs['pred_imag'],
+                                                                    norm_batch['g_u_imag'])
+        epoch_val_error_real += batch_val_error_real
+        epoch_val_error_imag += batch_val_error_imag
 
-    if (epoch + 1) % 10 == 0:
-            print(f"Epoch {epoch + 1}/{num_epochs}, Train Loss: {avg_epoch_loss}")
+    avg_epoch_val_loss = epoch_val_loss / niter_per_val_epoch
+    avg_epoch_val_error_real = epoch_val_error_real / niter_per_val_epoch
+    avg_epoch_val_error_imag = epoch_val_error_imag / niter_per_val_epoch
 
-    train_loss_list.append(avg_epoch_loss)
+    evaluator.store_epoch_val_loss(avg_epoch_val_loss)
+    evaluator.store_epoch_val_real_error(avg_epoch_val_error_real)
+    evaluator.store_epoch_val_imag_error(avg_epoch_val_error_imag)
 
-t1 = time.time()
-print(f"Training completed in {t1 - t0:.2f} seconds")
+end_time = time.time()
 
-print(f"L2 Error on test set for final epoch:") 
-print(f"{test_err_real_list[-1]:.2%} for real part")
-print(f"{test_err_imag_list[-1]:.2%} for imaginary part")
+loss_history = evaluator.get_loss_history()
+error_history = evaluator.get_error_history()
+
+history = {'loss' : loss_history,
+           'error' : error_history}
+
+print(f"Training concluded in: {end_time - start_time} s")
+
+# ----------------- Plot ---------------
+epochs_plot = [i for i in range(epochs)]
+fig = plot_training(epochs_plot, history)
+
+plt.show()
 
 # ----------- Save output ------------
-filename = p["PREDS_DATA_FILE"]
-if p['DEBUG']:
-    filename = filename[:-4] + "_" + date + '.npz'
-
-model_folder = p["MODEL_FOLDER"]
-try:
-    directory = os.path.dirname(filename)
-    os.makedirs(directory, exist_ok=True)
-except FileExistsError as e:
-    print('Rewriting previous data file...')
-
-torch.save(branch.state_dict(), model_folder + f"branch_{date}.pth")
-torch.save(trunk.state_dict(), model_folder + f"trunk_{date}.pth")
-
-print("Saving preds:")
-np.savez(filename, u=u_test, xt=xt, real=g_u_pred_real_test, imag=g_u_pred_imag_test, mu_u=mu_u, sd_u=sd_u, mu_xt=mu_xt, sd_xt=sd_xt)
-
-# ---------- Plots ----------------
-x = range(num_epochs)
-
-
-plot_training(x, train_loss_list, train_err_real_list, train_err_imag_list, test_err_real_list, test_err_imag_list)
+saver(model_state_dict=model.state_dict(),
+      split_indices=dataset_indices,
+      norm_params=norm_params,
+      history=history,
+      figure=fig)

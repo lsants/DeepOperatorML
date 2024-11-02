@@ -1,29 +1,49 @@
 # Parameters for training DeepONets, loaded by train_model.py.
+MODELNAME: vanilla_deeponet_20241101
+
 
 # Location of .npz data file
 DATAFILE: ./data/raw/oop_data.npz # Path to input file
 PRECISION: torch.float64
 DEVICE: cpu
+SEED: 42
 
 # Model location
 MODEL_FOLDER: ./models/
 
-# Plots directory
+# History location
+OUTPUT_LOG_FOLDER: ./data/output/ # For split indexes, normalization parameters and loss history
+
+# Plots location
 IMAGES_FOLDER: ./images/
-PLOT_FILENAME: ./images/comparison.png
 
 # Training parameters
+N_BRANCHES: 2
 BRANCH_INPUT_SIZE: 1
 TRUNK_INPUT_SIZE: 2
 BASIS_FUNCTIONS: 30
 LEARNING_RATE: 0.0001                   # float: learning rate used in training
 N_EPOCHS: 100                         # int: number of training epochs
-ITERATIONS_PER_EPOCHS: 100               # int: number of steps performed in one epoch
+BATCH_SIZE: 1                       # int: Size of batch during training
 TRAIN_PERC: 0.8                         # float: the percentage of data used for training
-VAL_PERC: 0.2                           # float: the percentage of training data used for validation
+VAL_PERC: 0.1                           # float: the percentage of training data used for validation
+TEST_PERC: 0.1                           # float: the percentage of training data used for testing
+ERROR_NORM: 2
 
-L2_REGULARIZATION: 1e-02
+BRANCH_HIDDEN_LAYERS: # MLP - Set number of layers and units
+    - 100 
+    - 100 
+    - 100 
+    - 100 
+
+TRUNK_HIDDEN_LAYERS:
+    - 100 
+    - 100 
+    - 100 
+    - 100 
+
+
+L2_REGULARIZATION: 0.00001
 
 # Trained data for testing
 PREDS_DATA_FILE: ./data/output/bbb.npz
-DEBUG: 0
