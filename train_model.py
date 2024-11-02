@@ -1,6 +1,6 @@
 import torch
 import time
-import matplotlib.pyplot as plt
+import numpy as np
 from tqdm.auto import tqdm
 from modules import dir_functions
 from modules import preprocessing as ppr
@@ -8,7 +8,7 @@ from modules.vanilla_deeponet import VanillaDeepONet
 from modules.compose_transformations import Compose
 from modules.greenfunc_dataset import GreenFuncDataset
 from modules.training import TrainModel
-from modules.model_evaluator import Evaluator
+from modules.train_evaluator import TrainEvaluator
 from modules.saving import Saver
 from modules.plotting import plot_training
 
@@ -21,6 +21,7 @@ print(f"Training data from: {path_to_data}")
 torch.manual_seed(p['SEED'])
 precision = eval(p['PRECISION'])
 device = p['DEVICE']
+error_type = p['ERROR_NORM']
 model_name = p['MODELNAME']
 model_folder = p['MODEL_FOLDER']
 data_out_folder = p['OUTPUT_LOG_FOLDER']
@@ -33,10 +34,11 @@ transformations = Compose([
     to_tensor_transform
 ])
 
-data = GreenFuncDataset(path_to_data, transformations)
-xt = data.get_trunk()
+data = np.load(path_to_data)
+dataset = GreenFuncDataset(data, transformations)
+xt = dataset.get_trunk()
 
-train_dataset, val_dataset, test_dataset = torch.utils.data.random_split(data, [p['TRAIN_PERC'], p['VAL_PERC'], p['TEST_PERC']])
+train_dataset, val_dataset, test_dataset = torch.utils.data.random_split(dataset, [p['TRAIN_PERC'], p['VAL_PERC'], p['TEST_PERC']])
 
 train_dataloader = torch.utils.data.DataLoader(
     train_dataset, batch_size=p['BATCH_SIZE'], shuffle=True
@@ -44,22 +46,14 @@ train_dataloader = torch.utils.data.DataLoader(
 val_dataloader = torch.utils.data.DataLoader(
     val_dataset, batch_size=p['BATCH_SIZE'], shuffle=False
 )
-test_dataloader = torch.utils.data.DataLoader(
-    test_dataset, batch_size=p['BATCH_SIZE'], shuffle=False
-)
 
 dataset_indices = {'train': train_dataset.indices,
                    'val': val_dataset.indices,
                    'test': test_dataset.indices}
 
-total_samples = len(data)
-train_size = int(p['TRAIN_PERC'] * total_samples)
-val_size = int(p['VAL_PERC'] * total_samples)
-test_size = total_samples - train_size - val_size
-
 # ---------------------- Setup data normalization functions ------------------------
 branch_norm_params = ppr.get_branch_minmax_norm_params(train_dataloader)
-trunk_norm_params = data.get_trunk_normalization_params()
+trunk_norm_params = dataset.get_trunk_normalization_params()
 
 xb_min, xb_max = branch_norm_params['min'], branch_norm_params['max']
 xt_min, xt_max = trunk_norm_params
@@ -68,7 +62,6 @@ norm_params = {'branch': {k:v.item() for k,v in branch_norm_params.items()},
                'trunk': trunk_norm_params.tolist()}
 
 normalize_branch, normalize_trunk = ppr.Normalize(xb_min, xb_max), ppr.Normalize(xt_min, xt_max)
-denormalize_branch, denormalize_trunk = ppr.Denormalize(xb_min, xb_max), ppr.Denormalize(xt_min, xt_max)
 
 # ----------------------------- Initialize model -----------------------------
 u_dim = p["BRANCH_INPUT_SIZE"]
@@ -94,14 +87,13 @@ except ValueError:
 
 model = VanillaDeepONet(branch_layers=layers_B,
                         trunk_layers=layers_T,
-                        activation=torch.nn.ReLU()).to(device, precision)
+                        activation=activation).to(device, precision)
 
 optimizer = torch.optim.Adam(list(model.parameters()), lr=p["LEARNING_RATE"], weight_decay=p['L2_REGULARIZATION'])
-error_type = p['ERROR_NORM']
 
 # ------------------------- Initializing classes for training  -------------------
 trainer = TrainModel(model, optimizer)
-evaluator = Evaluator(error_type)
+evaluator = TrainEvaluator(error_type)
 saver = Saver(model_name, model_folder, data_out_folder, fig_folder)
 
 epochs = p['N_EPOCHS']
@@ -171,17 +163,19 @@ error_history = evaluator.get_error_history()
 history = {'loss' : loss_history,
            'error' : error_history}
 
+training_time = {'time': end_time - start_time}
 print(f"Training concluded in: {end_time - start_time} s")
 
 # ------------------------------------ Plot --------------------------------
 epochs_plot = [i for i in range(epochs)]
 fig = plot_training(epochs_plot, history)
 
-plt.show()
-
 # --------------------------- Save output -------------------------------
 saver(model_state_dict=model.state_dict(),
       split_indices=dataset_indices,
       norm_params=norm_params,
       history=history,
-      figure=fig)
+      figure=fig,
+      time=training_time,
+      figure_suffix="history",
+      time_prefix ="training")
