@@ -3,8 +3,7 @@ import numpy as np
 from .preprocessing import meshgrid_to_trunk, trunk_to_meshgrid
 
 class GreenFuncDataset(torch.utils.data.Dataset):
-    def __init__(self, path_to_data, transform=None):
-        data = np.load(path_to_data)
+    def __init__(self, data, transform=None):
         self.xb = data['xb'].reshape(-1, 1)
         self.xt = meshgrid_to_trunk(data['r'],data['z'])
         self.displacement_fields = data['g_u'].reshape(len(self.xb), -1)
