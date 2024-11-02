@@ -41,10 +41,10 @@ xt = dataset.get_trunk()
 train_dataset, val_dataset, test_dataset = torch.utils.data.random_split(dataset, [p['TRAIN_PERC'], p['VAL_PERC'], p['TEST_PERC']])
 
 train_dataloader = torch.utils.data.DataLoader(
-    train_dataset, batch_size=p['BATCH_SIZE'], shuffle=True
+    train_dataset, batch_size=min(p['BATCH_SIZE'], len(train_dataset)), shuffle=True
 )
 val_dataloader = torch.utils.data.DataLoader(
-    val_dataset, batch_size=p['BATCH_SIZE'], shuffle=False
+    val_dataset, batch_size=min(p['BATCH_SIZE'], len(val_dataset)), shuffle=False
 )
 
 dataset_indices = {'train': train_dataset.indices,
