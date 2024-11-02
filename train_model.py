@@ -15,7 +15,7 @@ from modules.plotting import plot_training
 # --------------- Load params file ------------------------
 p = dir_functions.load_params('params_model.yaml')
 path_to_data = p['DATAFILE']
-print(f"Loading data from: {path_to_data}")
+print(f"Training data from: {path_to_data}")
 
 # ---------------- Defining training parameters and output paths ---------------
 torch.manual_seed(p['SEED'])
@@ -81,6 +81,17 @@ G_dim = p["BASIS_FUNCTIONS"]
 layers_B = [u_dim] + hidden_B + [G_dim * n_branches]
 layers_T = [x_dim] + hidden_T + [G_dim]
 
+try:
+    if p['ACTIVATION_FUNCTION'].lower() == 'relu':
+        activation = torch.nn.ReLU()
+    elif p['ACTIVATION_FUNCTION'].lower() == 'tanh':
+        activation = torch.tanh
+    else:
+        raise ValueError
+except ValueError:
+    print('Invalid activation function.')
+
+
 model = VanillaDeepONet(branch_layers=layers_B,
                         trunk_layers=layers_T,
                         activation=torch.nn.ReLU()).to(device, precision)
@@ -97,6 +108,7 @@ epochs = p['N_EPOCHS']
 niter_per_train_epoch = len(train_dataloader)
 niter_per_val_epoch = len(val_dataloader)
 
+# ------------------- Train loop --------------------------
 start_time = time.time()
 
 for epoch in tqdm(range(epochs), colour='GREEN'):
