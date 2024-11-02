@@ -1,81 +1,125 @@
-import os
-import numpy as np
 import time
-import yaml
 import torch
-import torch.nn as nn
-import matplotlib.pyplot as plt
-from tqdm.auto import tqdm
-from datetime import datetime
-from modules.preprocessing import preprocessing
-from modules.plotting import plot_label_axis, plot_label_contours
+import numpy as np
+from modules import dir_functions
+from modules import preprocessing as ppr
+from modules.vanilla_deeponet import VanillaDeepONet
+from modules.greenfunc_dataset import GreenFuncDataset
+from modules.test_evaluator import TestEvaluator
+from modules.saving import Saver
+from modules.plotting import plot_field_comparison, plot_axis_comparison
 
-class MLP(nn.Module):
-    def __init__(self, layers, activation):
-        super(MLP, self).__init__()
-        self.linears = nn.ModuleList()
-        for i in range(len(layers) - 1):
-            self.linears.append(
-                nn.Linear(
-                    layers[i],
-                    layers[i+1],
-                )
-            )
-        self.activation = activation
+# --------------- Load params file ------------------------
+p = dir_functions.load_params('params_test.yaml')
+path_to_data = p['DATAFILE']
+print(f"Testing data from: {path_to_data}")
 
-    def forward(self, inputs):
-        out = inputs
-        for i in range(len(self.linears) - 1):
-            out = self.linears[i](out)
-            out = self.activation(out)
-        return self.linears[-1](out)
-    
+# ---------------- Defining training parameters and output paths ---------------
+precision = eval(p['PRECISION'])
+device = p['DEVICE']
+error_type = p['ERROR_NORM']
+model_name = p['MODELNAME']
+model_folder = p['MODEL_FOLDER']
+data_out_folder = p['OUTPUT_LOG_FOLDER']
+fig_folder = p['IMAGES_FOLDER']
+model_location = model_folder + f"model_state_{model_name}.pth"
 
-data = np.load('new_test.npz', allow_pickle=True)
+# ---------------- Load indexes and normalization params for testing set ----------------
+indices = dir_functions.load_indices(p['INDICES_FILE'])
+norm_params = dir_functions.load_indices(p['NORM_PARAMS_FILE'])
 
-omega = np.squeeze(data['freqs'])        # Shape: (num_freqs,)
-r = np.squeeze(data['r_field'])          # Shape: (n,)
-z = np.squeeze(data['z_field'])          # Shape: (n,)
-wd = data['wd'].transpose(0,2,1)                          # Shape: (freqs, r, z)
+test_indices = indices['test']
 
-mu = 1.97
-sd = 0.06
+branch_norm_params = norm_params['branch']
+trunk_norm_params = norm_params['trunk']
 
-u = omega.reshape(-1,1)*sd + mu
-R,Z = np.meshgrid(r,z)
-xt = np.column_stack((R.flatten(), Z.flatten()))
+# --------------- Load dataset ----------------------
+to_tensor_transform = ppr.ToTensor(dtype=precision, device=device)
 
-u, xt = [torch.tensor(i, dtype=torch.float64) for i in [u, xt]]
+data = np.load(path_to_data)
+dataset = GreenFuncDataset(data, transform=to_tensor_transform)
 
-branch = MLP([1] + [100] * 3 + [20*2], nn.ReLU()).to(torch.float64)
-branch.load_state_dict(torch.load('./models/branch_20241023.pth', weights_only=True))
+test_dataset = dataset[test_indices]
 
-trunk = MLP([2] + [100] * 3 + [20], nn.ReLU()).to(torch.float64)
-trunk.load_state_dict(torch.load('./models/trunk_20241023.pth', weights_only=True))
+xt = dataset.get_trunk()
+xb = test_dataset['xb']
+g_u_real = test_dataset['g_u_real']
+g_u_imag = test_dataset['g_u_imag']
 
-out_b = branch(u)
+# ---------------------- Setup data normalization functions ------------------------
+xb_min, xb_max = torch.tensor(branch_norm_params['min'], dtype=precision), torch.tensor(branch_norm_params['max'], dtype=precision)
+xt_min, xt_max = torch.tensor(trunk_norm_params, dtype=precision)
 
-out_B_real = out_b[:,:20]
-out_B_imag = out_b[:,20:]
+normalize_branch, normalize_trunk = ppr.Normalize(xb_min, xb_max), ppr.Normalize(xt_min, xt_max)
+xb_normalized = normalize_branch(xb)
+xt_normalized = normalize_trunk(xt)
 
-out_t = trunk(xt)
+# ----------------------------- Initialize model -----------------------------
+u_dim = p["BRANCH_INPUT_SIZE"]
+x_dim = p["TRUNK_INPUT_SIZE"]
+n_branches = p['N_BRANCHES']
+hidden_B = p['BRANCH_HIDDEN_LAYERS']
+hidden_T = p['TRUNK_HIDDEN_LAYERS']
+G_dim = p["BASIS_FUNCTIONS"]
 
-out_real = torch.matmul(out_B_real, torch.transpose(out_t, 0, 1))
-out_imag = torch.matmul(out_B_imag, torch.transpose(out_t, 0, 1))
+layers_B = [u_dim] + hidden_B + [G_dim * n_branches]
+layers_T = [x_dim] + hidden_T + [G_dim]
+
+try:
+    if p['ACTIVATION_FUNCTION'].lower() == 'relu':
+        activation = torch.nn.ReLU()
+    elif p['ACTIVATION_FUNCTION'].lower() == 'tanh':
+        activation = torch.tanh
+    else:
+        raise ValueError
+except ValueError:
+    print('Invalid activation function.')
+
+model = VanillaDeepONet(branch_layers=layers_B,
+                        trunk_layers=layers_T,
+                        activation=activation).to(device, precision)
+
+model.load_state_dict(torch.load(model_location, weights_only=True))
+
+# ------------------------- Initializing classes for test  -------------------
+evaluator = TestEvaluator(model, error_type)
+saver = Saver(model_name=model_name, model_folder=model_folder, data_output_folder=data_out_folder, figures_folder=fig_folder)
+
+# --------------------------------- Evaluation ---------------------------------
+start_time = time.time()
+preds_real, preds_imag = model(xb_normalized, xt_normalized)
+end_time = time.time()
+
+preds = preds_real + preds_imag * 1j
+g_u = g_u_real + g_u_imag * 1j
+
+preds = ppr.reshape_from_model(preds, xt)
+g_u = ppr.reshape_from_model(g_u, xt)
+
+test_error_real = evaluator(g_u_real, preds_real)
+test_error_imag = evaluator(g_u_imag, preds_imag)
+
+print(f"Test error for real part: {test_error_real:.2%}")
+print(f"Test error for imaginary part: {test_error_imag:.2%}")
+
+errors = {'real' : test_error_real,
+          'imag' : test_error_imag}
+
+inference_time = {'time' : (end_time - start_time)}
+
+# ------------------------------------ Plot & Save --------------------------------
+
+# To do: remove hardcoded index and implement animation
 
 index = 0
+freq = dataset[test_indices[index]]['xb'].item()
 
-freq = omega[index]
-g_u = out_real + out_imag*1j
-g_u = g_u.reshape(-1, len(r), len(z))
-g_u = g_u[index].detach().numpy()
+r, z = ppr.trunk_to_meshgrid(xt)
 
+fig_field = plot_field_comparison(r, z, g_u[index], preds[index], freq)
+fig_axis = plot_axis_comparison(r, z, g_u[index], preds[index], freq)
 
-print(np.flip(g_u[1:,:], axis=0))
-
-fig = plot_label_contours(r, z, g_u, freq, full=True, non_dim_plot=True)
-plt.show()
-
-fig = plot_label_axis(r, z, g_u, freq, axis='r', non_dim_plot=True)
-
-plt.show()
+saver(errors=errors)
+saver(time=inference_time, time_prefix="inference")
+saver(figure=fig_field, figure_suffix="field")
+saver(figure=fig_axis, figure_suffix="axis")
