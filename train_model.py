@@ -67,8 +67,6 @@ xt_min, xt_max = trunk_norm_params
 norm_params = {'branch': {k:v.item() for k,v in branch_norm_params.items()},
                'trunk': trunk_norm_params.tolist()}
 
-print(xt_min)
-
 normalize_branch, normalize_trunk = ppr.Normalize(xb_min, xb_max), ppr.Normalize(xt_min, xt_max)
 denormalize_branch, denormalize_trunk = ppr.Denormalize(xb_min, xb_max), ppr.Denormalize(xt_min, xt_max)
 
@@ -97,7 +95,7 @@ saver = Saver(model_name, model_folder, data_out_folder, fig_folder)
 
 epochs = p['N_EPOCHS']
 niter_per_train_epoch = len(train_dataloader)
-niter_per_val_epoch = len(train_dataloader)
+niter_per_val_epoch = len(val_dataloader)
 
 start_time = time.time()
 
@@ -123,7 +121,6 @@ for epoch in tqdm(range(epochs), colour='GREEN'):
                                                                     norm_batch['g_u_imag'])
         epoch_train_error_real += batch_train_error_real
         epoch_train_error_imag += batch_train_error_imag
-
 
     avg_epoch_train_loss = epoch_train_loss / niter_per_train_epoch
     avg_epoch_train_error_real = epoch_train_error_real / niter_per_train_epoch
