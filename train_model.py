@@ -122,9 +122,9 @@ for epoch in tqdm(range(epochs), colour='GREEN'):
 
     for batch in train_dataloader:
         model.train()
-        norm_batch = {key : (normalize_branch(value) if key == 'xb' else value) \
-                        for key, value in batch.items()}
-        norm_batch['xt'] = normalize_trunk(xt)
+        batch['xt'] = xt
+        norm_batch = {key: (normalize_branch(value) if key == 'xb' else normalize_trunk(value) if key == 'xt' else value)
+                  for key, value in batch.items()}
         batch_train_outputs = trainer(norm_batch)
         epoch_train_loss += batch_train_outputs['loss']
         batch_train_error_real = evaluator.compute_batch_error(batch_train_outputs['pred_real'],
@@ -143,9 +143,9 @@ for epoch in tqdm(range(epochs), colour='GREEN'):
     evaluator.store_epoch_train_imag_error(avg_epoch_train_error_imag)
 
     for batch in val_dataloader:
-        norm_batch = {key : (normalize_branch(value) if key == 'xb' else value) \
-                        for key, value in batch.items()}
-        norm_batch['xt'] = normalize_trunk(xt)
+        batch['xt'] = xt
+        norm_batch = {key: (normalize_branch(value) if key == 'xb' else normalize_trunk(value) if key == 'xt' else value)
+                  for key, value in batch.items()}
         batch_val_outputs = trainer(norm_batch, val=True)
         epoch_val_loss += batch_val_outputs['loss']
         batch_val_error_real = evaluator.compute_batch_error(batch_val_outputs['pred_real'],
