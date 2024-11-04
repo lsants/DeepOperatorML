@@ -1,5 +1,5 @@
 # Parameters for training DeepONets, loaded by train_model.py.
-MODELNAME: vanilla_deeponet_20241101
+MODELNAME: vanilla_deeponet_20241102
 
 # Location of .npz data file
 DATAFILE: ./data/raw/displacements.npz # Path to input file
@@ -33,10 +33,11 @@ TRUNK_HIDDEN_LAYERS: # MLP
     - 100 
     - 100 
     - 100 
+    - 100 
 
 # Training parameters
 LEARNING_RATE: 0.0001                   # float: learning rate used in training
-N_EPOCHS: 1000                         # int: number of training epochs
+N_EPOCHS: 10000                         # int: number of training epochs
 BATCH_SIZE: 10                       # int: Size of batch during training
 TRAIN_PERC: 0.8                         # float: the percentage of data used for training
 VAL_PERC: 0.1                           # float: the percentage of training data used for validation
@@ -44,5 +45,5 @@ TEST_PERC: 0.1                           # float: the percentage of training dat
 ERROR_NORM: 2
 
 
-
 L2_REGULARIZATION: 0.00001
+EARLY_STOPPING: false

@@ -2,17 +2,17 @@ DATA_FILENAME: ./data/raw/displacements.npz
 
 SEED: 42
 
-N_R: 15                   # Mesh points for r coordinate
-N_Z: 15                   # Mesh points for z coordinate
+N_R: 40                   # Mesh points for r coordinate
+N_Z: 40                   # Mesh points for z coordinate
 R_MIN: 0               # Min r coordinate sampled [m]
 Z_MIN: 0                  # Min. z coordinate sampled   [m]
 R_MAX: 10                 # Max. r coordinate sampled [m]
 Z_MAX: 10                 # Max. z coordinate sampled [m]
 
-N : 100              # Number of samples
+N : 200              # Number of samples
 
-OMEGA_MIN: 1            # Min. sampled frequency [Rad/s]
-OMEGA_MAX: 1206           # Max. sampled frequency [Rad/s]
+OMEGA_MIN: 0            # Min. sampled frequency [Rad/s]
+OMEGA_MAX: 6000           # Max. sampled frequency [Rad/s]
 LOAD: 6006663.0           # Load magnitude [N]
 Z_SOURCE: 0             # Position of source load in z axis [m]
 L_SOURCE: 0             # Dimension of source load in z axis [m]
