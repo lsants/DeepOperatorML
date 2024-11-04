@@ -12,12 +12,12 @@ from modules.train_evaluator import TrainEvaluator
 from modules.saving import Saver
 from modules.plotting import plot_training
 
-# --------------- Load params file ------------------------
+# --------------------------- Load params file ------------------------
 p = dir_functions.load_params('params_model.yaml')
 path_to_data = p['DATAFILE']
 print(f"Training data from: {path_to_data}")
 
-# ---------------- Defining training parameters and output paths ---------------
+# -------------------- Defining training parameters and output paths ---------------
 torch.manual_seed(p['SEED'])
 precision = eval(p['PRECISION'])
 device = p['DEVICE']
@@ -27,7 +27,7 @@ model_folder = p['MODEL_FOLDER']
 data_out_folder = p['OUTPUT_LOG_FOLDER']
 fig_folder = p['IMAGES_FOLDER']
 
-# --------------- Load dataset ----------------------
+# ---------------------------- Load dataset ----------------------
 to_tensor_transform = ppr.ToTensor(dtype=precision, device=device)
 
 transformations = Compose([
@@ -51,7 +51,7 @@ dataset_indices = {'train': train_dataset.indices,
                    'val': val_dataset.indices,
                    'test': test_dataset.indices}
 
-# ---------------------- Setup data normalization functions ------------------------
+# ------------------------------ Setup data normalization functions ------------------------
 branch_norm_params = ppr.get_branch_minmax_norm_params(train_dataloader)
 trunk_norm_params = dataset.get_trunk_normalization_params()
 
@@ -63,7 +63,7 @@ norm_params = {'branch': {k:v.item() for k,v in branch_norm_params.items()},
 
 normalize_branch, normalize_trunk = ppr.Normalize(xb_min, xb_max), ppr.Normalize(xt_min, xt_max)
 
-# ----------------------------- Initialize model -----------------------------
+# ------------------------------------ Initialize model -----------------------------
 u_dim = p["BRANCH_INPUT_SIZE"]
 x_dim = p["TRUNK_INPUT_SIZE"]
 n_branches = p['N_BRANCHES']
@@ -84,14 +84,13 @@ try:
 except ValueError:
     print('Invalid activation function.')
 
-
 model = VanillaDeepONet(branch_layers=layers_B,
                         trunk_layers=layers_T,
                         activation=activation).to(device, precision)
 
 optimizer = torch.optim.Adam(list(model.parameters()), lr=p["LEARNING_RATE"], weight_decay=p['L2_REGULARIZATION'])
 
-# ------------------------- Initializing classes for training  -------------------
+# ---------------------------------- Initializing classes for training  -------------------
 trainer = TrainModel(model, optimizer)
 evaluator = TrainEvaluator(error_type)
 saver = Saver(model_name, model_folder, data_out_folder, fig_folder)
@@ -100,7 +99,7 @@ epochs = p['N_EPOCHS']
 niter_per_train_epoch = len(train_dataloader)
 niter_per_val_epoch = len(val_dataloader)
 
-# --------------------------------- Train loop ---------------------------------
+# ----------------------------------------- Train loop ---------------------------------
 start_time = time.time()
 
 for epoch in tqdm(range(epochs), colour='GREEN'):
