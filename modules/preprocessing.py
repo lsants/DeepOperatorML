@@ -86,6 +86,6 @@ def meshgrid_to_trunk(r_values, z_values):
     xt = np.column_stack((R_mesh.flatten(), Z_mesh.flatten()))
     return xt
 
-def reshape_from_model(displacements, arr):
-    n_z = len(np.unique(arr[ : , 1]))
+def reshape_from_model(displacements, z_axis_values):
+    n_z = len(z_axis_values)
     return (displacements.detach().numpy()).reshape(len(displacements), -1, n_z)
