@@ -87,5 +87,9 @@ def meshgrid_to_trunk(r_values, z_values):
     return xt
 
 def reshape_from_model(displacements, z_axis_values):
-    n_z = len(z_axis_values)
+    if z_axis_values.ndim == 2:
+        n_z = len(np.unique(z_axis_values[ : , 1]))
+    else:
+        n_z = len(z_axis_values)
+
     return (displacements.detach().numpy()).reshape(len(displacements), -1, n_z)
