@@ -9,12 +9,12 @@ from modules.test_evaluator import TestEvaluator
 from modules.saving import Saver
 from modules.plotting import plot_field_comparison, plot_axis_comparison
 
-# --------------- Load params file ------------------------
+# ----------------------------- Load params file ------------------------
 p = dir_functions.load_params('params_test.yaml')
 path_to_data = p['DATAFILE']
 print(f"Testing data from: {path_to_data}")
 
-# ---------------- Defining training parameters and output paths ---------------
+# ------------------------------ Defining training parameters and output paths ---------------
 precision = eval(p['PRECISION'])
 device = p['DEVICE']
 error_type = p['ERROR_NORM']
@@ -23,17 +23,22 @@ model_folder = p['MODEL_FOLDER']
 data_out_folder = p['OUTPUT_LOG_FOLDER']
 fig_folder = p['IMAGES_FOLDER']
 model_location = model_folder + f"model_state_{model_name}.pth"
+print(f"Testing model from: {model_location}")
 
-# ---------------- Load indexes and normalization params for testing set ----------------
+
+# ------------------------- Load indexes and normalization params for testing set ----------------
 indices = dir_functions.load_indices(p['INDICES_FILE'])
 norm_params = dir_functions.load_indices(p['NORM_PARAMS_FILE'])
 
 test_indices = indices['test']
 
+print(f"Using indices from: {p['INDICES_FILE']}")
+print(f"Using normalization parameters from: {p['NORM_PARAMS_FILE']} \n")
+
 branch_norm_params = norm_params['branch']
 trunk_norm_params = norm_params['trunk']
 
-# --------------- Load dataset ----------------------
+# ------------------------- Load dataset ----------------------
 to_tensor_transform = ppr.ToTensor(dtype=precision, device=device)
 
 data = np.load(path_to_data)
@@ -42,6 +47,7 @@ dataset = GreenFuncDataset(data, transform=to_tensor_transform)
 test_dataset = dataset[test_indices]
 
 xt = dataset.get_trunk()
+
 xb = test_dataset['xb']
 g_u_real = test_dataset['g_u_real']
 g_u_imag = test_dataset['g_u_imag']
@@ -111,7 +117,7 @@ inference_time = {'time' : (end_time - start_time)}
 
 # To do: remove hardcoded index and implement animation
 
-index = 0
+index = 1
 freq = dataset[test_indices[index]]['xb'].item()
 
 r, z = ppr.trunk_to_meshgrid(xt)
