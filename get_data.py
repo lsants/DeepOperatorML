@@ -6,7 +6,7 @@ import argparse
 from modules.evaluate_params import multi_eval as evaluate
 from data_generation.data_generation_dimless_green import DimensionlessInfluenceFunction
 
-with open('data_generation_params.yaml') as file:
+with open('params_data_generation.yaml') as file:
     p = yaml.safe_load(file)
 
 np.random.seed(p["SEED"])
