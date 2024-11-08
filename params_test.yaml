@@ -1,10 +1,10 @@
 # Parameters for training DeepONets, loaded by train_model.py.
-MODELNAME: vanilla_deeponet_20241102
+MODELNAME: vanilla_deeponet_20241108_normalized_input_feature_expansion
 
 # Location of test file info
 DATAFILE: ./data/raw/displacements.npz
-INDICES_FILE: ./data/output/indices_vanilla_deeponet_20241102.json
-NORM_PARAMS_FILE: ./data/output/norm_params_vanilla_deeponet_20241102.json
+INDICES_FILE: ./data/output/indices_vanilla_deeponet_20241108.json
+NORM_PARAMS_FILE: ./data/output/norm_params_vanilla_deeponet_20241108.json
 
 # Model location
 MODEL_FOLDER: ./models/
@@ -31,6 +31,7 @@ BRANCH_HIDDEN_LAYERS: # MLP
     - 100 
     - 100 
     - 100 
+    - 100 
 
 TRUNK_HIDDEN_LAYERS: # MLP
     - 100 
@@ -38,3 +39,8 @@ TRUNK_HIDDEN_LAYERS: # MLP
     - 100 
     - 100 
     - 100 
+
+INPUT_NORMALIZATION: true
+OUTPUT_NORMALIZATION: true
+TRUNK_FEATURE_EXPANSION: true
+EXPANSION_FEATURES_NUMBER: 1
