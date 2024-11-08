@@ -52,24 +52,31 @@ dataset_indices = {'train': train_dataset.indices,
                    'test': test_dataset.indices}
 
 # ------------------------------ Setup data normalization functions ------------------------
-branch_norm_params = ppr.get_branch_minmax_norm_params(train_dataloader)
+norm_params = ppr.get_minmax_norm_params(train_dataloader)
 trunk_norm_params = dataset.get_trunk_normalization_params()
 
-xb_min, xb_max = branch_norm_params['min'], branch_norm_params['max']
-xt_min, xt_max = trunk_norm_params
+xb_min, xb_max = norm_params['xb']['min'], norm_params['xb']['max']
+xt_min, xt_max = trunk_norm_params['min'], trunk_norm_params['max']
+g_u_real_min, g_u_real_max = norm_params['g_u_real']['min'], norm_params['g_u_real']['max']
+g_u_imag_min, g_u_imag_max = norm_params['g_u_imag']['min'], norm_params['g_u_imag']['max']
 
-norm_params = {'branch': {k:v.item() for k,v in branch_norm_params.items()},
-               'trunk': trunk_norm_params.tolist()}
+norm_params['xt'] = trunk_norm_params
 
-normalize_branch, normalize_trunk = ppr.Normalize(xb_min, xb_max), ppr.Normalize(xt_min, xt_max)
+normalize_branch = ppr.Normalize(xb_min, xb_max)
+normalize_trunk = ppr.Normalize(xt_min, xt_max)
+normalize_g_u_real = ppr.Normalize(g_u_real_min, g_u_real_max)
+normalize_g_u_imag = ppr.Normalize(g_u_imag_min, g_u_imag_max)
 
 # ------------------------------------ Initialize model -----------------------------
+expansion_dim = p['EXPANSION_FEATURES_NUMBER']
 u_dim = p["BRANCH_INPUT_SIZE"]
 x_dim = p["TRUNK_INPUT_SIZE"]
 n_branches = p['N_BRANCHES']
 hidden_B = p['BRANCH_HIDDEN_LAYERS']
 hidden_T = p['TRUNK_HIDDEN_LAYERS']
 G_dim = p["BASIS_FUNCTIONS"]
+if p['TRUNK_FEATURE_EXPANSION']:
+    x_dim += 4 * expansion_dim
 
 layers_B = [u_dim] + hidden_B + [G_dim * n_branches]
 layers_T = [x_dim] + hidden_T + [G_dim]
@@ -114,14 +121,28 @@ for epoch in tqdm(range(epochs), colour='GREEN'):
     for batch in train_dataloader:
         model.train()
         batch['xt'] = xt
-        norm_batch = {key: (normalize_branch(value) if key == 'xb' else normalize_trunk(value) if key == 'xt' else value)
-                  for key, value in batch.items()}
-        batch_train_outputs = trainer(norm_batch)
+        if p['INPUT_NORMALIZATION']:
+            batch = {key: (normalize_branch(value) if key == 'xb' \
+                            else normalize_trunk(value) if key == 'xt'\
+                            else value)
+                    for key, value in batch.items()}
+        if p['OUTPUT_NORMALIZATION']:
+            print(f"Output before normalization: {batch['g_u_real']}\n{batch['g_u_imag']}")
+            batch = {key: (normalize_g_u_real(value) if key == 'g_u_real' \
+                            else normalize_g_u_imag(value) if key == 'g_u_imag'\
+                            else value)
+                    for key, value in batch.items()}
+            print(f"Output after normalization: {batch['g_u_real']}\n{batch['g_u_imag']}")
+            quit()
+        if p['TRUNK_FEATURE_EXPANSION']:
+            batch = {key: (ppr.trunk_feature_expansion(value, expansion_dim) if key == 'xt' else value)
+                        for key, value in batch.items()}
+        batch_train_outputs = trainer(batch)
         epoch_train_loss += batch_train_outputs['loss']
         batch_train_error_real = evaluator.compute_batch_error(batch_train_outputs['pred_real'],
-                                                                    norm_batch['g_u_real'])
+                                                                    batch['g_u_real'])
         batch_train_error_imag = evaluator.compute_batch_error(batch_train_outputs['pred_imag'],
-                                                                    norm_batch['g_u_imag'])
+                                                                    batch['g_u_imag'])
         epoch_train_error_real += batch_train_error_real
         epoch_train_error_imag += batch_train_error_imag
 
@@ -135,14 +156,25 @@ for epoch in tqdm(range(epochs), colour='GREEN'):
 
     for batch in val_dataloader:
         batch['xt'] = xt
-        norm_batch = {key: (normalize_branch(value) if key == 'xb' else normalize_trunk(value) if key == 'xt' else value)
-                  for key, value in batch.items()}
-        batch_val_outputs = trainer(norm_batch, val=True)
+        if p['INPUT_NORMALIZATION']:
+            batch = {key: (normalize_branch(value) if key == 'xb' \
+                            else normalize_trunk(value) if key == 'xt'\
+                            else value)
+                    for key, value in batch.items()}
+        if p['OUTPUT_NORMALIZATION']:
+            batch = {key: (normalize_g_u_real(value) if key == 'g_u_real' \
+                            else normalize_g_u_imag(value) if key == 'g_u_imag'\
+                            else value)
+                    for key, value in batch.items()}
+        if p['TRUNK_FEATURE_EXPANSION']:
+            batch = {key: (ppr.trunk_feature_expansion(value, expansion_dim) if key == 'xt' else value)
+                        for key, value in batch.items()}
+        batch_val_outputs = trainer(batch, val=True)
         epoch_val_loss += batch_val_outputs['loss']
         batch_val_error_real = evaluator.compute_batch_error(batch_val_outputs['pred_real'],
-                                                                    norm_batch['g_u_real'])
+                                                                    batch['g_u_real'])
         batch_val_error_imag = evaluator.compute_batch_error(batch_val_outputs['pred_imag'],
-                                                                    norm_batch['g_u_imag'])
+                                                                    batch['g_u_imag'])
         epoch_val_error_real += batch_val_error_real
         epoch_val_error_imag += batch_val_error_imag
 
