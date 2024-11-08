@@ -3,18 +3,15 @@ import torch
 import numpy as np
 from modules import dir_functions
 from modules import preprocessing as ppr
+from modules.saving import Saver
+from modules.test_evaluator import TestEvaluator
 from modules.vanilla_deeponet import VanillaDeepONet
 from modules.greenfunc_dataset import GreenFuncDataset
-from modules.test_evaluator import TestEvaluator
-from modules.saving import Saver
 from modules.plotting import plot_field_comparison, plot_axis_comparison
 
 # ----------------------------- Load params file ------------------------
 p = dir_functions.load_params('params_test.yaml')
 path_to_data = p['DATAFILE']
-print(f"Testing data from: {path_to_data}")
-
-# ------------------------------ Defining training parameters and output paths ---------------
 precision = eval(p['PRECISION'])
 device = p['DEVICE']
 error_type = p['ERROR_NORM']
@@ -23,50 +20,72 @@ model_folder = p['MODEL_FOLDER']
 data_out_folder = p['OUTPUT_LOG_FOLDER']
 fig_folder = p['IMAGES_FOLDER']
 model_location = model_folder + f"model_state_{model_name}.pth"
-print(f"Testing model from: {model_location}")
 
+print(f"Model from: {model_location}")
+print(f"Data from: {path_to_data}")
 
-# ------------------------- Load indexes and normalization params for testing set ----------------
-indices = dir_functions.load_indices(p['INDICES_FILE'])
-norm_params = dir_functions.load_indices(p['NORM_PARAMS_FILE'])
+# ------------------------- Load indexes and normalization params ----------------
+indices = dir_functions.load_data_info(p['INDICES_FILE'])
+norm_params = dir_functions.load_data_info(p['NORM_PARAMS_FILE'])
 
 test_indices = indices['test']
 
-print(f"Using indices from: {p['INDICES_FILE']}")
-print(f"Using normalization parameters from: {p['NORM_PARAMS_FILE']} \n")
+print(f"Indices from: {p['INDICES_FILE']}")
+print(f"Normalization parameters from: {p['NORM_PARAMS_FILE']} \n")
 
-branch_norm_params = norm_params['branch']
-trunk_norm_params = norm_params['trunk']
+branch_norm_params = norm_params['xb']
+trunk_norm_params = norm_params['xt']
+real_part_norm_params = norm_params['g_u_real']
+imag_part_norm_params = norm_params['g_u_imag']
 
 # ------------------------- Load dataset ----------------------
-to_tensor_transform = ppr.ToTensor(dtype=precision, device=device)
-
 data = np.load(path_to_data)
-dataset = GreenFuncDataset(data, transform=to_tensor_transform)
 
+to_tensor_transform = ppr.ToTensor(dtype=precision, device=device)
+dataset = GreenFuncDataset(data, transform=to_tensor_transform)
 test_dataset = dataset[test_indices]
 
-xt = dataset.get_trunk()
-
 xb = test_dataset['xb']
+xt = dataset.get_trunk()
 g_u_real = test_dataset['g_u_real']
 g_u_imag = test_dataset['g_u_imag']
 
-# ---------------------- Setup data normalization functions ------------------------
+# ---------------------- Initialize normalization functions ------------------------
 xb_min, xb_max = torch.tensor(branch_norm_params['min'], dtype=precision), torch.tensor(branch_norm_params['max'], dtype=precision)
-xt_min, xt_max = torch.tensor(trunk_norm_params, dtype=precision)
+xt_min, xt_max = torch.tensor(trunk_norm_params['min'], dtype=precision), torch.tensor(trunk_norm_params['max'], dtype=precision)
+g_u_real_min, g_u_real_max = torch.tensor(real_part_norm_params['min'], dtype=precision), torch.tensor(real_part_norm_params['max'], dtype=precision)
+g_u_imag_min, g_u_imag_max = torch.tensor(imag_part_norm_params['min'], dtype=precision), torch.tensor(imag_part_norm_params['max'], dtype=precision)
 
 normalize_branch, normalize_trunk = ppr.Normalize(xb_min, xb_max), ppr.Normalize(xt_min, xt_max)
-xb_normalized = normalize_branch(xb)
-xt_normalized = normalize_trunk(xt)
+normalize_g_u_real = ppr.Normalize(g_u_real_min, g_u_real_max)
+normalize_g_u_imag = ppr.Normalize(g_u_imag_min, g_u_imag_max)
+
+denormalize_xb = ppr.Denormalize(xb_min, xb_max)
+denormalize_xt = ppr.Denormalize(xt_min, xt_max)
+denormalize_g_u_real = ppr.Denormalize(g_u_real_min, g_u_real_max)
+denormalize_g_u_imag = ppr.Denormalize(g_u_imag_min, g_u_imag_max)
+
+if p['INPUT_NORMALIZATION']:
+    xb = normalize_branch(xb)
+    xt = normalize_trunk(xt)
+if p['OUTPUT_NORMALIZATION']:
+    g_u_real_normalized = normalize_g_u_real(g_u_real)
+    g_u_imag_normalized = normalize_g_u_imag(g_u_imag)
+
+if p['TRUNK_FEATURE_EXPANSION']:
+    xt = ppr.trunk_feature_expansion(xt, p['EXPANSION_FEATURES_NUMBER'])
 
 # ----------------------------- Initialize model -----------------------------
+expansion_dim = p['EXPANSION_FEATURES_NUMBER']
 u_dim = p["BRANCH_INPUT_SIZE"]
 x_dim = p["TRUNK_INPUT_SIZE"]
 n_branches = p['N_BRANCHES']
 hidden_B = p['BRANCH_HIDDEN_LAYERS']
 hidden_T = p['TRUNK_HIDDEN_LAYERS']
 G_dim = p["BASIS_FUNCTIONS"]
+
+if p['TRUNK_FEATURE_EXPANSION']: # 2 here is hardcoded because we add a sin(x) and cos(x) term. See if this can be improved.
+    x_dim += 2 * x_dim * expansion_dim
 
 layers_B = [u_dim] + hidden_B + [G_dim * n_branches]
 layers_T = [x_dim] + hidden_T + [G_dim]
@@ -93,34 +112,51 @@ saver = Saver(model_name=model_name, model_folder=model_folder, data_output_fold
 
 # --------------------------------- Evaluation ---------------------------------
 start_time = time.time()
-preds_real, preds_imag = model(xb_normalized, xt_normalized)
+preds_real, preds_imag = model(xb, xt)
 end_time = time.time()
-
-preds = preds_real + preds_imag * 1j
-g_u = g_u_real + g_u_imag * 1j
-
-preds = ppr.reshape_from_model(preds, xt)
-g_u = ppr.reshape_from_model(g_u, xt)
 
 test_error_real = evaluator(g_u_real, preds_real)
 test_error_imag = evaluator(g_u_imag, preds_imag)
 
-print(f"Test error for real part: {test_error_real:.2%}")
-print(f"Test error for imaginary part: {test_error_imag:.2%}")
+print(f"Test error for real part (physical): {test_error_real:.2%}")
+print(f"Test error for imaginary part (physical): {test_error_imag:.2%}")
 
-errors = {'real' : test_error_real,
-          'imag' : test_error_imag}
+if p['OUTPUT_NORMALIZATION']:
+    preds_real_normalized, preds_imag_normalized = preds_real, preds_imag
+    preds_real, preds_imag = denormalize_g_u_real(preds_real_normalized), denormalize_g_u_imag(preds_real_normalized) 
+    test_error_real_normalized = evaluator(g_u_real_normalized, preds_real_normalized)
+    test_error_imag_normalized = evaluator(g_u_imag_normalized, preds_imag_normalized)
+    print(f"Test error for real part (normalized): {test_error_real_normalized:.2%}")
+    print(f"Test error for imaginary part (normalized): {test_error_imag_normalized:.2%}")
+
+errors = {'real_physical' : test_error_real,
+          'imag_physical' : test_error_imag
+          }
+
+if p['OUTPUT_NORMALIZATION']:
+    errors['real_normalized'] = test_error_real_normalized
+    errors['imag_normalized'] = test_error_imag_normalized
 
 inference_time = {'time' : (end_time - start_time)}
 
 # ------------------------------------ Plot & Save --------------------------------
-
 # To do: remove hardcoded index and implement animation
 
-index = 1
+index = 7
 freq = dataset[test_indices[index]]['xb'].item()
 
-r, z = ppr.trunk_to_meshgrid(xt)
+if p['INPUT_NORMALIZATION']:
+    if p['TRUNK_FEATURE_EXPANSION']:
+        xt_plot = xt[ : , : p["TRUNK_INPUT_SIZE"]]
+    xt_plot = denormalize_xt(xt_plot)
+
+r, z = ppr.trunk_to_meshgrid(xt_plot)
+
+preds = preds_real + preds_imag * 1j
+preds = ppr.reshape_from_model(preds, xt_plot)
+
+g_u = g_u_real + g_u_imag * 1j
+g_u = ppr.reshape_from_model(g_u, xt_plot)
 
 fig_field = plot_field_comparison(r, z, g_u[index], preds[index], freq)
 fig_axis = plot_axis_comparison(r, z, g_u[index], preds[index], freq)
