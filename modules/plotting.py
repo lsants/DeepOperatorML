@@ -1,5 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
+from mpl_toolkits.mplot3d import Axes3D
 from matplotlib.colors import Normalize
 
 def plot_training(epochs, history):
@@ -40,19 +41,20 @@ def plot_training(epochs, history):
 
     return fig
 
-def plot_field(r ,z, wd, freq, full=True, non_dim_plot=True):
+def plot_field(r ,z, wd, freq, full, non_dim_plot=True):
     if full:
         r_full = np.concatenate((-np.flip(r[1:]), r))
         R, Z = np.meshgrid(r_full,z)
         u_flip = np.flip(wd[1 : , : ], axis=0)
         wd_full = np.concatenate((u_flip, wd), axis=0)
+        wd_full = wd_full.T
     else:
         R, Z = np.meshgrid(r,z)
-        wd_full = wd
+        wd_full = wd.T
 
-    u_real = np.real(wd_full.T)
-    u_imag = np.imag(wd_full.T)
-    u_abs = np.abs(wd_full.T)
+    u_real = np.real(wd_full)
+    u_imag = np.imag(wd_full)
+    u_abs = np.abs(wd_full)
 
     l_real = r'$\Re(u_{zz})$'
     l_imag = r'$\Im(u_{zz})$'
@@ -188,7 +190,7 @@ def plot_axis(r ,z, wd, freq, non_dim_plot=True, axis=None):
 
         z_plane = r.min()
         mask_r = np.where(r == z_plane)[0].item()
-        wd_plot_z = wd[ : , mask_r]
+        wd_plot_z = wd[mask_r , : ]
 
         u_real_r = np.real(wd_plot_r)
         u_imag_r = np.imag(wd_plot_r)
@@ -348,7 +350,7 @@ def plot_field_comparison(r, z, wd, g_u, freq, full=True, non_dim_plot=True):
     fig.tight_layout()
     return fig
 
-def plot_axis_comparison(r, z, wd, g_u, freq, axis=None, non_dim_plot=True):
+def plot_axis_comparison(r, z, wd, g_u, freq, axis=None, non_dim_plot=True, rotated_z=False):
     wd_plot = wd
 
     l_real = r'$\Re(u_{zz})$'
@@ -393,29 +395,38 @@ def plot_axis_comparison(r, z, wd, g_u, freq, axis=None, non_dim_plot=True):
         u_imag_pred = np.imag(g_u_plot)
         u_abs_pred = np.abs(g_u_plot)
 
-
-
         fig, ax = plt.subplots(nrows=1,
                         ncols=3,
                         figsize=(16, 4))
         
         if axis == 'z':
-
-            ax[0].plot(u_real_label, var, '.-k', label='u_label')
-            ax[0].plot(u_real_pred, var, 'xr', label='u_pred')
-            ax[0].invert_yaxis()
+            if rotated_z:
+                ax[0].plot(u_real_label, var, '.-k', label='u_label')
+                ax[0].plot(u_real_pred, var, 'xr', label='u_pred')
+                ax[0].invert_yaxis()
+            else:
+                ax[0].plot(var, u_real_label, '.-k', label='u_label')
+                ax[0].plot(var, u_real_pred, 'xr', label='u_pred')
             ax[0].legend()
             ax[0].set_ylabel(z_label, fontsize=14)
 
-            ax[1].plot(u_imag_label, var, '.-k', label='u_label')
-            ax[1].plot(u_imag_pred, var, 'xr', label='u_pred')
-            ax[1].invert_yaxis()
+            if rotated_z:
+                ax[1].plot(u_real_label, var, '.-k', label='u_label')
+                ax[1].plot(u_real_pred, var, 'xr', label='u_pred')
+                ax[1].invert_yaxis()
+            else:
+                ax[1].plot(var, u_real_label, '.-k', label='u_label')
+                ax[1].plot(var, u_real_pred, 'xr', label='u_pred')
             ax[1].legend()
             ax[1].set_ylabel(z_label, fontsize=14)
 
-            ax[2].plot(u_abs_label, var, '.-k', label='u_label')
-            ax[2].plot(u_abs_pred, var, 'xr', label='u_pred')
-            ax[2].invert_yaxis()
+            if rotated_z:
+                ax[2].plot(u_real_label, var, '.-k', label='u_label')
+                ax[2].plot(u_real_pred, var, 'xr', label='u_pred')
+                ax[2].invert_yaxis()
+            else:
+                ax[2].plot(var, u_real_label, '.-k', label='u_label')
+                ax[2].plot(var, u_real_pred, 'xr', label='u_pred')
             ax[2].legend()
             ax[2].set_ylabel(z_label, fontsize=14)
         else:
@@ -487,21 +498,33 @@ def plot_axis_comparison(r, z, wd, g_u, freq, axis=None, non_dim_plot=True):
         ax[0][2].set_xlabel(r_label, fontsize=14)
         ax[0][2].legend()
 
-        ax[1][0].plot(u_real_z_label, z, '.-k', label='u_label')
-        ax[1][0].plot(u_real_z_pred, z, 'xr', label='u_pred')
-        ax[1][0].invert_yaxis()
+        if rotated_z:
+            ax[1][0].plot(u_real_z_label, z, '.-k', label='u_label')
+            ax[1][0].plot(u_real_z_pred, z, 'xr', label='u_pred')
+            ax[1][0].invert_yaxis()
+        else:
+            ax[1][0].plot(z, u_real_z_label, '.-k', label='u_label')
+            ax[1][0].plot(z, u_real_z_pred, 'xr', label='u_pred')
         ax[1][0].legend()
         ax[1][0].set_ylabel(z_label, fontsize=14)
 
-        ax[1][1].plot(u_imag_z_label, z, '.-k', label='u_label')
-        ax[1][1].plot(u_imag_z_pred, z, 'xr', label='u_pred')
-        ax[1][1].invert_yaxis()
+        if rotated_z:
+            ax[1][1].plot(u_imag_z_label, z, '.-k', label='u_label')
+            ax[1][1].plot(u_imag_z_pred, z, 'xr', label='u_pred')
+            ax[1][1].invert_yaxis()
+        else:
+            ax[1][1].plot(z, u_imag_z_label, '.-k', label='u_label')
+            ax[1][1].plot(z, u_imag_z_pred, 'xr', label='u_pred')
         ax[1][1].legend()
         ax[1][1].set_ylabel(z_label, fontsize=14)
 
-        ax[1][2].plot(u_abs_z_label, z, '.-k', label='u_label')
-        ax[1][2].plot(u_abs_z_pred, z, 'xr', label='u_pred')
-        ax[1][2].invert_yaxis()
+        if rotated_z:
+            ax[1][2].plot(u_abs_z_label, z, '.-k', label='u_label')
+            ax[1][2].plot(u_abs_z_pred, z, 'xr', label='u_pred')
+            ax[1][2].invert_yaxis()
+        else:
+            ax[1][2].plot(z, u_abs_z_label, '.-k', label='u_label')
+            ax[1][2].plot(z, u_abs_z_pred, 'xr', label='u_pred')
         ax[1][2].legend()
         ax[1][2].set_ylabel(z_label, fontsize=14)
 
@@ -512,5 +535,224 @@ def plot_axis_comparison(r, z, wd, g_u, freq, axis=None, non_dim_plot=True):
         ax[1][1].set_title(l_imag[ : -1] + plot_type_z)
         ax[1][2].set_title(l_abs[ : -1] + plot_type_z)
         
+    fig.tight_layout()
+    return fig
+
+def plot_fft_field(r, z, wd, freq, full=False, non_dim_plot=True):
+    if full:
+        r_full = np.concatenate((-np.flip(r[1:], axis=0), r))
+        R, Z = np.meshgrid(r_full, z)
+        u_flip = np.flip(wd[1:, :], axis=0)
+        wd_full = np.concatenate((u_flip, wd), axis=0)
+    else:
+        r_full = r
+        R, Z = np.meshgrid(r, z)
+        wd_full = wd
+
+    u = wd_full.T
+    u_abs = np.abs(u)
+    u_real = np.real(u)
+    u_imag = np.imag(u)
+
+    dr = r_full[1] - r_full[0]
+    dz = z[1] - z[0]
+
+    u_fft = np.fft.fft2(u_real + 1j * u_imag)
+
+    freq_r = np.fft.fftfreq(len(r_full), d=dr)
+    freq_z = np.fft.fftfreq(len(z), d=dz)
+
+    if full:
+        u_fft_shifted = np.fft.fftshift(u_fft)
+        freq_r_shifted = np.fft.fftshift(freq_r)
+        freq_z_shifted = np.fft.fftshift(freq_z)
+
+        R_freq_grid, Z_freq_grid = np.meshgrid(freq_r_shifted, freq_z_shifted)
+
+        u_fft_to_plot = u_fft_shifted
+        R_freq_to_plot = R_freq_grid
+        Z_freq_to_plot = Z_freq_grid
+    else:
+        positive_freq_r_indices = freq_r >= 0
+        positive_freq_z_indices = freq_z >= 0
+
+        freq_r_positive = freq_r[positive_freq_r_indices]
+        freq_z_positive = freq_z[positive_freq_z_indices]
+
+        u_fft_positive = u_fft[np.ix_(positive_freq_z_indices, positive_freq_r_indices)]
+
+        R_freq_grid_positive, Z_freq_grid_positive = np.meshgrid(freq_r_positive, freq_z_positive)
+
+        u_fft_to_plot = u_fft_positive
+        R_freq_to_plot = R_freq_grid_positive
+        Z_freq_to_plot = Z_freq_grid_positive
+
+    l_real = r'$\Re(u_{zz})$'
+    l_imag = r'$\Im(u_{zz})$'
+    l_abs = r'|$u_{zz}$|'
+
+    l_real_fft = r'$\Re(\mathcal{F}\{u_{zz}\})$'
+    l_imag_fft = r'$\Im(\mathcal{F}\{u_{zz}\})$'
+    l_abs_fft = r'|$\mathcal{F}\{u_{zz}\}$|'
+
+    if non_dim_plot:
+        title_real = l_real + r' at $a_0$' + f' = {freq:.2E}'
+        title_imag = l_imag + r' at $a_0$' + f' = {freq:.2E}'
+        title_abs = l_abs + r' at $a_0$' + f' = {freq:.2E}'
+
+        title_real_fft = l_real_fft + r' at $a_0$' + f' = {freq:.2E}'
+        title_imag_fft = l_imag_fft + r' at $a_0$' + f' = {freq:.2E}'
+        title_abs_fft = l_abs_fft + r' at $a_0$' + f' = {freq:.2E}'
+        x_label = r'$\frac{r}{a}$'
+        y_label = r'$\frac{z}{a}$'
+    else:
+        title_real = l_real + r' at $\omega$' + f' = {freq:.2E} Rad/s'
+        title_imag = l_imag + r' at $\omega$' + f' = {freq:.2E} Rad/s'
+        title_abs = l_abs + r' at $\omega$' + f' = {freq:.2E} Rad/s'
+
+        title_real_fft = l_real_fft + r' at $\omega$' + f' = {freq:.2E} Rad/s'
+        title_imag_fft = l_imag_fft + r' at $\omega$' + f' = {freq:.2E} Rad/s'
+        title_abs_fft = l_abs_fft + r' at $\omega$' + f' = {freq:.2E} Rad/s'
+        x_label = r'$r$'
+        y_label = r'$z$'
+
+    x_label_fft = r'$\nu_{\frac{r}{a}}$'
+    y_label_fft = r'$\nu_{\frac{z}{a}}$'
+
+    fig, ax = plt.subplots(nrows=2,
+                           ncols=3,
+                           figsize=(16, 8),
+                           projection='3d')
+
+    contour_real = ax[0][0].plot_surface(R, Z, u_real, cmap="viridis")
+    ax[0][0].invert_yaxis()
+    ax[0][0].set_xlabel(x_label, fontsize=14)
+    ax[0][0].set_ylabel(y_label, fontsize=14)
+    ax[0][0].set_title(title_real)
+
+    contour_imag = ax[0][1].plot_surface(R, Z, u_imag, cmap="viridis")
+    ax[0][1].invert_yaxis()
+    ax[0][1].set_xlabel(x_label, fontsize=14)
+    ax[0][1].set_ylabel(y_label, fontsize=14)
+    ax[0][1].set_title(title_imag)
+
+    contour_abs = ax[0][2].plot_surface(R, Z, u_abs, cmap="viridis")
+    ax[0][2].invert_yaxis()
+    ax[0][2].set_xlabel(x_label, fontsize=14)
+    ax[0][2].set_ylabel(y_label, fontsize=14)
+    ax[0][2].set_title(title_abs)
+
+    contour_real_fft = ax[1][0].plot_surface(R_freq_to_plot, Z_freq_to_plot, u_fft_to_plot.real, cmap="viridis")
+    ax[1][0].invert_yaxis()
+    ax[1][0].set_xlabel(x_label_fft, fontsize=14)
+    ax[1][0].set_ylabel(y_label_fft, fontsize=14)
+    ax[1][0].set_title(title_real_fft)
+
+    contour_imag_fft = ax[1][1].plot_surface(R_freq_to_plot, Z_freq_to_plot, u_fft_to_plot.imag, cmap="viridis")
+    ax[1][1].invert_yaxis()
+    ax[1][1].set_xlabel(x_label_fft, fontsize=14)
+    ax[1][1].set_ylabel(y_label_fft, fontsize=14)
+    ax[1][1].set_title(title_imag_fft)
+
+    contour_abs_fft = ax[1][2].plot_surface(R_freq_to_plot, Z_freq_to_plot, np.abs(u_fft_to_plot), cmap="viridis")
+    ax[1][2].invert_yaxis()
+    ax[1][2].set_xlabel(x_label_fft, fontsize=14)
+    ax[1][2].set_ylabel(y_label_fft, fontsize=14)
+    ax[1][2].set_title(title_abs_fft)
+
+    cbar_real = fig.colorbar(contour_real, ax=ax[0][0])
+    cbar_imag = fig.colorbar(contour_imag, ax=ax[0][1])
+    cbar_abs = fig.colorbar(contour_abs, ax=ax[0][2])
+    cbar_real_fft = fig.colorbar(contour_real_fft, ax=ax[1][0])
+    cbar_imag_fft = fig.colorbar(contour_imag_fft, ax=ax[1][1])
+    cbar_abs_fft = fig.colorbar(contour_abs_fft, ax=ax[1][2])
+
+    fig.tight_layout()
+    return fig
+
+def plot_labels_axis(r, z, wd_full, freqs, non_dim_plot=True):
+    if not isinstance(freqs, np.ndarray) and not isinstance(freqs, list):
+        freqs = freqs.detach().numpy()
+    l_real = r'$\Re(u_{zz})$'
+    l_imag = r'$\Im(u_{zz})$'
+    l_abs= r'$|u_{zz}|$'
+
+    if non_dim_plot:
+        r_label = r'$\frac{r}{a}$'
+        z_label = r'$\frac{z}{a}$'
+        plot_type_id = r'$a_{0} = $'
+        plot_type_r = r'(r, z=0)$'
+        plot_type_z = r'(r=0, z)$'
+    else:
+        r_label = r'$r$'
+        z_label = r'$z$'
+        plot_type_id = r'$\omega = $'
+        plot_type_r = r'(r, z=0)$'
+        plot_type_z = r'(r=0, z)$'
+
+    r_plane = z.min()
+    mask_z = np.where(z == r_plane)[0].item()
+    wd_plot_r = wd_full[ : , : , mask_z]
+
+    z_plane = r.min()
+    mask_r = np.where(r == z_plane)[0].item()
+    wd_plot_z = wd_full[ : , mask_r, : ]
+
+    u_real_r = np.real(wd_plot_r)
+    u_imag_r = np.imag(wd_plot_r)
+    u_abs_r = np.abs(wd_plot_r)
+
+    u_real_z = np.real(wd_plot_z)
+    u_imag_z = np.imag(wd_plot_z)
+    u_abs_z = np.abs(wd_plot_z)
+
+    fig, ax = plt.subplots(nrows=2,
+                    ncols=3,
+                    figsize=(14, 10),
+                    sharex='row')
+
+    for i in range(len(freqs)):
+        label = f" {freqs[i].item():.1f}"
+        ax[0][0].plot(r, u_real_r[i , : ], label=plot_type_id + label)
+    ax[0][0].set_xlabel(r_label, fontsize=14)
+    ax[0][0].legend()
+
+    for i in range(len(freqs)):
+        label = f" {freqs[i].item():.1f}"
+        ax[0][1].plot(r, u_imag_r[i , : ], label=plot_type_id + label)
+    ax[0][1].set_xlabel(r_label, fontsize=14)
+    ax[0][1].legend()
+
+    for i in range(len(freqs)):
+        label = f" {freqs[i].item():.1f}"
+        ax[0][2].plot(r, u_abs_r[i , : ], label=plot_type_id + label)
+    ax[0][2].set_xlabel(r_label, fontsize=14)
+    ax[0][2].legend()
+
+    for i in range(len(freqs)):
+        label = f" {freqs[i].item():.1f}"
+        ax[1][0].plot(z, u_real_z[i , : ], label=plot_type_id + label)
+    ax[1][0].legend()
+    ax[1][0].set_ylabel(z_label, fontsize=14)
+
+    for i in range(len(freqs)):
+        label = f" {freqs[i].item():.1f}"
+        ax[1][1].plot(z, u_imag_z[i , : ], label=plot_type_id + label)
+    ax[1][1].legend()
+    ax[1][1].set_ylabel(z_label, fontsize=14)
+
+    for i in range(len(freqs)):
+        label = f" {freqs[i].item():.1f}"
+        ax[1][2].plot(z, u_abs_z[i , : ], label=plot_type_id + label)
+    ax[1][2].legend()
+    ax[1][2].set_ylabel(z_label, fontsize=14)
+
+    ax[0][0].set_title(l_real[ : -1] + plot_type_r)
+    ax[0][1].set_title(l_imag[ : -1] + plot_type_r)
+    ax[0][2].set_title(l_abs[ : -1] + plot_type_r)
+    ax[1][0].set_title(l_real[ : -1] + plot_type_z)
+    ax[1][1].set_title(l_imag[ : -1] + plot_type_z)
+    ax[1][2].set_title(l_abs[ : -1] + plot_type_z)
+    
     fig.tight_layout()
     return fig
