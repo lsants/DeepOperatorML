@@ -2,41 +2,50 @@ import yaml
 import numpy as np
 import matplotlib.pyplot as plt
 from datetime import datetime
+from modules import dir_functions
+from modules import preprocessing as ppr
+from modules.greenfunc_dataset import GreenFuncDataset
 from modules.plotting import plot_axis, plot_field
 
-f_index = 4
+f_index = 0
 
 date = datetime.today().strftime('%Y%m%d')
 
-with open('data_generation_params.yaml') as file:
-    p_labels = yaml.safe_load(file)
+with open('params_test.yaml') as file:
+    p = yaml.safe_load(file)
 
 # ----------------Get Labels -----------------
-data_labels = np.load(p_labels['DATA_FILENAME'], allow_pickle=True)
+data = np.load(p['DATAFILE'], allow_pickle=True)
+dataset = GreenFuncDataset(data)
+indices = dir_functions.load_indices(p['INDICES_FILE'])
+norm_params = dir_functions.load_indices(p['NORM_PARAMS_FILE'])
 
-print(f"Plotting data from: {p_labels['DATA_FILENAME']}")
+print(f"Plotting data from: {p['DATAFILE']}")
+print(f"Using indices from: {p['INDICES_FILE']}")
 
-omega = data_labels['xb']             # Shape: (num_freqs,)
-r_label = data_labels['r']            # Shape: (n,)
-z_label = data_labels['z']            # Shape: (m,)
-wd = data_labels['g_u']               # Shape: (num_freqs, n, m)
+test_indices = indices['test']
+test_dataset = dataset[test_indices]
 
-print('omega shape:', omega.shape)
-print('r labels shape:', r_label.shape)
-print('z labels shape:', z_label.shape)
-print('u shape:', wd.shape)
+xt = dataset.get_trunk()
+r, z = ppr.trunk_to_meshgrid(xt)
 
-f_label = omega[f_index]
+xb = test_dataset['xb']
+g_u_real = test_dataset['g_u_real']
+g_u_imag = test_dataset['g_u_imag']
 
-r, z = r_label, z_label
+g_u = g_u_real + g_u_imag * 1j
+g_u = ppr.reshape_from_model(g_u, z)
 
-freq = f_label
+print(g_u.shape)
 
-wd_plot = wd[f_index]
+f_label = xb[f_index]
 
-fig = plot_field(r, z, wd_plot, freq)
+freq = f_label.item()
+
+wd_plot = g_u[f_index]
+
+fig = plot_field(r, z, wd_plot, freq, full=False)
 plt.show()
 
 fig = plot_axis(r, z, wd_plot, freq)
-
 plt.show()
