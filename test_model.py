@@ -115,34 +115,37 @@ start_time = time.time()
 preds_real, preds_imag = model(xb, xt)
 end_time = time.time()
 
-test_error_real = evaluator(g_u_real, preds_real)
-test_error_imag = evaluator(g_u_imag, preds_imag)
-
-print(f"Test error for real part (physical): {test_error_real:.2%}")
-print(f"Test error for imaginary part (physical): {test_error_imag:.2%}")
 
 if p['OUTPUT_NORMALIZATION']:
     preds_real_normalized, preds_imag_normalized = preds_real, preds_imag
-    preds_real, preds_imag = denormalize_g_u_real(preds_real_normalized), denormalize_g_u_imag(preds_real_normalized) 
+    preds_real, preds_imag = denormalize_g_u_real(preds_real_normalized), denormalize_g_u_imag(preds_imag_normalized) 
     test_error_real_normalized = evaluator(g_u_real_normalized, preds_real_normalized)
     test_error_imag_normalized = evaluator(g_u_imag_normalized, preds_imag_normalized)
-    print(f"Test error for real part (normalized): {test_error_real_normalized:.2%}")
-    print(f"Test error for imaginary part (normalized): {test_error_imag_normalized:.2%}")
+
+test_error_real = evaluator(g_u_real, preds_real)
+test_error_imag = evaluator(g_u_imag, preds_imag)
+
 
 errors = {'real_physical' : test_error_real,
           'imag_physical' : test_error_imag
           }
 
+
+print(f"Test error for real part (physical): {test_error_real:.2%}")
+print(f"Test error for imaginary part (physical): {test_error_imag:.2%}")
+
 if p['OUTPUT_NORMALIZATION']:
     errors['real_normalized'] = test_error_real_normalized
     errors['imag_normalized'] = test_error_imag_normalized
+    print(f"Test error for real part (normalized): {test_error_real_normalized:.2%}")
+    print(f"Test error for imaginary part (normalized): {test_error_imag_normalized:.2%}")
 
 inference_time = {'time' : (end_time - start_time)}
 
 # ------------------------------------ Plot & Save --------------------------------
 # To do: remove hardcoded index and implement animation
 
-index = 7
+index = 0
 freq = dataset[test_indices[index]]['xb'].item()
 
 if p['INPUT_NORMALIZATION']:
