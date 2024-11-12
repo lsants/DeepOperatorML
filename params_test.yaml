@@ -1,10 +1,10 @@
 # Parameters for training DeepONets, loaded by train_model.py.
-MODELNAME: vanilla_deeponet_20241108_normalized_input_feature_expansion
+MODELNAME: kan_deeponet_20241112_normalized_input_output_feature_expansion
 
 # Location of test file info
 DATAFILE: ./data/raw/displacements.npz
-INDICES_FILE: ./data/output/indices_vanilla_deeponet_20241108.json
-NORM_PARAMS_FILE: ./data/output/norm_params_vanilla_deeponet_20241108.json
+INDICES_FILE: ./data/output/indices_kan_deeponet_20241112_normalized_input_output_feature_expansion.json
+NORM_PARAMS_FILE: ./data/output/norm_params_kan_deeponet_20241112_normalized_input_output_feature_expansion.json
 
 # Model location
 MODEL_FOLDER: ./models/
@@ -21,26 +21,30 @@ DEVICE: cpu
 ERROR_NORM: 2
 
 # Model architecture
-ACTIVATION_FUNCTION: relu
 N_BRANCHES: 2
 BRANCH_INPUT_SIZE: 1
 TRUNK_INPUT_SIZE: 2
 BASIS_FUNCTIONS: 30
-BRANCH_HIDDEN_LAYERS: # MLP
+BRANCH_ARCHITECTURE: mlp
+BRANCH_MLP_ACTIVATION: relu
+BRANCH_KAN_DEGREE: 8
+BRANCH_HIDDEN_LAYERS:
+    - 100 
     - 100 
     - 100 
     - 100 
     - 100 
     - 100 
 
-TRUNK_HIDDEN_LAYERS: # MLP
-    - 100 
-    - 100 
-    - 100 
-    - 100 
-    - 100 
+TRUNK_ARCHITECTURE: kan
+TRUNK_MLP_ACTIVATION: relu
+TRUNK_KAN_DEGREE: 8
+TRUNK_HIDDEN_LAYERS:
+    - 32 
+    - 32 
+    - 32
 
 INPUT_NORMALIZATION: true
 OUTPUT_NORMALIZATION: true
 TRUNK_FEATURE_EXPANSION: true
-EXPANSION_FEATURES_NUMBER: 1
+EXPANSION_FEATURES_NUMBER: 15

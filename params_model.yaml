@@ -1,5 +1,5 @@
 # Parameters for training DeepONets, loaded by train_model.py.
-MODELNAME: deeponet_20241112_normalized_input_output
+MODELNAME: kan_deeponet_20241112_normalized_input_output_feature_expansion
 
 # Location of .npz data file
 DATAFILE: ./data/raw/displacements.npz # Path to input file
@@ -17,12 +17,14 @@ OUTPUT_LOG_FOLDER: ./data/output/ # For split indexes, normalization parameters 
 IMAGES_FOLDER: ./images/
 
 # Model architecture
-ACTIVATION_FUNCTION: relu
 N_BRANCHES: 2
 BRANCH_INPUT_SIZE: 1
 TRUNK_INPUT_SIZE: 2
 BASIS_FUNCTIONS: 30
-BRANCH_HIDDEN_LAYERS: # MLP
+BRANCH_ARCHITECTURE: mlp
+BRANCH_MLP_ACTIVATION: relu
+BRANCH_KAN_DEGREE: 8
+BRANCH_HIDDEN_LAYERS:
     - 100 
     - 100 
     - 100 
@@ -30,17 +32,17 @@ BRANCH_HIDDEN_LAYERS: # MLP
     - 100 
     - 100 
 
-TRUNK_HIDDEN_LAYERS: # MLP
-    - 100 
-    - 100 
-    - 100 
-    - 100 
-    - 100 
-    - 100 
+TRUNK_ARCHITECTURE: kan
+TRUNK_MLP_ACTIVATION: relu
+TRUNK_KAN_DEGREE: 8
+TRUNK_HIDDEN_LAYERS:
+    - 32 
+    - 32 
+    - 32 
 
 # Training parameters
 LEARNING_RATE: 0.0005                   # float: learning rate used in training
-N_EPOCHS: 60000                         # int: number of training epochs
+N_EPOCHS: 10                         # int: number of training epochs
 BATCH_SIZE: 50                         # int: Size of batch during training
 TRAIN_PERC: 0.8                         # float: the percentage of data used for training
 VAL_PERC: 0.1                           # float: the percentage of training data used for validation
@@ -55,5 +57,5 @@ PATIENCE: 5
 
 INPUT_NORMALIZATION: true
 OUTPUT_NORMALIZATION: true
-TRUNK_FEATURE_EXPANSION: false
+TRUNK_FEATURE_EXPANSION: true
 EXPANSION_FEATURES_NUMBER: 15
