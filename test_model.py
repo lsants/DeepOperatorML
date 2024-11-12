@@ -149,6 +149,7 @@ index = 0
 freq = dataset[test_indices[index]]['xb'].item()
 
 if p['INPUT_NORMALIZATION']:
+    xt_plot = xt
     if p['TRUNK_FEATURE_EXPANSION']:
         xt_plot = xt[ : , : p["TRUNK_INPUT_SIZE"]]
     xt_plot = denormalize_xt(xt_plot)
