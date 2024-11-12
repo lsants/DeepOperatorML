@@ -96,9 +96,10 @@ model = VanillaDeepONet(branch_layers=layers_B,
                         activation=activation).to(device, precision)
 
 optimizer = torch.optim.Adam(list(model.parameters()), lr=p["LEARNING_RATE"], weight_decay=p['L2_REGULARIZATION'])
+scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, patience=p['PATIENCE'])
 
 # ---------------------------------- Initializing classes for training  -------------------
-trainer = TrainModel(model, optimizer)
+trainer = TrainModel(model, optimizer, scheduler)
 evaluator = TrainEvaluator(error_type)
 saver = Saver(model_name, model_folder, data_out_folder, fig_folder)
 
@@ -127,18 +128,17 @@ for epoch in tqdm(range(epochs), colour='GREEN'):
                             else value)
                     for key, value in batch.items()}
         if p['OUTPUT_NORMALIZATION']:
-            print(f"Output before normalization: {batch['g_u_real']}\n{batch['g_u_imag']}")
             batch = {key: (normalize_g_u_real(value) if key == 'g_u_real' \
                             else normalize_g_u_imag(value) if key == 'g_u_imag'\
                             else value)
                     for key, value in batch.items()}
-            print(f"Output after normalization: {batch['g_u_real']}\n{batch['g_u_imag']}")
-            quit()
         if p['TRUNK_FEATURE_EXPANSION']:
             batch = {key: (ppr.trunk_feature_expansion(value, expansion_dim) if key == 'xt' else value)
                         for key, value in batch.items()}
         batch_train_outputs = trainer(batch)
         epoch_train_loss += batch_train_outputs['loss']
+        if p['LR_SCHEDULING']:
+            scheduler.step(epoch_train_loss)
         batch_train_error_real = evaluator.compute_batch_error(batch_train_outputs['pred_real'],
                                                                     batch['g_u_real'])
         batch_train_error_imag = evaluator.compute_batch_error(batch_train_outputs['pred_imag'],
