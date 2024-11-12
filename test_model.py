@@ -5,7 +5,7 @@ from modules import dir_functions
 from modules import preprocessing as ppr
 from modules.saving import Saver
 from modules.test_evaluator import TestEvaluator
-from modules.vanilla_deeponet import VanillaDeepONet
+from modules.deeponet import DeepONet
 from modules.greenfunc_dataset import GreenFuncDataset
 from modules.plotting import plot_field_comparison, plot_axis_comparison
 
@@ -90,19 +90,46 @@ if p['TRUNK_FEATURE_EXPANSION']: # 2 here is hardcoded because we add a sin(x) a
 layers_B = [u_dim] + hidden_B + [G_dim * n_branches]
 layers_T = [x_dim] + hidden_T + [G_dim]
 
-try:
-    if p['ACTIVATION_FUNCTION'].lower() == 'relu':
-        activation = torch.nn.ReLU()
-    elif p['ACTIVATION_FUNCTION'].lower() == 'tanh':
-        activation = torch.tanh
-    else:
-        raise ValueError
-except ValueError:
-    print('Invalid activation function.')
+branch_config = {
+    'architecture': p['BRANCH_ARCHITECTURE'],
+    'layers': layers_B,
+}
 
-model = VanillaDeepONet(branch_layers=layers_B,
-                        trunk_layers=layers_T,
-                        activation=activation).to(device, precision)
+if p['BRANCH_ARCHITECTURE'].lower() == 'mlp':
+    try:
+        if p['BRANCH_MLP_ACTIVATION'].lower() == 'relu':
+            branch_activation = torch.nn.ReLU()
+        elif p['BRANCH_MLP_ACTIVATION'].lower() == 'tanh':
+            branch_activation = torch.tanh
+        else:
+            raise ValueError
+    except ValueError:
+        print('Invalid activation function for branch net.')
+    branch_config['activation'] = branch_activation
+else:
+    branch_config['degree'] = p['BRANCH_KAN_DEGREE']
+
+trunk_config = {
+    'architecture': p['TRUNK_ARCHITECTURE'],
+    'layers': layers_T,
+}
+
+if p['TRUNK_ARCHITECTURE'].lower() == 'kan':
+    trunk_config['degree'] = p['TRUNK_KAN_DEGREE']
+else:
+    try:
+        if p['TRUNK_MLP_ACTIVATION'].lower() == 'relu':
+            trunk_activation = torch.nn.ReLU()
+        elif p['TRUNK_MLP_ACTIVATION'].lower() == 'tanh':
+            trunk_activation = torch.tanh
+        else:
+            raise ValueError
+    except ValueError:
+        print('Invalid activation function for trunk net.')
+    trunk_config['activation'] = trunk_activation
+
+model = DeepONet(branch_config=branch_config,
+                        trunk_config=trunk_config).to(device, precision)
 
 model.load_state_dict(torch.load(model_location, weights_only=True))
 
@@ -115,7 +142,6 @@ start_time = time.time()
 preds_real, preds_imag = model(xb, xt)
 end_time = time.time()
 
-
 if p['OUTPUT_NORMALIZATION']:
     preds_real_normalized, preds_imag_normalized = preds_real, preds_imag
     preds_real, preds_imag = denormalize_g_u_real(preds_real_normalized), denormalize_g_u_imag(preds_imag_normalized) 
@@ -125,11 +151,9 @@ if p['OUTPUT_NORMALIZATION']:
 test_error_real = evaluator(g_u_real, preds_real)
 test_error_imag = evaluator(g_u_imag, preds_imag)
 
-
 errors = {'real_physical' : test_error_real,
           'imag_physical' : test_error_imag
           }
-
 
 print(f"Test error for real part (physical): {test_error_real:.2%}")
 print(f"Test error for imaginary part (physical): {test_error_imag:.2%}")

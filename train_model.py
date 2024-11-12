@@ -4,7 +4,7 @@ import numpy as np
 from tqdm.auto import tqdm
 from modules import dir_functions
 from modules import preprocessing as ppr
-from modules.vanilla_deeponet import VanillaDeepONet
+from modules.deeponet import DeepONet
 from modules.compose_transformations import Compose
 from modules.greenfunc_dataset import GreenFuncDataset
 from modules.training import TrainModel
@@ -81,19 +81,46 @@ if p['TRUNK_FEATURE_EXPANSION']:
 layers_B = [u_dim] + hidden_B + [G_dim * n_branches]
 layers_T = [x_dim] + hidden_T + [G_dim]
 
-try:
-    if p['ACTIVATION_FUNCTION'].lower() == 'relu':
-        activation = torch.nn.ReLU()
-    elif p['ACTIVATION_FUNCTION'].lower() == 'tanh':
-        activation = torch.tanh
-    else:
-        raise ValueError
-except ValueError:
-    print('Invalid activation function.')
+branch_config = {
+    'architecture': p['BRANCH_ARCHITECTURE'],
+    'layers': layers_B,
+}
 
-model = VanillaDeepONet(branch_layers=layers_B,
-                        trunk_layers=layers_T,
-                        activation=activation).to(device, precision)
+trunk_config = {
+    'architecture': p['TRUNK_ARCHITECTURE'],
+    'layers': layers_T,
+}
+
+if p['BRANCH_ARCHITECTURE'].lower() == 'mlp':
+    try:
+        if p['BRANCH_MLP_ACTIVATION'].lower() == 'relu':
+            branch_activation = torch.nn.ReLU()
+        elif p['BRANCH_MLP_ACTIVATION'].lower() == 'tanh':
+            branch_activation = torch.tanh
+        else:
+            raise ValueError
+    except ValueError:
+        print('Invalid activation function for branch net.')
+    branch_config['activation'] = branch_activation
+else:
+    branch_config['degree'] = p['BRANCH_KAN_DEGREE']
+
+if p['TRUNK_ARCHITECTURE'].lower() == 'kan':
+    trunk_config['degree'] = p['TRUNK_KAN_DEGREE']
+else:
+    try:
+        if p['TRUNK_MLP_ACTIVATION'].lower() == 'relu':
+            trunk_activation = torch.nn.ReLU()
+        elif p['TRUNK_MLP_ACTIVATION'].lower() == 'tanh':
+            trunk_activation = torch.tanh
+        else:
+            raise ValueError
+    except ValueError:
+        print('Invalid activation function for trunk net.')
+    trunk_config['activation'] = trunk_activation
+
+model = DeepONet(branch_config=branch_config,
+                        trunk_config=trunk_config).to(device, precision)
 
 optimizer = torch.optim.Adam(list(model.parameters()), lr=p["LEARNING_RATE"], weight_decay=p['L2_REGULARIZATION'])
 scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, patience=p['PATIENCE'])
@@ -106,6 +133,8 @@ saver = Saver(model_name, model_folder, data_out_folder, fig_folder)
 epochs = p['N_EPOCHS']
 niter_per_train_epoch = len(train_dataloader)
 niter_per_val_epoch = len(val_dataloader)
+
+print(model)
 
 # ----------------------------------------- Train loop ---------------------------------
 start_time = time.time()
