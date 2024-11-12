@@ -134,8 +134,6 @@ epochs = p['N_EPOCHS']
 niter_per_train_epoch = len(train_dataloader)
 niter_per_val_epoch = len(val_dataloader)
 
-print(model)
-
 # ----------------------------------------- Train loop ---------------------------------
 start_time = time.time()
 
