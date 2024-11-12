@@ -269,6 +269,8 @@ def plot_field_comparison(r, z, wd, g_u, freq, full=True, non_dim_plot=True):
     l_real_label = r'$\Re(u_{z})_{\mathrm{Label}}$'
     l_imag_label = r'$\Im(u_{z})_{\mathrm{Label}}$'
 
+    err_title = 'Absolute error for '
+
     # For axes
     if non_dim_plot:
         x_label = r'$\frac{r}{a}$'
@@ -300,7 +302,7 @@ def plot_field_comparison(r, z, wd, g_u, freq, full=True, non_dim_plot=True):
 
     # Defining figure
     fig, ax = plt.subplots(nrows=3,
-                        ncols=2,
+                        ncols=3,
                         figsize=(14, 10),
                         sharex='row',
                         sharey='row')
@@ -314,6 +316,9 @@ def plot_field_comparison(r, z, wd, g_u, freq, full=True, non_dim_plot=True):
     contour_labels_real = ax[0][1].contourf(R, Z, wd_real.T, cmap="viridis", norm=plot_norm_real)
     ax[0][1].set_title(l_real_label + plot_type_id)
 
+    contour_errors_real = ax[0][2].contourf(R, Z, abs(wd_real.T - g_u_real.T), cmap="viridis")
+    ax[0][2].set_title(err_title + l_real_label + plot_type_id)
+
     contour_preds_imag = ax[1][0].contourf(R, Z, g_u_imag.T, cmap="viridis", norm=plot_norm_imag)
     ax[1][0].invert_yaxis()
     ax[1][0].set_xlabel(x_label)
@@ -322,6 +327,9 @@ def plot_field_comparison(r, z, wd, g_u, freq, full=True, non_dim_plot=True):
 
     contour_labels_imag = ax[1][1].contourf(R, Z, wd_imag.T, cmap="viridis", norm=plot_norm_imag)
     ax[1][1].set_title(l_imag_label + plot_type_id)
+
+    contour_errors_imag = ax[1][2].contourf(R, Z, abs(wd_imag.T - g_u_imag.T), cmap="viridis")
+    ax[1][2].set_title(err_title + l_imag_label + plot_type_id)
 
     contour_preds_abs = ax[2][0].contourf(R, Z, g_u_abs.T, cmap="viridis", norm=plot_norm_abs)
     ax[2][0].invert_yaxis()
@@ -332,20 +340,29 @@ def plot_field_comparison(r, z, wd, g_u, freq, full=True, non_dim_plot=True):
     contour_labels_abs = ax[2][1].contourf(R, Z, wd_abs.T, cmap="viridis", norm=plot_norm_abs)
     ax[2][1].set_title(l_abs_label + plot_type_id)
 
+    contour_errors_abs = ax[2][2].contourf(R, Z, abs(wd_abs.T - g_u_abs.T), cmap="viridis")
+    ax[2][2].set_title(err_title + l_abs_label + plot_type_id)
+
     cbar_labels_real = fig.colorbar(contour_labels_real, label=l_real, ax=ax[0][1], norm=plot_norm_real)
     cbar_preds_real = fig.colorbar(contour_preds_real, label=l_real, ax=ax[0][0], norm=plot_norm_real)
+    cbar_errors_real = fig.colorbar(contour_errors_real, label=l_real, ax=ax[0][2])
     cbar_labels_real.ax.set_ylabel(l_real, rotation=270, labelpad=15)
     cbar_preds_real.ax.set_ylabel(l_real, rotation=270, labelpad=15)
+    cbar_errors_real.ax.set_ylabel(l_real, rotation=270, labelpad=15)
 
     cbar_labels_imag = fig.colorbar(contour_labels_imag, label=l_imag, ax=ax[1][1], norm=plot_norm_imag)
     cbar_preds_imag = fig.colorbar(contour_preds_imag, label=l_imag, ax=ax[1][0], norm=plot_norm_imag)
+    cbar_errors_imag = fig.colorbar(contour_errors_imag, label=l_imag, ax=ax[1][2])
     cbar_labels_imag.ax.set_ylabel(l_imag, rotation=270, labelpad=15)
     cbar_preds_imag.ax.set_ylabel(l_imag, rotation=270, labelpad=15)
+    cbar_errors_imag.ax.set_ylabel(l_imag, rotation=270, labelpad=15)
 
     cbar_labels_abs = fig.colorbar(contour_labels_abs, label=l_abs, ax=ax[2][1], norm=plot_norm_abs)
     cbar_preds_abs = fig.colorbar(contour_preds_abs, label=l_abs, ax=ax[2][0], norm=plot_norm_abs)
+    cbar_errors_abs = fig.colorbar(contour_errors_abs, label=l_abs, ax=ax[2][2])
     cbar_labels_abs.ax.set_ylabel(l_abs, rotation=270, labelpad=15)
     cbar_preds_abs.ax.set_ylabel(l_abs, rotation=270, labelpad=15)
+    cbar_errors_abs.ax.set_ylabel(l_abs, rotation=270, labelpad=15)
 
     fig.tight_layout()
     return fig
