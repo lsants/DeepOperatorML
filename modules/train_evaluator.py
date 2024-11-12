@@ -14,7 +14,7 @@ class TrainEvaluator:
         with torch.no_grad():
             batch_error = torch.linalg.vector_norm((pred - g_u), ord=self.error_norm)\
                         / torch.linalg.vector_norm(g_u, ord=self.error_norm)
-        return batch_error.detach().numpy()
+        return batch_error.detach().cpu().numpy()
     
     def store_epoch_train_loss(self, epoch_loss):
         self.train_loss_history.append(epoch_loss)

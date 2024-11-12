@@ -34,38 +34,36 @@ class Normalize:
         self.v_max = v_max
 
     def __call__(self, vals):
-        v_min = self.v_min
-        v_max = self.v_max
-        if not isinstance(self.v_min, torch.Tensor) or not isinstance(self.v_max, torch.Tensor):
-            v_min = torch.tensor(self.v_min)
-            v_max = torch.tensor(self.v_max)
-
+        v_min = torch.as_tensor(self.v_min, dtype=vals.dtype, device=vals.device)
+        v_max = torch.as_tensor(self.v_max, dtype=vals.dtype, device=vals.device)
         vals = (vals - v_min) / (v_max - v_min)
         return vals
-
 class Denormalize:
     def __init__(self, v_min, v_max):
         self.v_min = v_min
         self.v_max = v_max
 
     def __call__(self, vals):
-        v_min = self.v_min
-        v_max = self.v_max
-        if not isinstance(self.v_min, torch.Tensor) or not isinstance(self.v_max, torch.Tensor):
-            v_min = torch.tensor(self.v_min)
-            v_max = torch.tensor(self.v_max)
+        v_min = torch.as_tensor(self.v_min, dtype=vals.dtype, device=vals.device)
+        v_max = torch.as_tensor(self.v_max, dtype=vals.dtype, device=vals.device)
         vals = (vals * (v_max - v_min)) + v_min
         return vals
 
 def get_minmax_norm_params(loader):
-    samples_min_xb = torch.tensor([float('inf')])
-    samples_max_xb = torch.zeros(1)
+    dataiter = iter(loader)
+    first_sample = next(dataiter)
+    device = first_sample['xb'].device
+    dtype = first_sample['xb'].dtype
 
-    samples_min_g_u_real = torch.tensor([float('inf')])
-    samples_max_g_u_real = torch.zeros(1)
+    samples_min_xb = torch.tensor(float('inf'), device=device, dtype=dtype)
+    samples_max_xb = torch.tensor(-float('inf'), device=device, dtype=dtype)
 
-    samples_min_g_u_imag = torch.tensor([float('inf')])
-    samples_max_g_u_imag = torch.zeros(1)
+    samples_min_g_u_real = torch.tensor(float('inf'), device=device, dtype=dtype)
+    samples_max_g_u_real = torch.tensor(-float('inf'), device=device, dtype=dtype)
+
+    samples_min_g_u_imag = torch.tensor(float('inf'), device=device, dtype=dtype)
+    samples_max_g_u_imag = torch.tensor(-float('inf'), device=device, dtype=dtype)
+
 
     for sample in loader:
         xb = sample['xb']
