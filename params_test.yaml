@@ -1,10 +1,10 @@
 # Parameters for training DeepONets, loaded by train_model.py.
-MODELNAME: kan_deeponet_20241112_normalized_input_output_feature_expansion
+MODELNAME: kan_deeponet_20241113_normalized_input_output_feature_expansion
 
 # Location of test file info
-DATAFILE: ./data/raw/displacements.npz
-INDICES_FILE: ./data/output/indices_kan_deeponet_20241112_normalized_input_output_feature_expansion.json
-NORM_PARAMS_FILE: ./data/output/norm_params_kan_deeponet_20241112_normalized_input_output_feature_expansion.json
+DATAFILE: ./data/raw/displacements_large.npz
+INDICES_FILE: ./data/output/indices_kan_deeponet_20241113_normalized_input_output_feature_expansion.json
+NORM_PARAMS_FILE: ./data/output/norm_params_kan_deeponet_20241113_normalized_input_output_feature_expansion.json
 
 # Model location
 MODEL_FOLDER: ./models/
@@ -36,13 +36,13 @@ BRANCH_HIDDEN_LAYERS:
     - 100 
     - 100 
 
-TRUNK_ARCHITECTURE: kan
+TRUNK_ARCHITECTURE: mlp
 TRUNK_MLP_ACTIVATION: relu
 TRUNK_KAN_DEGREE: 8
 TRUNK_HIDDEN_LAYERS:
-    - 32 
-    - 32 
-    - 32
+    - 100 
+    - 100 
+    - 100 
 
 INPUT_NORMALIZATION: true
 OUTPUT_NORMALIZATION: true
