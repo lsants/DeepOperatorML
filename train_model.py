@@ -123,7 +123,7 @@ model = DeepONet(branch_config=branch_config,
                         trunk_config=trunk_config).to(device, precision)
 
 optimizer = torch.optim.Adam(list(model.parameters()), lr=p["LEARNING_RATE"], weight_decay=p['L2_REGULARIZATION'])
-scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, patience=p['PATIENCE'])
+scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=p['SCHEDULER_STEP_SIZE'], gamma=p['SCHEDULER_GAMMA'])
 
 # ---------------------------------- Initializing classes for training  -------------------
 trainer = TrainModel(model, optimizer, scheduler)
@@ -165,7 +165,7 @@ for epoch in tqdm(range(epochs), colour='GREEN'):
         batch_train_outputs = trainer(batch)
         epoch_train_loss += batch_train_outputs['loss']
         if p['LR_SCHEDULING']:
-            scheduler.step(epoch_train_loss)
+            scheduler.step()
         batch_train_error_real = evaluator.compute_batch_error(batch_train_outputs['pred_real'],
                                                                     batch['g_u_real'])
         batch_train_error_imag = evaluator.compute_batch_error(batch_train_outputs['pred_imag'],
@@ -176,10 +176,12 @@ for epoch in tqdm(range(epochs), colour='GREEN'):
     avg_epoch_train_loss = epoch_train_loss / niter_per_train_epoch
     avg_epoch_train_error_real = epoch_train_error_real / niter_per_train_epoch
     avg_epoch_train_error_imag = epoch_train_error_imag / niter_per_train_epoch
+    epoch_learning_rate = scheduler.get_last_lr()[-1]
 
     evaluator.store_epoch_train_loss(avg_epoch_train_loss)
     evaluator.store_epoch_train_real_error(avg_epoch_train_error_real)
     evaluator.store_epoch_train_imag_error(avg_epoch_train_error_imag)
+    evaluator.store_epoch_learning_rate(epoch_learning_rate)
 
     for batch in val_dataloader:
         batch['xt'] = xt
@@ -205,6 +207,10 @@ for epoch in tqdm(range(epochs), colour='GREEN'):
         epoch_val_error_real += batch_val_error_real
         epoch_val_error_imag += batch_val_error_imag
 
+        if epoch % 1000 == 0:
+            print(f"Loss for epoch {epoch}: {epoch_val_loss:.3E}")
+            print(f"Learning rate for epoch {epoch}: {scheduler.get_last_lr()}")
+
     avg_epoch_val_loss = epoch_val_loss / niter_per_val_epoch
     avg_epoch_val_error_real = epoch_val_error_real / niter_per_val_epoch
     avg_epoch_val_error_imag = epoch_val_error_imag / niter_per_val_epoch
@@ -217,9 +223,14 @@ end_time = time.time()
 
 loss_history = evaluator.get_loss_history()
 error_history = evaluator.get_error_history()
+lr_history = evaluator.get_lr_history()
 
 history = {'loss' : loss_history,
-           'error' : error_history}
+           'error' : error_history,
+           'learning_rate': lr_history,
+           'branch_architecture' : (p['BRANCH_ARCHITECTURE'], layers_B),
+           'trunk_architecture' : (p['TRUNK_ARCHITECTURE'], layers_T)
+           }
 
 training_time = {'time': end_time - start_time}
 print(f"Training concluded in: {end_time - start_time} s")
