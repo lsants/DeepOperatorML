@@ -34,41 +34,41 @@ class Saver:
             'optimizer_state_dict': optimizer_state_dict,
             'epoch': epoch
         }, model_path)
-        print(f"Checkpoint saved to {model_path}")
+        print(f"Checkpoint saved to {model_path}\n")
 
     def save_model(self, model_state):
         filename = f'model_state_{self.name}.pth'
         model_path = self.make_output_dir(self.model_folder, filename)
         torch.save(model_state, model_path)
-        print(f"Model saved to {model_path}")
+        print(f"Model saved to {model_path}\n")
 
     def save_indices(self, indices_dict):
         filename = f'indices_{self.name}.json'
         indices_path = self.make_output_dir(self.data_output_folder, filename)
         with open(indices_path, 'w') as f:
             json.dump(indices_dict, f)
-        print(f"Indices saved to {indices_path}")
+        print(f"Indices saved to {indices_path}\n")
 
     def save_norm_params(self, norm_params_dict):
         filename = f'norm_params_{self.name}.json'
         norm_params_path = self.make_output_dir(self.data_output_folder, filename)
         with open(norm_params_path, 'w') as f:
             json.dump(norm_params_dict, f)
-        print(f"Normalization parameters saved to {norm_params_path}")
+        print(f"Normalization parameters saved to {norm_params_path}\n")
 
     def save_history(self, history_dict):
         filename = f'history_{self.name}.json'
         history_path = self.make_output_dir(self.data_output_folder, filename)
         with open(history_path, 'w') as f:
             json.dump(history_dict, f)
-        print(f"Training history saved to {history_path}")
+        print(f"Training history saved to {history_path}\n")
 
     def save_plots(self, figure, filename_suffix=None):
         suffix = f"_{filename_suffix}" if filename_suffix else ""
         filename = f'plot_{self.name}{suffix}.png'
         fig_path = self.make_output_dir(self.figures_folder, filename)
         figure.savefig(fig_path)
-        print(f"Figure saved to {fig_path}")
+        print(f"Figure saved to {fig_path}\n")
 
     def save_errors(self, errors_dict):
         filename = f"errors_{self.name}.json"
@@ -77,7 +77,7 @@ class Saver:
     
         with open(errors_path, "w") as f:
             json.dump(errors_serializable, f)
-        print(f"Saved errors to {errors_path}")
+        print(f"Saved errors to {errors_path}\n")
 
     def save_time(self, time_dict, filename_prefix=None):
         prefix = f"{filename_prefix}_" if filename_prefix else ""
@@ -87,7 +87,7 @@ class Saver:
     
         with open(time_path, "w") as f:
             json.dump(time_serializable, f)
-        print(f"Saved time to {time_path}")
+        print(f"Saved time to {time_path}\n")
 
     def make_output_dir(self, folder, filename):
         if folder is None:
