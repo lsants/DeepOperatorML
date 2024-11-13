@@ -5,6 +5,7 @@ from matplotlib.colors import Normalize
 
 def plot_training(epochs, history):
     loss_data, error_data = history['loss'], history['error']
+    learning_rate = history['learning_rate']
 
     train_loss = loss_data['train']
     val_loss = loss_data['val']
@@ -23,12 +24,22 @@ def plot_training(epochs, history):
     ax[0].set_title(r'Loss for $u_{zz}$')
     ax[0].legend()
 
+    ax_0_sec = ax[0].twinx()
+    ax_0_sec.plot(epochs, learning_rate, "k--", label='lr', linewidth=0.5)
+    ax_0_sec.set_ylabel(r"learning_rate")
+    ax_0_sec.set_yscale(r"log")
+
+
     ax[1].plot(epochs, train_error_real, label='real_train')
     ax[1].plot(epochs, val_error_real, label='real_val')
     ax[1].set_xlabel('epoch')
     ax[1].set_yscale('log')
     ax[1].set_title(r'$L_2$ Error for $\Re(u_{zz})$')
     ax[1].legend()
+    ax_1_sec = ax[1].twinx()
+    ax_1_sec.plot(epochs, learning_rate, "k--", label='lr', linewidth=0.5)
+    ax_1_sec.set_ylabel(r"learning_rate")
+    ax_1_sec.set_yscale(r"log")
 
     ax[2].plot(epochs, train_error_imag, label='imag_train')
     ax[2].plot(epochs, val_error_imag, label='imag_val')
@@ -36,6 +47,10 @@ def plot_training(epochs, history):
     ax[2].set_yscale('log')
     ax[2].set_title(r'$L_2$ Error for $\Im(u_{zz})$')
     ax[2].legend()
+    ax_2_sec = ax[2].twinx()
+    ax_2_sec.plot(epochs, learning_rate, "k--", label='lr', linewidth=0.5)
+    ax_2_sec.set_ylabel(r"learning_rate")
+    ax_2_sec.set_yscale(r"log")
     
     fig.tight_layout()
 
