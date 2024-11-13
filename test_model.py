@@ -151,7 +151,10 @@ if p['OUTPUT_NORMALIZATION']:
 test_error_real = evaluator(g_u_real, preds_real)
 test_error_imag = evaluator(g_u_imag, preds_imag)
 
-errors = {'real_physical' : test_error_real,
+errors = {
+          'branch_architecture' : layers_B,
+          'trunk_architecture' : layers_T,
+          'real_physical' : test_error_real,
           'imag_physical' : test_error_imag
           }
 
