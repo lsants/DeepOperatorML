@@ -9,6 +9,7 @@ class TrainEvaluator:
         self.train_imag_error_history = []
         self.val_real_error_history = []
         self.val_imag_error_history = []
+        self.learning_rate_history = []
 
     def compute_batch_error(self, g_u, pred):
         with torch.no_grad():
@@ -34,6 +35,9 @@ class TrainEvaluator:
     def store_epoch_val_imag_error(self, epoch_error):
         self.val_imag_error_history.append(epoch_error)
 
+    def store_epoch_learning_rate(self, learning_rate):
+        self.learning_rate_history.append(learning_rate)
+
     def get_loss_history(self):
         losses = {'train' : self.train_loss_history,
                   'val' : self.val_loss_history}
@@ -48,3 +52,7 @@ class TrainEvaluator:
         errors = {'train' : train_errors,
                   'val': val_errors}
         return errors
+
+    def get_lr_history(self):
+        lrs = self.learning_rate_history
+        return lrs
