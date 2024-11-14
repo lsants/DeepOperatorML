@@ -25,7 +25,7 @@ class DimensionlessInfluenceFunction(Datagen):
         _, _, _, _, _, r_source = self.load_params
         r_min, r_max, z_min, z_max = self.mesh_params
         modified_r_min = r_min + (r_source*1e-2) # To avoid computing at line r=0
-        r_field = np.linspace(0, r_max, n_r) / r_source
+        r_field = np.linspace(modified_r_min, r_max, n_r) / r_source
         z_field = np.linspace(z_min, z_max, n_z) / r_source
         points = r_field, z_field
         return points
