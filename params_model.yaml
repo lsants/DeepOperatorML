@@ -1,8 +1,8 @@
 # Parameters for training DeepONets, loaded by train_model.py.
-MODELNAME: kan_deeponet_20241113_normalized_input_output_feature_expansion
+MODELNAME: kan_deeponet_20241114_normalized_input_output_feature_expansion
 
 # Location of .npz data file
-DATAFILE: ./data/raw/displacements_large.npz # Path to input file
+DATAFILE: ./data/raw/displacements.npz # Path to input file
 PRECISION: torch.float64
 DEVICE: cpu
 SEED: 42
@@ -32,17 +32,17 @@ BRANCH_HIDDEN_LAYERS:
     - 100 
     - 100 
 
-TRUNK_ARCHITECTURE: mlp
+TRUNK_ARCHITECTURE: kan
 TRUNK_MLP_ACTIVATION: relu
 TRUNK_KAN_DEGREE: 8
 TRUNK_HIDDEN_LAYERS:
-    - 100 
-    - 100 
-    - 100 
+    - 32 
+    - 32 
+    - 32 
 
 # Training parameters
 LEARNING_RATE: 0.001                   # float: learning rate used in training
-N_EPOCHS: 100                         # int: number of training epochs
+N_EPOCHS: 3000                         # int: number of training epochs
 BATCH_SIZE: 100                         # int: Size of batch during training
 TRAIN_PERC: 0.8                         # float: the percentage of data used for training
 VAL_PERC: 0.1                           # float: the percentage of training data used for validation
@@ -53,8 +53,10 @@ ERROR_NORM: 2
 L2_REGULARIZATION: 0.0000001
 EARLY_STOPPING: false
 LR_SCHEDULING: true
-SCHEDULER_STEP_SIZE: 50
+SCHEDULER_STEP_SIZE: 200
 SCHEDULER_GAMMA: 0.9
+CHANGE_OPTIMIZER: true
+CHANGE_AT_EPOCH: 1000
 
 INPUT_NORMALIZATION: true
 OUTPUT_NORMALIZATION: true

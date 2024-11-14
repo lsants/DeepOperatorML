@@ -173,6 +173,9 @@ for epoch in tqdm(range(epochs), colour='GREEN'):
 
     if p['LR_SCHEDULING']:
         scheduler.step()
+    if p['CHANGE_OPTIMIZER']:
+        if epoch == p['CHANGE_AT_EPOCH']:
+            trainer.change_optimizer(torch.optim.LBFGS(list(model.parameters()), lr=scheduler.get_last_lr()[-1]))
 
     epoch_learning_rate = scheduler.get_last_lr()[-1]
     avg_epoch_train_loss = epoch_train_loss / niter_per_train_epoch
@@ -210,7 +213,6 @@ for epoch in tqdm(range(epochs), colour='GREEN'):
 
         if epoch % 1000 == 0:
             print(f"Loss for epoch {epoch}: {epoch_val_loss:.3E}")
-            print(f"Learning rate for epoch {epoch}: {scheduler.get_last_lr()}")
 
     avg_epoch_val_loss = epoch_val_loss / niter_per_val_epoch
     avg_epoch_val_error_real = epoch_val_error_real / niter_per_val_epoch
