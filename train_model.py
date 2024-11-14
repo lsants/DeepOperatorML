@@ -164,8 +164,6 @@ for epoch in tqdm(range(epochs), colour='GREEN'):
                         for key, value in batch.items()}
         batch_train_outputs = trainer(batch)
         epoch_train_loss += batch_train_outputs['loss']
-        if p['LR_SCHEDULING']:
-            scheduler.step()
         batch_train_error_real = evaluator.compute_batch_error(batch_train_outputs['pred_real'],
                                                                     batch['g_u_real'])
         batch_train_error_imag = evaluator.compute_batch_error(batch_train_outputs['pred_imag'],
@@ -173,10 +171,13 @@ for epoch in tqdm(range(epochs), colour='GREEN'):
         epoch_train_error_real += batch_train_error_real
         epoch_train_error_imag += batch_train_error_imag
 
+    if p['LR_SCHEDULING']:
+        scheduler.step()
+
+    epoch_learning_rate = scheduler.get_last_lr()[-1]
     avg_epoch_train_loss = epoch_train_loss / niter_per_train_epoch
     avg_epoch_train_error_real = epoch_train_error_real / niter_per_train_epoch
     avg_epoch_train_error_imag = epoch_train_error_imag / niter_per_train_epoch
-    epoch_learning_rate = scheduler.get_last_lr()[-1]
 
     evaluator.store_epoch_train_loss(avg_epoch_train_loss)
     evaluator.store_epoch_train_real_error(avg_epoch_train_error_real)
