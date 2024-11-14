@@ -129,6 +129,7 @@ scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=p['SCHEDULER_ST
 trainer = TrainModel(model, optimizer, scheduler)
 evaluator = TrainEvaluator(error_type)
 saver = Saver(model_name, model_folder, data_out_folder, fig_folder)
+best_model = None
 
 epochs = p['N_EPOCHS']
 niter_per_train_epoch = len(train_dataloader)
@@ -145,6 +146,7 @@ for epoch in tqdm(range(epochs), colour='GREEN'):
     epoch_val_loss = 0
     epoch_val_error_real = 0
     epoch_val_error_imag = 0
+    best_avg_error_real = float('inf')
 
     for batch in train_dataloader:
         model.train()
@@ -223,6 +225,10 @@ for epoch in tqdm(range(epochs), colour='GREEN'):
     evaluator.store_epoch_val_real_error(avg_epoch_val_error_real)
     evaluator.store_epoch_val_imag_error(avg_epoch_val_error_imag)
 
+    if avg_epoch_val_error_real < best_avg_error_abs:
+        best_avg_error_abs = avg_epoch_val_error_real
+        best_model = model.state_dict()
+
 end_time = time.time()
 
 loss_history = evaluator.get_loss_history()
@@ -244,7 +250,7 @@ epochs_plot = [i for i in range(epochs)]
 fig = plot_training(epochs_plot, history)
 
 # --------------------------- Save output -------------------------------
-saver(model_state_dict=model.state_dict(),
+saver(model_state_dict=best_model,
       split_indices=dataset_indices,
       norm_params=norm_params,
       history=history,
