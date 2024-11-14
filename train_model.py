@@ -91,7 +91,7 @@ trunk_config = {
     'layers': layers_T,
 }
 
-if p['BRANCH_ARCHITECTURE'].lower() == 'mlp':
+if p['BRANCH_ARCHITECTURE'].lower() == 'mlp' or p['BRANCH_ARCHITECTURE'].lower() == 'resnet':
     try:
         if p['BRANCH_MLP_ACTIVATION'].lower() == 'relu':
             branch_activation = torch.nn.ReLU()
