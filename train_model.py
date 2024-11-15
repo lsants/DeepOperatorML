@@ -66,6 +66,8 @@ normalize_branch = ppr.Normalize(xb_min, xb_max)
 normalize_trunk = ppr.Normalize(xt_min, xt_max)
 normalize_g_u_real = ppr.Normalize(g_u_real_min, g_u_real_max)
 normalize_g_u_imag = ppr.Normalize(g_u_imag_min, g_u_imag_max)
+denormalize_g_u_real = ppr.Denormalize(g_u_real_min, g_u_real_max)
+denormalize_g_u_imag = ppr.Denormalize(g_u_imag_min, g_u_imag_max)
 
 # ------------------------------------ Initialize model -----------------------------
 expansion_dim = p['EXPANSION_FEATURES_NUMBER']
@@ -134,6 +136,7 @@ best_model = None
 epochs = p['N_EPOCHS']
 niter_per_train_epoch = len(train_dataloader)
 niter_per_val_epoch = len(val_dataloader)
+best_avg_error_real = float('inf')
 
 # ----------------------------------------- Train loop ---------------------------------
 start_time = time.time()
@@ -146,7 +149,6 @@ for epoch in tqdm(range(epochs), colour='GREEN'):
     epoch_val_loss = 0
     epoch_val_error_real = 0
     epoch_val_error_imag = 0
-    best_avg_error_real = float('inf')
 
     for batch in train_dataloader:
         model.train()
@@ -166,10 +168,15 @@ for epoch in tqdm(range(epochs), colour='GREEN'):
                         for key, value in batch.items()}
         batch_train_outputs = trainer(batch)
         epoch_train_loss += batch_train_outputs['loss']
-        batch_train_error_real = evaluator.compute_batch_error(batch_train_outputs['pred_real'],
-                                                                    batch['g_u_real'])
-        batch_train_error_imag = evaluator.compute_batch_error(batch_train_outputs['pred_imag'],
-                                                                    batch['g_u_imag'])
+        if p['OUTPUT_NORMALIZATION']:
+            batch_pred_real = denormalize_g_u_real(batch_train_outputs['pred_real'])
+            batch_g_u_real = denormalize_g_u_real(batch['g_u_real'])
+            batch_pred_imag = denormalize_g_u_imag(batch_train_outputs['pred_imag'])
+            batch_g_u_imag = denormalize_g_u_imag(batch['g_u_imag'])
+        batch_train_error_real = evaluator.compute_batch_error(batch_pred_real,
+                                                                batch_g_u_real)
+        batch_train_error_imag = evaluator.compute_batch_error(batch_pred_imag,
+                                                                batch_g_u_imag)
         epoch_train_error_real += batch_train_error_real
         epoch_train_error_imag += batch_train_error_imag
 
@@ -207,14 +214,19 @@ for epoch in tqdm(range(epochs), colour='GREEN'):
                         for key, value in batch.items()}
         batch_val_outputs = trainer(batch, val=True)
         epoch_val_loss += batch_val_outputs['loss']
-        batch_val_error_real = evaluator.compute_batch_error(batch_val_outputs['pred_real'],
-                                                                    batch['g_u_real'])
-        batch_val_error_imag = evaluator.compute_batch_error(batch_val_outputs['pred_imag'],
-                                                                    batch['g_u_imag'])
+        if p['OUTPUT_NORMALIZATION']:
+            batch_pred_real = denormalize_g_u_real(batch_val_outputs['pred_real'])
+            batch_g_u_real = denormalize_g_u_real(batch['g_u_real'])
+            batch_pred_imag = denormalize_g_u_imag(batch_val_outputs['pred_imag'])
+            batch_g_u_imag = denormalize_g_u_imag(batch['g_u_imag'])
+        batch_val_error_real = evaluator.compute_batch_error(batch_pred_real,
+                                                             batch_g_u_real)
+        batch_val_error_imag = evaluator.compute_batch_error(batch_pred_imag,
+                                                             batch_g_u_imag)
         epoch_val_error_real += batch_val_error_real
         epoch_val_error_imag += batch_val_error_imag
 
-        if epoch % 1000 == 0:
+        if epoch % 500 == 0:
             print(f"Loss for epoch {epoch}: {epoch_val_loss:.3E}")
 
     avg_epoch_val_loss = epoch_val_loss / niter_per_val_epoch
