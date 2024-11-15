@@ -173,10 +173,10 @@ for epoch in tqdm(range(epochs), colour='GREEN'):
             batch_g_u_real = denormalize_g_u_real(batch['g_u_real'])
             batch_pred_imag = denormalize_g_u_imag(batch_train_outputs['pred_imag'])
             batch_g_u_imag = denormalize_g_u_imag(batch['g_u_imag'])
-        batch_train_error_real = evaluator.compute_batch_error(batch_pred_real,
-                                                                batch_g_u_real)
-        batch_train_error_imag = evaluator.compute_batch_error(batch_pred_imag,
-                                                                batch_g_u_imag)
+        batch_train_error_real = evaluator.compute_batch_error(batch_g_u_real,
+                                                             batch_pred_real)
+        batch_train_error_imag = evaluator.compute_batch_error(batch_g_u_imag,
+                                                             batch_pred_imag)
         epoch_train_error_real += batch_train_error_real
         epoch_train_error_imag += batch_train_error_imag
 
@@ -219,10 +219,10 @@ for epoch in tqdm(range(epochs), colour='GREEN'):
             batch_g_u_real = denormalize_g_u_real(batch['g_u_real'])
             batch_pred_imag = denormalize_g_u_imag(batch_val_outputs['pred_imag'])
             batch_g_u_imag = denormalize_g_u_imag(batch['g_u_imag'])
-        batch_val_error_real = evaluator.compute_batch_error(batch_pred_real,
-                                                             batch_g_u_real)
-        batch_val_error_imag = evaluator.compute_batch_error(batch_pred_imag,
-                                                             batch_g_u_imag)
+        batch_val_error_real = evaluator.compute_batch_error(batch_g_u_real,
+                                                             batch_pred_real)
+        batch_val_error_imag = evaluator.compute_batch_error(batch_g_u_imag,
+                                                             batch_pred_imag)
         epoch_val_error_real += batch_val_error_real
         epoch_val_error_imag += batch_val_error_imag
 
