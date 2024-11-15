@@ -214,8 +214,8 @@ for epoch in tqdm(range(epochs), colour='GREEN'):
         epoch_val_error_real += batch_val_error_real
         epoch_val_error_imag += batch_val_error_imag
 
-        if epoch % 1000 == 0:
-            print(f"Loss for epoch {epoch}: {epoch_val_loss:.3E}")
+    if epoch % 1000 == 0:
+        print(f"Loss for epoch {epoch}: {epoch_val_loss:.3E}")
 
     avg_epoch_val_loss = epoch_val_loss / niter_per_val_epoch
     avg_epoch_val_error_real = epoch_val_error_real / niter_per_val_epoch
