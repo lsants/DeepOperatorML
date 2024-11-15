@@ -225,8 +225,8 @@ for epoch in tqdm(range(epochs), colour='GREEN'):
     evaluator.store_epoch_val_real_error(avg_epoch_val_error_real)
     evaluator.store_epoch_val_imag_error(avg_epoch_val_error_imag)
 
-    if avg_epoch_val_error_real < best_avg_error_abs:
-        best_avg_error_abs = avg_epoch_val_error_real
+    if avg_epoch_val_error_real < best_avg_error_real:
+        best_avg_error_real = avg_epoch_val_error_real
         best_model = model.state_dict()
 
 end_time = time.time()
