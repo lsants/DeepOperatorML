@@ -44,8 +44,12 @@ class Denormalize:
         self.v_max = v_max
 
     def __call__(self, vals):
-        v_min = torch.as_tensor(self.v_min, dtype=vals.dtype, device=vals.device)
-        v_max = torch.as_tensor(self.v_max, dtype=vals.dtype, device=vals.device)
+        if isinstance(vals, torch.Tensor):
+            v_min = torch.as_tensor(self.v_min, dtype=vals.dtype, device=vals.device)
+            v_max = torch.as_tensor(self.v_max, dtype=vals.dtype, device=vals.device)
+        else:
+            v_min = self.v_min
+            v_max = self.v_max
         vals = (vals * (v_max - v_min)) + v_min
         return vals
 
