@@ -17,9 +17,11 @@ OUTPUT_LOG_FOLDER: ./data/output/ # For split indexes, normalization parameters 
 IMAGES_FOLDER: ./images/
 
 # Model architecture
-N_BRANCHES: 2
+TWO_STEP_TRAINING: false
+N_OUTPUTS: 2
 BRANCH_INPUT_SIZE: 1
 TRUNK_INPUT_SIZE: 2
+TRUNK_OUTPUT_SIZE: 30
 BASIS_FUNCTIONS: 30
 BRANCH_ARCHITECTURE: resnet
 BRANCH_MLP_ACTIVATION: relu
@@ -42,7 +44,7 @@ TRUNK_HIDDEN_LAYERS:
 
 # Training parameters
 LEARNING_RATE: 0.001                   # float: learning rate used in training
-N_EPOCHS: 30000                         # int: number of training epochs
+N_EPOCHS: 1000                         # int: number of training epochs
 BATCH_SIZE: 50                         # int: Size of batch during training
 TRAIN_PERC: 0.8                         # float: the percentage of data used for training
 VAL_PERC: 0.1                           # float: the percentage of training data used for validation
@@ -55,10 +57,32 @@ EARLY_STOPPING: false
 LR_SCHEDULING: true
 SCHEDULER_STEP_SIZE: 500
 SCHEDULER_GAMMA: 0.8
-CHANGE_OPTIMIZER: true
+CHANGE_OPTIMIZER: false
 CHANGE_AT_EPOCH: 1000
 
 INPUT_NORMALIZATION: true
 OUTPUT_NORMALIZATION: true
 TRUNK_FEATURE_EXPANSION: true
-EXPANSION_FEATURES_NUMBER: 15
+TRUNK_EXPANSION_FEATURES_NUMBER: 15
+
+# ------------------- Parameters for two step training ------------------
+TRUNK_DECOMPOSITION: qr
+TRUNK_TRAIN_EPOCHS: 5000
+TRUNK_LEARNING_RATE: 0.001
+TRUNK_L2_REGULARIZATION: 0.0000001
+TRUNK_EARLY_STOPPING: false
+TRUNK_LR_SCHEDULING: true
+TRUNK_SCHEDULER_STEP_SIZE: 500
+TRUNK_SCHEDULER_GAMMA: 0.8
+TRUNK_CHANGE_OPTIMIZER: false
+TRUNK_CHANGE_AT_EPOCH: 1000
+
+BRANCH_TRAIN_EPOCHS: 5000
+BRANCH_LEARNING_RATE: 0.001
+BRANCH_L2_REGULARIZATION: 0.0000001
+BRANCH_EARLY_STOPPING: false
+BRANCH_LR_SCHEDULING: false
+BRANCH_SCHEDULER_STEP_SIZE: 500
+BRANCH_SCHEDULER_GAMMA: 0.8
+BRANCH_CHANGE_OPTIMIZER: false
+BRANCH_CHANGE_AT_EPOCH: 1000
