@@ -167,3 +167,9 @@ def trunk_feature_expansion(xt, p):
 
     trunk_features = torch.concat(expansion_features, axis=1)
     return trunk_features
+
+def mirror(arr):
+    arr_flip = np.flip(arr[1 : , : ], axis=1)
+    arr_mirrored = np.concatenate((arr_flip, arr), axis=1)
+    arr_mirrored = arr_mirrored.T
+    return arr_mirrored
