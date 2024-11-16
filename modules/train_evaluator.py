@@ -11,11 +11,11 @@ class TrainEvaluator:
         self.val_imag_error_history = []
         self.learning_rate_history = []
 
-    def compute_batch_error(self, g_u, pred):
+    def compute_error(self, g_u, pred):
         with torch.no_grad():
-            batch_error = torch.linalg.vector_norm((pred - g_u), ord=self.error_norm)\
+            error = torch.linalg.vector_norm((pred - g_u), ord=self.error_norm)\
                         / torch.linalg.vector_norm(g_u, ord=self.error_norm)
-        return batch_error.detach().cpu().numpy()
+        return error.detach().cpu().numpy()
     
     def store_epoch_train_loss(self, epoch_loss):
         self.train_loss_history.append(epoch_loss)
