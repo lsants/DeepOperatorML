@@ -4,8 +4,9 @@ import numpy as np
 from modules import dir_functions
 from modules import preprocessing as ppr
 from modules.saving import Saver
-from modules.test_evaluator import TestEvaluator
 from modules.deeponet import DeepONet
+# from modules.animation import animate_wave
+from modules.test_evaluator import TestEvaluator
 from modules.greenfunc_dataset import GreenFuncDataset
 from modules.plotting import plot_field_comparison, plot_axis_comparison
 
@@ -76,7 +77,7 @@ if p['TRUNK_FEATURE_EXPANSION']:
     xt = ppr.trunk_feature_expansion(xt, p['EXPANSION_FEATURES_NUMBER'])
 
 # ----------------------------- Initialize model -----------------------------
-expansion_dim = p['EXPANSION_FEATURES_NUMBER']
+trunk_expansion_dim = p['TRUNK_EXPANSION_FEATURES_NUMBER']
 u_dim = p["BRANCH_INPUT_SIZE"]
 x_dim = p["TRUNK_INPUT_SIZE"]
 n_branches = p['N_BRANCHES']
@@ -85,7 +86,7 @@ hidden_T = p['TRUNK_HIDDEN_LAYERS']
 G_dim = p["BASIS_FUNCTIONS"]
 
 if p['TRUNK_FEATURE_EXPANSION']: # 2 here is hardcoded because we add a sin(x) and cos(x) term. See if this can be improved.
-    x_dim += 2 * x_dim * expansion_dim
+    x_dim += 2 * x_dim * trunk_expansion_dim
 
 layers_B = [u_dim] + hidden_B + [G_dim * n_branches]
 layers_T = [x_dim] + hidden_T + [G_dim]
@@ -189,6 +190,13 @@ g_u = ppr.reshape_from_model(g_u, xt_plot)
 
 fig_field = plot_field_comparison(r, z, g_u[index], preds[index], freq)
 fig_axis = plot_axis_comparison(r, z, g_u[index], preds[index], freq)
+
+
+# g_u, preds = ppr.mirror(g_u), ppr.mirror(preds)
+
+# print(g_u[0].real.shape, preds[0].real.shape)
+
+# animate_wave(g_u.real, g_u_pred=preds.real, save_name='./video')
 
 saver(errors=errors)
 saver(time=inference_time, time_prefix="inference")
