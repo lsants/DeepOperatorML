@@ -36,3 +36,19 @@ class DeepONet(torch.nn.Module):
         imag_out = torch.matmul(branch_imag_out, torch.transpose(trunk_out, 0, 1))
 
         return real_out, imag_out
+    
+    def freeze_branch(self):
+        for param in self.branch_network.parameters():
+            param.requires_grad = False
+
+    def unfreeze_branch(self):
+        for param in self.branch_network.parameters():
+            param.requires_grad = True
+    
+    def freeze_trunk(self):
+        for param in self.trunk_network.parameters():
+            param.requires_grad = False
+
+    def unfreeze_trunk(self):
+        for param in self.trunk_network.parameters():
+            param.requires_grad = True
