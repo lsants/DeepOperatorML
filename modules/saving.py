@@ -10,7 +10,17 @@ class Saver:
         self.data_output_folder = data_output_folder
         self.figures_folder = figures_folder
 
-    def __call__(self, model_state_dict=None, split_indices=None, norm_params=None, history=None, figure=None, errors=None, time=None, figure_suffix=None, time_prefix=None):
+    def __call__(self, model_state_dict=None,
+                  split_indices=None, 
+                  norm_params=None, 
+                  history=None, 
+                  figure=None, 
+                  errors=None, 
+                  time=None, 
+                  figure_suffix=None, 
+                  time_prefix=None,
+                  history_prefix=None
+                ):
         if model_state_dict is not None:
             self.save_model(model_state_dict)
         if split_indices is not None:
@@ -18,7 +28,7 @@ class Saver:
         if norm_params is not None:
             self.save_norm_params(norm_params)
         if history is not None:
-            self.save_history(history)
+            self.save_history(history, history_prefix)
         if figure is not None:
             self.save_plots(figure, figure_suffix)
         if errors is not None:
@@ -56,8 +66,8 @@ class Saver:
             json.dump(norm_params_dict, f)
         print(f"Normalization parameters saved to {norm_params_path}\n")
 
-    def save_history(self, history_dict):
-        filename = f'history_{self.name}.json'
+    def save_history(self, history_dict, filename_prefix=None):
+        filename = f'{filename_prefix}_history_{self.name}.json'
         history_path = self.make_output_dir(self.data_output_folder, filename)
         with open(history_path, 'w') as f:
             json.dump(history_dict, f)
