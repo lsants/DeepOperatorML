@@ -20,7 +20,8 @@ def plot_training(epochs, history):
     fig, ax = plt.subplots(nrows=1, ncols=3, figsize=(15,5))
 
     ax[0].plot(epochs, train_loss, label='train_loss')
-    ax[0].plot(epochs, val_loss, label='val_loss')
+    if val_loss is not None:
+        ax[0].plot(epochs, val_loss, label='val_loss')
     ax[0].set_xlabel('epoch')
     ax[0].set_yscale('log')
     ax[0].set_title(r'Loss for $u_{zz}$')
