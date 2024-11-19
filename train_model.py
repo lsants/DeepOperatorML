@@ -137,7 +137,7 @@ else:
 if p['TWO_STEP_TRAINING']:
     model = DeepONetTwoStep(branch_config=branch_config,
                     trunk_config=trunk_config,
-                    A_dim=(n_outputs, len(train_dataset), num_basis)
+                    A_dim=(n_outputs, num_basis, len(train_dataset))
                     ).to(device, precision)
 else:
     model = DeepONet(branch_config=branch_config,
@@ -195,6 +195,7 @@ if p['TWO_STEP_TRAINING']:
     model.set_training_phase('trunk')
     model.freeze_branch()
     model.unfreeze_trunk()
+    model.unfreeze_A()
 
     full_batch_train = dataset[dataset_indices['train']]
 
@@ -224,11 +225,16 @@ if p['TWO_STEP_TRAINING']:
 
         trunk_epoch_train_loss += trunk_train_outputs['loss']
 
+        basis_pred_real = trunk_train_outputs['pred_real']
+        g_u_real = batch_train['g_u_real']
+        basis_pred_imag = trunk_train_outputs['pred_imag']
+        g_u_imag = batch_train['g_u_imag']
+
         if p['OUTPUT_NORMALIZATION']:
-            basis_pred_real = denormalize_g_u_real(trunk_train_outputs['pred_real'])
-            g_u_real = denormalize_g_u_real(batch_train['g_u_real'])
-            basis_pred_imag = denormalize_g_u_imag(trunk_train_outputs['pred_imag'])
-            g_u_imag = denormalize_g_u_imag(batch_train['g_u_imag'])
+            basis_pred_real = denormalize_g_u_real(basis_pred_real)
+            g_u_real = denormalize_g_u_real(g_u_real)
+            basis_pred_imag = denormalize_g_u_imag(basis_pred_imag)
+            g_u_imag = denormalize_g_u_imag(g_u_imag)
 
         trunk_epoch_train_error_real = trunk_evaluator.compute_error(g_u_real,
                                                             basis_pred_real)
@@ -276,10 +282,15 @@ if p['TWO_STEP_TRAINING']:
             pass
         model.R = R
 
+    print(trunk_out.shape)
+    print(Q.shape)
+    print(R.shape)
+
     # -------------------------------------------------- Branch Training ---------------------------------------------------------------------------
 
     model.set_training_phase('branch')
     model.freeze_trunk()
+    model.freeze_A()
     model.unfreeze_branch()
 
     for epoch in tqdm(range(branch_epochs), colour='GREEN'):
@@ -297,7 +308,7 @@ if p['TWO_STEP_TRAINING']:
 
             branch_epoch_train_loss += branch_batch_train_outputs['loss']
 
-            print(branch_batch_train_outputs['loss'])
+            # print(branch_batch_train_outputs['loss'])
 
             if p['OUTPUT_NORMALIZATION']:
                 branch_batch_pred_real = denormalize_g_u_real(branch_batch_train_outputs['pred_real'])
@@ -319,29 +330,29 @@ if p['TWO_STEP_TRAINING']:
             branch_epoch_train_error_real += branch_batch_train_error_real
             branch_epoch_train_error_imag += branch_batch_train_error_imag
 
-            # print(f"Real First target: {branch_batch_g_u_real[0, 0]}")
-            # print(f"Real First prediction: {branch_batch_pred_real[0, 0]}")
+            print(f"Real First target: {branch_batch_g_u_real[0, 0]}")
+            print(f"Real First prediction: {branch_batch_pred_real[0, 0]}")
 
-            # print(f"Imag First target: {branch_batch_g_u_imag[0, 0]}")
-            # print(f"Imag First prediction: {branch_batch_pred_imag[0, 0]}")
-            # print(f"Imag second target: {branch_batch_g_u_imag[0, 1]}")
-            # print(f"Imag second prediction: {branch_batch_pred_imag[0, 1]}")
+            print(f"Imag First target: {branch_batch_g_u_imag[0, 0]}")
+            print(f"Imag First prediction: {branch_batch_pred_imag[0, 0]}")
+            print(f"Imag second target: {branch_batch_g_u_imag[0, 1]}")
+            print(f"Imag second prediction: {branch_batch_pred_imag[0, 1]}")
 
-            # print(f"Real second target: {branch_batch_g_u_real[0, 1]}")
-            # print(f"Real second prediction: {branch_batch_pred_real[0, 1]}")
+            print(f"Real second target: {branch_batch_g_u_real[0, 1]}")
+            print(f"Real second prediction: {branch_batch_pred_real[0, 1]}")
 
-            # print(f"Real third target: {branch_batch_g_u_real[1,0]}")
-            # print(f"Real third prediction: {branch_batch_pred_real[1,0]}")
+            print(f"Real third target: {branch_batch_g_u_real[1,0]}")
+            print(f"Real third prediction: {branch_batch_pred_real[1,0]}")
 
 
-            # print(f"Imag third target: {branch_batch_g_u_imag[1,0]}")
-            # print(f"Imag third prediction: {branch_batch_pred_imag[1,0]}")
+            print(f"Imag third target: {branch_batch_g_u_imag[1,0]}")
+            print(f"Imag third prediction: {branch_batch_pred_imag[1,0]}")
 
-            # print(f"Real fourth target: {branch_batch_g_u_real[1,1]}")
-            # print(f"Real fourth prediction: {branch_batch_pred_real[1,1]}")
+            print(f"Real fourth target: {branch_batch_g_u_real[1,1]}")
+            print(f"Real fourth prediction: {branch_batch_pred_real[1,1]}")
 
-            # print(f"Imag fourth target: {branch_batch_g_u_imag[1,1]}")
-            # print(f"Imag fourth prediction: {branch_batch_pred_imag[1,1]}")
+            print(f"Imag fourth target: {branch_batch_g_u_imag[1,1]}")
+            print(f"Imag fourth prediction: {branch_batch_pred_imag[1,1]}")
 
         branch_epoch_learning_rate = branch_scheduler.get_last_lr()[-1]
         if p['BRANCH_CHANGE_OPTIMIZER']:
@@ -475,6 +486,8 @@ else:
             best_model = model.state_dict()
 
 end_time = time.time()
+
+# -------------------------------  Getting info from training ---------------------
 
 if p["TWO_STEP_TRAINING"]:
     trunk_loss_history = trunk_evaluator.get_loss_history()
