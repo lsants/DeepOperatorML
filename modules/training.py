@@ -75,59 +75,53 @@ class TwoStepTrainer(ModelTrainer):
         g_u_real, g_u_imag = sample['g_u_real'], sample['g_u_imag']
         indices = sample['index']
 
-        # Ensure indices is a Tensor
-        if isinstance(indices, list):
-            indices = torch.tensor(indices)
-
-        original_indices = indices.clone()
-
-        if self.index_map_for_A:
-            indices = torch.tensor(
-                [self.index_map_for_A[idx.item()] for idx in indices]
-            )
 
         self.optimizer.zero_grad()
+
         if self.training_phase == 'trunk':
             pred_real, pred_imag = self.model(xt=xt)
+            pred_real, pred_imag = pred_real.T, pred_imag.T
             loss = loss_complex(g_u_real, g_u_imag, pred_real, pred_imag)
 
+            loss.backward()
+            self.optimizer.step()
+            return loss.item(), pred_real, pred_imag
+
         elif self.training_phase == 'branch':
-            coefs_real = self.model.A_list[0][indices] @ self.model.R 
-            coefs_imag = self.model.A_list[1][indices] @ self.model.R
-            num_basis = coefs_real.shape[1]
-            branch_out = self.model(xb=xb)
+
+            if self.index_map_for_A:
+                A_indices = torch.tensor(
+                    [self.index_map_for_A[idx.item()] for idx in indices]
+                )
+
+            # print(indices, self.index_map_for_A)
+
+            coefs_real = self.model.R @ self.model.A_list[0][ : , A_indices]
+            coefs_imag = self.model.R @ self.model.A_list[1][ : , A_indices]
+
+            num_basis = coefs_real.shape[0] # dims: (N, K) where K is batch size
+
+            branch_out = self.model(xb=xb) # dims: (K, 2N)
+            branch_out = branch_out.T # dims: (2N, K)
             
-            pred_real = branch_out[:, :num_basis]
-            pred_imag = branch_out[:, num_basis:]
+            pred_real = branch_out[ : num_basis , : ] # (N, K)
+            pred_imag = branch_out[num_basis : , : ]  # (N, K)
+
             loss = loss_complex(coefs_real, coefs_imag, pred_real, pred_imag)
 
             loss.backward()
             self.optimizer.step()
 
-            # Debugging statements
-            print("Indices (after mapping):", indices)
-            print("Sample IDs in xb:", sample.get('sample_ids', 'N/A'))
-
-            # Check if index mapping is correct
-            if self.index_map_for_A:
-                mapped_indices = torch.tensor(
-                    [self.index_map_for_A[idx.item()] for idx in original_indices]
-                )
-                print("Original Indices:", original_indices)
-                print("Mapped Indices:", mapped_indices)
-                # Do not reassign indices here
-            else:
-                print("Using original indices.")
+            # for name, param in self.model.named_parameters():
+            #     if param.requires_grad and param.grad is not None:
+            #         print(f"Gradients for {name}: {param.grad.norm().item()}")
+            #     elif param.requires_grad:
+            #         print(f"No gradients for {name}")
 
             return loss.item(), coefs_real, coefs_imag, pred_real, pred_imag
+        
         else:
             pred_real, pred_imag = self.model(xb=xb, xt=xt)
             loss = loss_complex(g_u_real, g_u_imag, pred_real, pred_imag)
 
-        loss.backward()
-        self.optimizer.step()
-
-        if self.training_phase == 'trunk':
-            pred_real, pred_imag = self.model(xt=xt)
-
-        return loss.item(), pred_real, pred_imag
+            return loss.item(), pred_real, pred_imag
