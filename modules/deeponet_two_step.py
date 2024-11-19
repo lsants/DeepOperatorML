@@ -26,7 +26,6 @@ class DeepONetTwoStep(DeepONet):
         
         elif self.training_phase == 'branch':
             branch_out = self.branch_network(xb)
-            print(branch_out.shape, "<----- branch output shape before transposing")
             if self.R is None:
                 raise ValueError("Basis functions have not been computed. Train trunk first.")
             return branch_out
