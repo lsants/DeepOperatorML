@@ -53,6 +53,8 @@ dataset_indices = {'train': train_dataset.indices,
                    'val': val_dataset.indices,
                    'test': test_dataset.indices}
 
+dataset_index_to_train_index = {dataset_index: train_index for train_index, dataset_index in enumerate(dataset_indices['train'])}
+
 # ------------------------------ Setup data normalization functions ------------------------
 norm_params = ppr.get_minmax_norm_params(train_dataloader)
 trunk_norm_params = dataset.get_trunk_normalization_params()
@@ -151,13 +153,25 @@ if not p['TWO_STEP_TRAINING']:
 else:
     trunk_optimizer = torch.optim.Adam(list(model.trunk_network.parameters()) + list(model.A_list),
                                         lr=p["TRUNK_LEARNING_RATE"])
-    trunk_scheduler = torch.optim.lr_scheduler.StepLR(trunk_optimizer, step_size=p['TRUNK_SCHEDULER_STEP_SIZE'], gamma=p['TRUNK_SCHEDULER_GAMMA'])
-    trunk_trainer = TwoStepTrainer(model, trunk_optimizer, scheduler=trunk_scheduler, training_phase='trunk')
+    trunk_scheduler = torch.optim.lr_scheduler.StepLR(trunk_optimizer, 
+                                                      step_size=p['TRUNK_SCHEDULER_STEP_SIZE'], 
+                                                      gamma=p['TRUNK_SCHEDULER_GAMMA'])
+    trunk_trainer = TwoStepTrainer(model, 
+                                   trunk_optimizer, 
+                                   scheduler=trunk_scheduler, 
+                                   training_phase='trunk')
     trunk_evaluator = TrainEvaluator(error_type)
     
-    branch_optimizer = torch.optim.Adam(model.branch_network.parameters(), lr=p["BRANCH_LEARNING_RATE"])
-    branch_scheduler = torch.optim.lr_scheduler.StepLR(branch_optimizer, step_size=p['BRANCH_SCHEDULER_STEP_SIZE'], gamma=p['BRANCH_SCHEDULER_GAMMA'])
-    branch_trainer = TwoStepTrainer(model, branch_optimizer, scheduler=branch_scheduler, training_phase='branch')
+    branch_optimizer = torch.optim.Adam(model.branch_network.parameters(), 
+                                        lr=p["BRANCH_LEARNING_RATE"])
+    branch_scheduler = torch.optim.lr_scheduler.StepLR(branch_optimizer, 
+                                                       step_size=p['BRANCH_SCHEDULER_STEP_SIZE'], 
+                                                       gamma=p['BRANCH_SCHEDULER_GAMMA'])
+    branch_trainer = TwoStepTrainer(model, 
+                                    branch_optimizer, 
+                                    scheduler=branch_scheduler, 
+                                    training_phase='branch', 
+                                    index_mapping=dataset_index_to_train_index)
     branch_evaluator = TrainEvaluator(error_type)
 
 saver = Saver(model_name, model_folder, data_out_folder, fig_folder)
@@ -189,10 +203,6 @@ if p['TWO_STEP_TRAINING']:
         trunk_epoch_train_error_real = 0
         trunk_epoch_train_error_imag = 0
 
-        trunk_epoch_val_loss = 0
-        trunk_epoch_val_error_real = 0
-        trunk_epoch_val_error_imag = 0
-
         full_batch_train['xt'] = xt
 
         batch_train = copy.deepcopy(full_batch_train)
@@ -220,7 +230,6 @@ if p['TWO_STEP_TRAINING']:
             basis_pred_imag = denormalize_g_u_imag(trunk_train_outputs['pred_imag'])
             g_u_imag = denormalize_g_u_imag(batch_train['g_u_imag'])
 
-
         trunk_epoch_train_error_real = trunk_evaluator.compute_error(g_u_real,
                                                             basis_pred_real)
         trunk_epoch_train_error_imag = trunk_evaluator.compute_error(g_u_imag,
@@ -236,64 +245,38 @@ if p['TWO_STEP_TRAINING']:
             trunk_scheduler.step()
 
         trunk_evaluator.store_epoch_train_loss(trunk_epoch_train_loss)
-        trunk_evaluator.store_epoch_train_real_error(trunk_epoch_train_error_real)
-        trunk_evaluator.store_epoch_train_imag_error(trunk_epoch_train_error_imag)
+        trunk_evaluator.store_epoch_train_real_error(trunk_epoch_train_error_real.item())
+        trunk_evaluator.store_epoch_train_imag_error(trunk_epoch_train_error_imag.item())
         trunk_evaluator.store_epoch_learning_rate(epoch_learning_rate)
-
-        print(f"Loss: {trunk_epoch_val_loss}")
-        print(f"Real First target: {g_u_real[0, 0]}")
-        print(f"Real First prediction: {basis_pred_real[0, 0]}")
-
-        print(f"Imag First target: {g_u_imag[0, 0]}")
-        print(f"Imag First prediction: {basis_pred_imag[0, 0]}")
-        print(f"Imag second target: {g_u_imag[0, 1]}")
-        print(f"Imag second prediction: {basis_pred_imag[0, 1]}")
-
-        print(f"Real second target: {g_u_real[0, 1]}")
-        print(f"Real second prediction: {basis_pred_real[0, 1]}")
-
-        print(f"Real third target: {g_u_real[1,0]}")
-        print(f"Real third prediction: {basis_pred_real[1,0]}")
-
-
-        print(f"Imag third target: {g_u_imag[1,0]}")
-        print(f"Imag third prediction: {basis_pred_imag[1,0]}")
-
-        print(f"Real fourth target: {g_u_real[1,1]}")
-        print(f"Real fourth prediction: {basis_pred_real[1,1]}")
-
-
-        print(f"Imag fourth target: {g_u_imag[1,1]}")
-        print(f"Imag fourth prediction: {basis_pred_imag[1,1]}")
 
 trunk_loss_history = trunk_evaluator.get_loss_history()
 trunk_error_history = trunk_evaluator.get_error_history()
 trunk_lr_history = trunk_evaluator.get_lr_history()
+
 trunk_history = {'loss' : trunk_loss_history,
                  'error' : trunk_error_history,
                  'learning_rate': trunk_lr_history,
                  'trunk_architecture' : (p['TRUNK_ARCHITECTURE'], layers_T)
     } 
 
-# print(trunk_history['loss'])
-# print(trunk_history['error'])
 trunk_epochs_plot = [i for i in range(trunk_epochs)]
 trunk_fig = plot_training(trunk_epochs_plot, trunk_history)
 trunk_fig.savefig('./trunk_training.png')
 
 if p['TWO_STEP_TRAINING']:
 
-    # ---------------- ---------------------------------- Trunk Decomposition ---------------------------------------------------------------------------
+    # -------------------------------------------------- Trunk Decomposition ---------------------------------------------------------------------------
     
     with torch.no_grad():
-        trunk_out = model.trunk_network(full_batch_train['xt'])
+        trunk_out = model.trunk_network(batch_train['xt'])
+        phi = trunk_out
         if p['TRUNK_DECOMPOSITION'] == 'qr':
-            _, R = torch.linalg.qr(trunk_out)
+            Q, R = torch.linalg.qr(phi)
         if p['TRUNK_DECOMPOSITION'] == 'svd':
             pass
-        model.trunk_basis = R
-    
-    # ---------------- ---------------------------------- Branch Training ---------------------------------------------------------------------------
+        model.R = R
+
+    # -------------------------------------------------- Branch Training ---------------------------------------------------------------------------
 
     model.set_training_phase('branch')
     model.freeze_trunk()
@@ -304,33 +287,61 @@ if p['TWO_STEP_TRAINING']:
         branch_epoch_train_error_real = 0
         branch_epoch_train_error_imag = 0
 
-        branch_epoch_val_loss = 0
-        branch_epoch_val_error_real = 0
-        branch_epoch_val_error_imag = 0
-
         for branch_batch in train_dataloader:
             if p['INPUT_NORMALIZATION']:
                 branch_batch = {key: (normalize_branch(value) if key == 'xb' \
                             else value)
                     for key, value in branch_batch.items()}
-            if p['OUTPUT_NORMALIZATION']:
-                branch_batch = {key: (normalize_g_u_real(value) if key == 'g_u_real' \
-                                else normalize_g_u_imag(value) if key == 'g_u_imag'\
-                                else value)
-                        for key, value in branch_batch.items()}
+
             branch_batch_train_outputs = branch_trainer(branch_batch)
+
             branch_epoch_train_loss += branch_batch_train_outputs['loss']
+
+            print(branch_batch_train_outputs['loss'])
+
             if p['OUTPUT_NORMALIZATION']:
                 branch_batch_pred_real = denormalize_g_u_real(branch_batch_train_outputs['pred_real'])
-                branch_batch_g_u_real = denormalize_g_u_real(branch_batch['g_u_real'])
+                branch_batch_g_u_real = denormalize_g_u_real(branch_batch_train_outputs['coefs_real'])
                 branch_batch_pred_imag = denormalize_g_u_imag(branch_batch_train_outputs['pred_imag'])
-                branch_batch_g_u_imag = denormalize_g_u_imag(branch_batch['g_u_imag'])
+                branch_batch_g_u_imag = denormalize_g_u_imag(branch_batch_train_outputs['coefs_imag'])
+
+            else:
+                branch_batch_pred_real = branch_batch_train_outputs['pred_real']
+                branch_batch_g_u_real = branch_batch_train_outputs['coefs_real']
+                branch_batch_pred_imag = branch_batch_train_outputs['pred_imag']
+                branch_batch_g_u_imag = branch_batch_train_outputs['coefs_imag']
+            
             branch_batch_train_error_real = branch_evaluator.compute_error(branch_batch_g_u_real,
                                                                    branch_batch_pred_real)
             branch_batch_train_error_imag = branch_evaluator.compute_error(branch_batch_g_u_imag,
                                                                    branch_batch_pred_imag)
+            
             branch_epoch_train_error_real += branch_batch_train_error_real
             branch_epoch_train_error_imag += branch_batch_train_error_imag
+
+            # print(f"Real First target: {branch_batch_g_u_real[0, 0]}")
+            # print(f"Real First prediction: {branch_batch_pred_real[0, 0]}")
+
+            # print(f"Imag First target: {branch_batch_g_u_imag[0, 0]}")
+            # print(f"Imag First prediction: {branch_batch_pred_imag[0, 0]}")
+            # print(f"Imag second target: {branch_batch_g_u_imag[0, 1]}")
+            # print(f"Imag second prediction: {branch_batch_pred_imag[0, 1]}")
+
+            # print(f"Real second target: {branch_batch_g_u_real[0, 1]}")
+            # print(f"Real second prediction: {branch_batch_pred_real[0, 1]}")
+
+            # print(f"Real third target: {branch_batch_g_u_real[1,0]}")
+            # print(f"Real third prediction: {branch_batch_pred_real[1,0]}")
+
+
+            # print(f"Imag third target: {branch_batch_g_u_imag[1,0]}")
+            # print(f"Imag third prediction: {branch_batch_pred_imag[1,0]}")
+
+            # print(f"Real fourth target: {branch_batch_g_u_real[1,1]}")
+            # print(f"Real fourth prediction: {branch_batch_pred_real[1,1]}")
+
+            # print(f"Imag fourth target: {branch_batch_g_u_imag[1,1]}")
+            # print(f"Imag fourth prediction: {branch_batch_pred_imag[1,1]}")
 
         branch_epoch_learning_rate = branch_scheduler.get_last_lr()[-1]
         if p['BRANCH_CHANGE_OPTIMIZER']:
@@ -342,51 +353,20 @@ if p['TWO_STEP_TRAINING']:
             branch_scheduler.step()
 
         branch_avg_epoch_train_loss = branch_epoch_train_loss / niter_per_train_epoch
+        print(f"Loss: {branch_avg_epoch_train_loss}")
         branch_avg_epoch_train_error_real = branch_epoch_train_error_real / niter_per_train_epoch
         branch_avg_epoch_train_error_imag = branch_epoch_train_error_imag / niter_per_train_epoch
 
         branch_evaluator.store_epoch_train_loss(branch_avg_epoch_train_loss)
-        branch_evaluator.store_epoch_train_real_error(branch_avg_epoch_train_error_real)
-        branch_evaluator.store_epoch_train_imag_error(branch_avg_epoch_train_error_imag)
+        branch_evaluator.store_epoch_train_real_error(branch_avg_epoch_train_error_real.item())
+        branch_evaluator.store_epoch_train_imag_error(branch_avg_epoch_train_error_imag.item())
         
         branch_evaluator.store_epoch_learning_rate(branch_epoch_learning_rate)
-        for branch_batch in val_dataloader:
-            if p['INPUT_NORMALIZATION']:
-                branch_batch = {key: (normalize_branch(value) if key == 'xb' \
-                            else value)
-                    for key, value in branch_batch.items()}
-            if p['OUTPUT_NORMALIZATION']:
-                branch_batch = {key: (normalize_g_u_real(value) if key == 'g_u_real' \
-                                else normalize_g_u_imag(value) if key == 'g_u_imag'\
-                                else value)
-                        for key, value in branch_batch.items()}
-            branch_batch_val_outputs = branch_trainer(branch_batch)
-            branch_epoch_val_loss += branch_batch_val_outputs['loss']
-            if p['OUTPUT_NORMALIZATION']:
-                branch_batch_pred_real = denormalize_g_u_real(branch_batch_val_outputs['pred_real'])
-                branch_batch_g_u_real = denormalize_g_u_real(branch_batch['g_u_real'])
-                branch_batch_pred_imag = denormalize_g_u_imag(branch_batch_val_outputs['pred_imag'])
-                branch_batch_g_u_imag = denormalize_g_u_imag(branch_batch['g_u_imag'])
-            branch_batch_val_error_real = branch_evaluator.compute_error(branch_batch_g_u_real,
-                                                                   branch_batch_pred_real)
-            branch_batch_val_error_imag = branch_evaluator.compute_error(branch_batch_g_u_imag,
-                                                                   branch_batch_pred_imag)
-            branch_epoch_val_error_real += branch_batch_val_error_real
-            branch_epoch_val_error_imag += branch_batch_val_error_imag
+        
 
-        branch_epoch_learning_rate = branch_scheduler.get_last_lr()[-1]
-        branch_avg_epoch_val_loss = branch_epoch_val_loss / niter_per_val_epoch
-        branch_avg_epoch_val_error_real = branch_epoch_val_error_real / niter_per_val_epoch
-        branch_avg_epoch_val_error_imag = branch_epoch_val_error_imag / niter_per_val_epoch
-
-        branch_evaluator.store_epoch_val_loss(branch_avg_epoch_val_loss)
-        branch_evaluator.store_epoch_val_real_error(branch_avg_epoch_val_error_real)
-        branch_evaluator.store_epoch_val_imag_error(branch_avg_epoch_val_error_imag)
-
-    if branch_avg_epoch_val_error_real < best_avg_error_real:
-        best_avg_error_real = branch_avg_epoch_val_error_real
+    if branch_avg_epoch_train_error_real < best_avg_error_real:
+        best_avg_error_real = branch_avg_epoch_train_error_real
         best_model = model.state_dict()
-
 
 # ----------------------------------------- Train loop (regular) ---------------------------------
 else:
@@ -446,8 +426,8 @@ else:
         avg_epoch_train_error_imag = epoch_train_error_imag / niter_per_train_epoch
 
         evaluator.store_epoch_train_loss(avg_epoch_train_loss)
-        evaluator.store_epoch_train_real_error(avg_epoch_train_error_real)
-        evaluator.store_epoch_train_imag_error(avg_epoch_train_error_imag)
+        evaluator.store_epoch_train_real_error(avg_epoch_train_error_real.item())
+        evaluator.store_epoch_train_imag_error(avg_epoch_train_error_imag.item())
         evaluator.store_epoch_learning_rate(epoch_learning_rate)
 
         for batch in val_dataloader:
@@ -496,17 +476,6 @@ else:
 
 end_time = time.time()
 
-loss_history = evaluator.get_loss_history()
-error_history = evaluator.get_error_history()
-lr_history = evaluator.get_lr_history()
-
-history = {'loss' : loss_history,
-           'error' : error_history,
-           'learning_rate': lr_history,
-           'branch_architecture' : (p['BRANCH_ARCHITECTURE'], layers_B),
-           'trunk_architecture' : (p['TRUNK_ARCHITECTURE'], layers_T)
-           }
-
 if p["TWO_STEP_TRAINING"]:
     trunk_loss_history = trunk_evaluator.get_loss_history()
     trunk_error_history = trunk_evaluator.get_error_history()
@@ -523,6 +492,17 @@ if p["TWO_STEP_TRAINING"]:
             'error' : branch_error_history,
             'learning_rate': branch_lr_history,
             'branch_architecture' : (p['BRANCH_ARCHITECTURE'], layers_B)
+            }
+else:
+    loss_history = evaluator.get_loss_history()
+    error_history = evaluator.get_error_history()
+    lr_history = evaluator.get_lr_history()
+
+    history = {'loss' : loss_history,
+            'error' : error_history,
+            'learning_rate': lr_history,
+            'branch_architecture' : (p['BRANCH_ARCHITECTURE'], layers_B),
+            'trunk_architecture' : (p['TRUNK_ARCHITECTURE'], layers_T)
             }
 
 training_time = {'time': end_time - start_time}
@@ -557,8 +537,11 @@ else:
     
     saver(history=trunk_history,
           figure=trunk_fig,
-          figure_suffix="trunk_history")
+          figure_suffix="trunk_history",
+          history_prefix='trunk')
+    
     saver(history=branch_history,
           figure=branch_fig,
-          figure_suffix="branch_history")
+          figure_suffix="branch_history",
+          history_prefix='branch')
 
