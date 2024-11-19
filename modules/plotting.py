@@ -4,16 +4,18 @@ from mpl_toolkits.mplot3d import Axes3D
 from matplotlib.colors import Normalize
 
 def plot_training(epochs, history):
-    loss_data, error_data = history['loss'], history['error']
-    learning_rate = history['learning_rate']
+    loss_data, error_data = history.get('loss'), history.get('error')
+    learning_rate = history.get('learning_rate')
 
-    train_loss = loss_data['train']
-    val_loss = loss_data['val']
+    train_loss = loss_data.get('train')
+    val_loss = loss_data.get('val')
 
-    train_error_real = error_data['train']['real']
-    train_error_imag = error_data['train']['imag']
-    val_error_real = error_data['val']['real']
-    val_error_imag = error_data['val']['imag']
+    train_error_real = error_data['train'].get('real')
+    train_error_imag = error_data['train'].get('imag')
+    
+    if error_data.get('val') is not None:
+        val_error_real = error_data['val'].get('real')
+        val_error_imag = error_data['val'].get('imag')
 
     fig, ax = plt.subplots(nrows=1, ncols=3, figsize=(15,5))
 
@@ -31,7 +33,8 @@ def plot_training(epochs, history):
 
 
     ax[1].plot(epochs, train_error_real, label='real_train')
-    ax[1].plot(epochs, val_error_real, label='real_val')
+    if val_error_real:
+        ax[1].plot(epochs, val_error_real, label='real_val')
     ax[1].set_xlabel('epoch')
     ax[1].set_yscale('log')
     ax[1].set_title(r'$L_2$ Error for $\Re(u_{zz})$')
@@ -42,7 +45,8 @@ def plot_training(epochs, history):
     ax_1_sec.set_yscale(r"log")
 
     ax[2].plot(epochs, train_error_imag, label='imag_train')
-    ax[2].plot(epochs, val_error_imag, label='imag_val')
+    if val_error_imag:
+        ax[2].plot(epochs, val_error_imag, label='imag_val')
     ax[2].set_xlabel('epoch')
     ax[2].set_yscale('log')
     ax[2].set_title(r'$L_2$ Error for $\Im(u_{zz})$')

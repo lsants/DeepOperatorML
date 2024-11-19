@@ -31,7 +31,8 @@ class GreenFuncDataset(torch.utils.data.Dataset):
 
         sample = {'xb': freq,
                   'g_u_real': disp_field_real, 
-                  'g_u_imag': disp_field_imag}
+                  'g_u_imag': disp_field_imag,
+                  'index': idx}
 
         return sample
     

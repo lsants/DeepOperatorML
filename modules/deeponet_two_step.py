@@ -4,20 +4,26 @@ from .deeponet import DeepONet
 class DeepONetTwoStep(DeepONet):
     def __init__(self, branch_config, trunk_config, A_dim):
         super().__init__(branch_config, trunk_config)
-        trainable_matrix = torch.nn.Parameter(
-            torch.randn(*A_dim)
-        )
-        self.A_real = trainable_matrix[0]
-        self.A_imag = trainable_matrix[1]
+        num_matrices = A_dim[0]
+        trainable_matrix_shape = A_dim[1 : ]
+
+        self.A_list = torch.nn.ParameterList(
+            [torch.nn.Parameter(torch.randn(*trainable_matrix_shape))
+             for _ in range(num_matrices)])
+        
+        for A in self.A_list:
+            torch.nn.init.xavier_uniform_(A)
+
         self.R = None
         self.training_phase = 'both'
 
     def forward(self, xb=None, xt=None):
         if self.training_phase == 'trunk':
             trunk_out = self.trunk_network(xt)
-            basis_real = trunk_out @ self.A_real
-            basis_imag = trunk_out @ self.A_imag
+            basis_real = self.A_list[0] @ (trunk_out.T)
+            basis_imag = self.A_list[1] @ (trunk_out.T)
             return basis_real, basis_imag
+        
         elif self.training_phase == 'branch':
             branch_out = self.branch_network(xb)
             if self.R is None:
