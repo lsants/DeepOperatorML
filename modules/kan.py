@@ -17,7 +17,6 @@ class ChebyshevKANLayer(torch.nn.Module):
         x = x.view((-1, self.inputdim, 1)).expand(
             -1, -1, self.degree + 1
         )
-
         torch.clip(x, -1.+self.eps, 1-self.eps)
         x = x.acos()
         x *= self.arange
