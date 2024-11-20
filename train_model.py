@@ -85,6 +85,8 @@ num_basis = p["BASIS_FUNCTIONS"]
 
 if not p['TWO_STEP_TRAINING']:
     num_basis = trunk_output_size
+else:
+    trunk_output_size = num_basis
 
 if p['TRUNK_FEATURE_EXPANSION']:
     x_dim += 4 * trunk_expansion_dim
@@ -240,7 +242,6 @@ if p['TWO_STEP_TRAINING']:
                                                             basis_pred_real)
         trunk_epoch_train_error_imag = trunk_evaluator.compute_error(g_u_imag,
                                                             basis_pred_imag)
-
         epoch_learning_rate = trunk_scheduler.get_last_lr()[-1]
         if p['TRUNK_CHANGE_OPTIMIZER']:
             if epoch == p['TRUNK_CHANGE_AT_EPOCH']:
@@ -274,20 +275,17 @@ if p['TWO_STEP_TRAINING']:
     # -------------------------------------------------- Trunk Decomposition ---------------------------------------------------------------------------
     
     with torch.no_grad():
-        trunk_out = model.trunk_network(batch_train['xt'])
-        phi = trunk_out
+        phi = model.trunk_network(batch_train['xt'])
         if p['TRUNK_DECOMPOSITION'] == 'qr':
             Q, R = torch.linalg.qr(phi)
+            
         if p['TRUNK_DECOMPOSITION'] == 'svd':
-            pass
+            Q, Sd, Vd = torch.linalg.svd(phi, full_matrices=False)
+            R = torch.diag(Sd) @ Vd
         model.R = R
 
-    print(trunk_out.shape)
-    print(Q.shape)
-    print(R.shape)
-
     # -------------------------------------------------- Branch Training ---------------------------------------------------------------------------
-
+    
     model.set_training_phase('branch')
     model.freeze_trunk()
     model.freeze_A()
@@ -297,86 +295,54 @@ if p['TWO_STEP_TRAINING']:
         branch_epoch_train_loss = 0
         branch_epoch_train_error_real = 0
         branch_epoch_train_error_imag = 0
-
-        for branch_batch in train_dataloader:
-            if p['INPUT_NORMALIZATION']:
-                branch_batch = {key: (normalize_branch(value) if key == 'xb' \
-                            else value)
-                    for key, value in branch_batch.items()}
-
-            branch_batch_train_outputs = branch_trainer(branch_batch)
-
-            branch_epoch_train_loss += branch_batch_train_outputs['loss']
-
-            # print(branch_batch_train_outputs['loss'])
-
-            if p['OUTPUT_NORMALIZATION']:
-                branch_batch_pred_real = denormalize_g_u_real(branch_batch_train_outputs['pred_real'])
-                branch_batch_g_u_real = denormalize_g_u_real(branch_batch_train_outputs['coefs_real'])
-                branch_batch_pred_imag = denormalize_g_u_imag(branch_batch_train_outputs['pred_imag'])
-                branch_batch_g_u_imag = denormalize_g_u_imag(branch_batch_train_outputs['coefs_imag'])
-
-            else:
-                branch_batch_pred_real = branch_batch_train_outputs['pred_real']
-                branch_batch_g_u_real = branch_batch_train_outputs['coefs_real']
-                branch_batch_pred_imag = branch_batch_train_outputs['pred_imag']
-                branch_batch_g_u_imag = branch_batch_train_outputs['coefs_imag']
-            
-            branch_batch_train_error_real = branch_evaluator.compute_error(branch_batch_g_u_real,
-                                                                   branch_batch_pred_real)
-            branch_batch_train_error_imag = branch_evaluator.compute_error(branch_batch_g_u_imag,
-                                                                   branch_batch_pred_imag)
-            
-            branch_epoch_train_error_real += branch_batch_train_error_real
-            branch_epoch_train_error_imag += branch_batch_train_error_imag
-
-            print(f"Real First target: {branch_batch_g_u_real[0, 0]}")
-            print(f"Real First prediction: {branch_batch_pred_real[0, 0]}")
-
-            print(f"Imag First target: {branch_batch_g_u_imag[0, 0]}")
-            print(f"Imag First prediction: {branch_batch_pred_imag[0, 0]}")
-            print(f"Imag second target: {branch_batch_g_u_imag[0, 1]}")
-            print(f"Imag second prediction: {branch_batch_pred_imag[0, 1]}")
-
-            print(f"Real second target: {branch_batch_g_u_real[0, 1]}")
-            print(f"Real second prediction: {branch_batch_pred_real[0, 1]}")
-
-            print(f"Real third target: {branch_batch_g_u_real[1,0]}")
-            print(f"Real third prediction: {branch_batch_pred_real[1,0]}")
-
-
-            print(f"Imag third target: {branch_batch_g_u_imag[1,0]}")
-            print(f"Imag third prediction: {branch_batch_pred_imag[1,0]}")
-
-            print(f"Real fourth target: {branch_batch_g_u_real[1,1]}")
-            print(f"Real fourth prediction: {branch_batch_pred_real[1,1]}")
-
-            print(f"Imag fourth target: {branch_batch_g_u_imag[1,1]}")
-            print(f"Imag fourth prediction: {branch_batch_pred_imag[1,1]}")
-
         branch_epoch_learning_rate = branch_scheduler.get_last_lr()[-1]
+
+        branch_train_data = copy.deepcopy(full_batch_train)
+
+        if p['INPUT_NORMALIZATION']:
+            branch_train_data = {key: (normalize_branch(value) if key == 'xb' \
+                        else value)
+                for key, value in branch_train_data.items()}
+
+        branch_train_outputs = branch_trainer(branch_train_data)
+        branch_epoch_train_loss = branch_train_outputs['loss']
+
+        if p['OUTPUT_NORMALIZATION']:
+            branch_pred_real = denormalize_g_u_real(branch_train_outputs['pred_real'])
+            branch_g_u_real = denormalize_g_u_real(branch_train_outputs['coefs_real'])
+            branch_pred_imag = denormalize_g_u_imag(branch_train_outputs['pred_imag'])
+            branch_g_u_imag = denormalize_g_u_imag(branch_train_outputs['coefs_imag'])
+
+        else:
+            branch_pred_real = branch_train_outputs['pred_real']
+            branch_g_u_real = branch_train_outputs['coefs_real']
+            branch_pred_imag = branch_train_outputs['pred_imag']
+            branch_g_u_imag = branch_train_outputs['coefs_imag']
+        
+        branch_epoch_train_error_real = branch_evaluator.compute_error(branch_g_u_real,
+                                                                        branch_pred_real)
+        branch_epoch_train_error_imag = branch_evaluator.compute_error(branch_g_u_imag,
+                                                                        branch_pred_imag)
+        
         if p['BRANCH_CHANGE_OPTIMIZER']:
             if epoch == p['BRANCH_CHANGE_AT_EPOCH']:
                 branch_trainer.optimizer = torch.optim.Adam(list(model.branch_network.parameters()),
                                                             lr=branch_scheduler.get_last_lr()[-1])
                 p['BRANCH_LR_SCHEDULING'] = False
+
         if p['BRANCH_LR_SCHEDULING']:
             branch_scheduler.step()
 
-        branch_avg_epoch_train_loss = branch_epoch_train_loss / niter_per_train_epoch
-        print(f"Loss: {branch_avg_epoch_train_loss}")
-        branch_avg_epoch_train_error_real = branch_epoch_train_error_real / niter_per_train_epoch
-        branch_avg_epoch_train_error_imag = branch_epoch_train_error_imag / niter_per_train_epoch
+        print(f"Loss (branch): {branch_epoch_train_loss}")
 
-        branch_evaluator.store_epoch_train_loss(branch_avg_epoch_train_loss)
-        branch_evaluator.store_epoch_train_real_error(branch_avg_epoch_train_error_real.item())
-        branch_evaluator.store_epoch_train_imag_error(branch_avg_epoch_train_error_imag.item())
+        branch_evaluator.store_epoch_train_loss(branch_epoch_train_loss)
+        branch_evaluator.store_epoch_train_real_error(branch_epoch_train_error_real.item())
+        branch_evaluator.store_epoch_train_imag_error(branch_epoch_train_error_imag.item())
         
         branch_evaluator.store_epoch_learning_rate(branch_epoch_learning_rate)
         
-
-    if branch_avg_epoch_train_error_real < best_avg_error_real:
-        best_avg_error_real = branch_avg_epoch_train_error_real
+    if branch_epoch_train_error_real < best_avg_error_real:
+        best_avg_error_real = branch_epoch_train_error_real
         best_model = model.state_dict()
 
 # ----------------------------------------- Train loop (regular) ---------------------------------
@@ -486,6 +452,7 @@ else:
             best_model = model.state_dict()
 
 end_time = time.time()
+
 
 # -------------------------------  Getting info from training ---------------------
 
