@@ -7,7 +7,6 @@ class ResidualBlock(torch.nn.Module):
         self.linear1 = torch.nn.Linear(in_features, out_features)
         self.linear2 = torch.nn.Linear(out_features, out_features)
         self.shortcut = None
-        self.scale = scale
         if in_features != out_features:
             self.shortcut = torch.nn.Linear(in_features, out_features)
 
