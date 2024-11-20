@@ -1,3 +1,5 @@
+# TODO refactor model initialization (encapsulate in a function where p is the input)
+
 import time
 import torch
 import numpy as np
@@ -5,6 +7,7 @@ from modules import dir_functions
 from modules import preprocessing as ppr
 from modules.saving import Saver
 from modules.deeponet import DeepONet
+from modules.deeponet_two_step import DeepONetTwoStep
 # from modules.animation import animate_wave
 from modules.test_evaluator import TestEvaluator
 from modules.greenfunc_dataset import GreenFuncDataset
@@ -29,6 +32,7 @@ print(f"Data from: {path_to_data}")
 indices = dir_functions.load_data_info(p['INDICES_FILE'])
 norm_params = dir_functions.load_data_info(p['NORM_PARAMS_FILE'])
 
+train_indices = indices['train']
 test_indices = indices['test']
 
 print(f"Indices from: {p['INDICES_FILE']}")
@@ -44,6 +48,7 @@ data = np.load(path_to_data)
 
 to_tensor_transform = ppr.ToTensor(dtype=precision, device=device)
 dataset = GreenFuncDataset(data, transform=to_tensor_transform)
+train_dataset = dataset[train_indices]
 test_dataset = dataset[test_indices]
 
 xb = test_dataset['xb']
@@ -74,32 +79,45 @@ if p['OUTPUT_NORMALIZATION']:
     g_u_imag_normalized = normalize_g_u_imag(g_u_imag)
 
 if p['TRUNK_FEATURE_EXPANSION']:
-    xt = ppr.trunk_feature_expansion(xt, p['EXPANSION_FEATURES_NUMBER'])
+    xt = ppr.trunk_feature_expansion(xt, p['TRUNK_EXPANSION_FEATURES_NUMBER'])
 
 # ----------------------------- Initialize model -----------------------------
 trunk_expansion_dim = p['TRUNK_EXPANSION_FEATURES_NUMBER']
 u_dim = p["BRANCH_INPUT_SIZE"]
 x_dim = p["TRUNK_INPUT_SIZE"]
-n_branches = p['N_BRANCHES']
+n_outputs = p['N_OUTPUTS']
 hidden_B = p['BRANCH_HIDDEN_LAYERS']
 hidden_T = p['TRUNK_HIDDEN_LAYERS']
-G_dim = p["BASIS_FUNCTIONS"]
+trunk_output_size = p['TRUNK_OUTPUT_SIZE']
+num_basis = p["BASIS_FUNCTIONS"]
 
-if p['TRUNK_FEATURE_EXPANSION']: # 2 here is hardcoded because we add a sin(x) and cos(x) term. See if this can be improved.
-    x_dim += 2 * x_dim * trunk_expansion_dim
+if not p['TWO_STEP_TRAINING']:
+    num_basis = trunk_output_size
+else:
+    trunk_output_size = num_basis
 
-layers_B = [u_dim] + hidden_B + [G_dim * n_branches]
-layers_T = [x_dim] + hidden_T + [G_dim]
+if p['TRUNK_FEATURE_EXPANSION']:
+    x_dim += 4 * trunk_expansion_dim
+
+layers_B = [u_dim] + hidden_B + [num_basis * n_outputs]
+layers_T = [x_dim] + hidden_T + [trunk_output_size]
 
 branch_config = {
     'architecture': p['BRANCH_ARCHITECTURE'],
     'layers': layers_B,
 }
 
+trunk_config = {
+    'architecture': p['TRUNK_ARCHITECTURE'],
+    'layers': layers_T,
+}
+
 if p['BRANCH_ARCHITECTURE'].lower() == 'mlp' or p['BRANCH_ARCHITECTURE'].lower() == 'resnet':
     try:
         if p['BRANCH_MLP_ACTIVATION'].lower() == 'relu':
             branch_activation = torch.nn.ReLU()
+        elif p['BRANCH_MLP_ACTIVATION'].lower() == 'leaky_relu':
+            branch_activation = torch.nn.LeakyReLU(negative_slope=0.01)
         elif p['BRANCH_MLP_ACTIVATION'].lower() == 'tanh':
             branch_activation = torch.tanh
         else:
@@ -110,17 +128,14 @@ if p['BRANCH_ARCHITECTURE'].lower() == 'mlp' or p['BRANCH_ARCHITECTURE'].lower()
 else:
     branch_config['degree'] = p['BRANCH_KAN_DEGREE']
 
-trunk_config = {
-    'architecture': p['TRUNK_ARCHITECTURE'],
-    'layers': layers_T,
-}
-
 if p['TRUNK_ARCHITECTURE'].lower() == 'kan':
     trunk_config['degree'] = p['TRUNK_KAN_DEGREE']
 else:
     try:
         if p['TRUNK_MLP_ACTIVATION'].lower() == 'relu':
             trunk_activation = torch.nn.ReLU()
+        elif p['TRUNK_MLP_ACTIVATION'].lower() == 'leaky_relu':
+            trunk_activation = torch.nn.LeakyReLU(negative_slope=0.01)
         elif p['TRUNK_MLP_ACTIVATION'].lower() == 'tanh':
             trunk_activation = torch.tanh
         else:
@@ -129,8 +144,15 @@ else:
         print('Invalid activation function for trunk net.')
     trunk_config['activation'] = trunk_activation
 
-model = DeepONet(branch_config=branch_config,
-                        trunk_config=trunk_config).to(device, precision)
+if p['TWO_STEP_TRAINING']:
+    model = DeepONetTwoStep(branch_config=branch_config,
+                    trunk_config=trunk_config,
+                    A_dim=(n_outputs, num_basis, len(train_indices))
+                    ).to(device, precision)
+else:
+    model = DeepONet(branch_config=branch_config,
+                    trunk_config=trunk_config,
+                    ).to(device, precision)
 
 model.load_state_dict(torch.load(model_location, weights_only=True))
 
@@ -141,6 +163,9 @@ saver = Saver(model_name=model_name, model_folder=model_folder, data_output_fold
 # --------------------------------- Evaluation ---------------------------------
 start_time = time.time()
 preds_real, preds_imag = model(xb, xt)
+if p['TWO_STEP_TRAINING']:
+    preds_real = preds_real.T
+    preds_imag = preds_imag.T
 end_time = time.time()
 
 if p['OUTPUT_NORMALIZATION']:

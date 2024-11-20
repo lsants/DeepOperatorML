@@ -81,23 +81,18 @@ class TwoStepTrainer(ModelTrainer):
         if self.training_phase == 'trunk':
             pred_real, pred_imag = self.model(xt=xt)
             pred_real, pred_imag = pred_real.T, pred_imag.T
+
             loss = loss_complex(g_u_real, g_u_imag, pred_real, pred_imag)
 
             loss.backward()
             self.optimizer.step()
+
             return loss.item(), pred_real, pred_imag
 
         elif self.training_phase == 'branch':
 
-            if self.index_map_for_A:
-                A_indices = torch.tensor(
-                    [self.index_map_for_A[idx.item()] for idx in indices]
-                )
-
-            # print(indices, self.index_map_for_A)
-
-            coefs_real = self.model.R @ self.model.A_list[0][ : , A_indices]
-            coefs_imag = self.model.R @ self.model.A_list[1][ : , A_indices]
+            coefs_real = self.model.R @ self.model.A_list[0]
+            coefs_imag = self.model.R @ self.model.A_list[1]
 
             num_basis = coefs_real.shape[0] # dims: (N, K) where K is batch size
 
@@ -111,13 +106,6 @@ class TwoStepTrainer(ModelTrainer):
 
             loss.backward()
             self.optimizer.step()
-
-            # for name, param in self.model.named_parameters():
-            #     if param.requires_grad and param.grad is not None:
-            #         print(f"Gradients for {name}: {param.grad.norm().item()}")
-            #     elif param.requires_grad:
-            #         print(f"No gradients for {name}")
-
             return loss.item(), coefs_real, coefs_imag, pred_real, pred_imag
         
         else:

@@ -1,5 +1,5 @@
 # Parameters for training DeepONets, loaded by train_model.py.
-MODELNAME: resnet_kan_deeponet_20241115_normalized_input_output_feature_expansion
+MODELNAME: two_step_resnet_kan_deeponet_20241119_normalized_input_output_feature_expansion
 
 # Location of .npz data file
 DATAFILE: ./data/raw/displacements.npz # Path to input file
@@ -17,12 +17,12 @@ OUTPUT_LOG_FOLDER: ./data/output/ # For split indexes, normalization parameters 
 IMAGES_FOLDER: ./images/
 
 # Model architecture
-TWO_STEP_TRAINING: false
+TWO_STEP_TRAINING: true
 N_OUTPUTS: 2
 BRANCH_INPUT_SIZE: 1
 TRUNK_INPUT_SIZE: 2
 TRUNK_OUTPUT_SIZE: 30
-BASIS_FUNCTIONS: 30
+BASIS_FUNCTIONS: 35
 BRANCH_ARCHITECTURE: resnet
 BRANCH_MLP_ACTIVATION: relu
 BRANCH_KAN_DEGREE: 8
@@ -30,20 +30,20 @@ BRANCH_HIDDEN_LAYERS:
     - 100 
     - 100 
     - 100 
-    - 100 
-    - 100 
-    - 100 
 
-TRUNK_ARCHITECTURE: kan
+TRUNK_ARCHITECTURE: mlp
 TRUNK_MLP_ACTIVATION: relu
 TRUNK_KAN_DEGREE: 8
 TRUNK_HIDDEN_LAYERS:
-    - 32 
-    - 32 
-    - 32 
+    - 100 
+    - 100 
+    - 100 
+    - 100 
+    - 100 
+    - 100 
 
 # Training parameters
-LEARNING_RATE: 0.001                   # float: learning rate used in training
+LEARNING_RATE: 0.005                   # float: learning rate used in training
 N_EPOCHS: 1000                         # int: number of training epochs
 BATCH_SIZE: 50                         # int: Size of batch during training
 TRAIN_PERC: 0.8                         # float: the percentage of data used for training
@@ -67,17 +67,17 @@ TRUNK_EXPANSION_FEATURES_NUMBER: 15
 
 # ------------------- Parameters for two step training ------------------
 TRUNK_DECOMPOSITION: qr
-TRUNK_TRAIN_EPOCHS: 5000
+TRUNK_TRAIN_EPOCHS: 500
 TRUNK_LEARNING_RATE: 0.001
 TRUNK_L2_REGULARIZATION: 0.0000001
 TRUNK_EARLY_STOPPING: false
-TRUNK_LR_SCHEDULING: true
+TRUNK_LR_SCHEDULING: false
 TRUNK_SCHEDULER_STEP_SIZE: 500
 TRUNK_SCHEDULER_GAMMA: 0.8
 TRUNK_CHANGE_OPTIMIZER: false
 TRUNK_CHANGE_AT_EPOCH: 1000
 
-BRANCH_TRAIN_EPOCHS: 5000
+BRANCH_TRAIN_EPOCHS: 1000
 BRANCH_LEARNING_RATE: 0.001
 BRANCH_L2_REGULARIZATION: 0.0000001
 BRANCH_EARLY_STOPPING: false

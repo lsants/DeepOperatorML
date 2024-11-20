@@ -22,6 +22,7 @@ class DeepONetTwoStep(DeepONet):
             trunk_out = self.trunk_network(xt)
             basis_real = trunk_out @ self.A_list[0]
             basis_imag = trunk_out @ self.A_list[1]
+            
             return basis_real, basis_imag
         
         elif self.training_phase == 'branch':
