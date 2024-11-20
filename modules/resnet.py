@@ -7,6 +7,7 @@ class ResidualBlock(torch.nn.Module):
         self.linear1 = torch.nn.Linear(in_features, out_features)
         self.linear2 = torch.nn.Linear(out_features, out_features)
         self.shortcut = None
+        self.scale = scale
         if in_features != out_features:
             self.shortcut = torch.nn.Linear(in_features, out_features)
 
@@ -18,7 +19,6 @@ class ResidualBlock(torch.nn.Module):
         out = self.activation(out)
         out = self.linear2(out)
         out += identity
-        out = self.activation(out)
         return out
 
 class ResNet(torch.nn.Module):
