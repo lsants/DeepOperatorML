@@ -1,6 +1,7 @@
 import time
 import torch
 import numpy as np
+from tqdm.auto import tqdm
 from modules import plotting
 from modules import dir_functions
 from modules import preprocessing as ppr
@@ -140,15 +141,17 @@ else:
     basis_modes = model.trunk_network(xt).T
 basis_modes = ppr.reshape_from_model(basis_modes, xt)
 
-for i in range(len(indices_for_inference)):
+for i in tqdm(range(len(indices_for_inference)//2), colour='MAGENTA'):
     freq = test_dataset['xb'][i].item()
-    fig_field = plotting.plot_field_comparison(r, z, g_u[i], preds[i], freq)
-    fig_axis = plotting.plot_axis_comparison(r, z, g_u[i], preds[i], freq)
-    saver(figure=fig_field, figure_prefix=f"field_for_{freq:.2f}")
-    saver(figure=fig_axis, figure_prefix=f"axis_for_{freq:.2f}")
+    if p['PLOT_FIELD']:
+        fig_field = plotting.plot_field_comparison(r, z, g_u[i], preds[i], freq)
+        saver(figure=fig_field, figure_prefix=f"field_for_{freq:.2f}")
+    if p['PLOT_AXIS']:
+        fig_axis = plotting.plot_axis_comparison(r, z, g_u[i], preds[i], freq)
+        saver(figure=fig_axis, figure_prefix=f"axis_for_{freq:.2f}")
 
 if p['PLOT_BASIS']:
-    for i in range(len(basis_modes)):
+    for i in tqdm(range(len(basis_modes)), colour='CYAN'):
         if config['PROPER_ORTHOGONAL_DECOMPOSITION']:
             fig_mode = plotting.plot_pod_basis(r, z, basis_modes[i], index=i)
         else:
