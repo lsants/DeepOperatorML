@@ -103,7 +103,7 @@ class Saver:
         """
         try:
             filename = f'model_info_{self.name}.yaml'
-            model_info_path = self.make_output_dir(self.data_output_folder, filename)
+            model_info_path = self.make_output_dir(self.model_folder, filename)
             serializable_model_info = self.make_serializable(model_info_dict)
             
             with open(model_info_path, 'w') as f:
