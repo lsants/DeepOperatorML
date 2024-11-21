@@ -75,12 +75,7 @@ p['MODELNAME'] = model_name
 
 # ---------------------------------- Initializing classes for training  -------------------
 
-if not p['TWO_STEP_TRAINING']:
-    optimizer = torch.optim.Adam(list(model.parameters()), lr=p["LEARNING_RATE"], weight_decay=p['L2_REGULARIZATION'])
-    scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=p['SCHEDULER_STEP_SIZE'], gamma=p['SCHEDULER_GAMMA'])
-    trainer = ModelTrainer(model, optimizer, scheduler)
-    evaluator = TrainEvaluator(p['ERROR_NORM'])
-else:
+if p['TWO_STEP_TRAINING']:
     trunk_optimizer = torch.optim.Adam(list(model.trunk_network.parameters()) + list(model.A_list),
                                         lr=p["TRUNK_LEARNING_RATE"])
     trunk_scheduler = torch.optim.lr_scheduler.StepLR(trunk_optimizer, 
@@ -102,6 +97,11 @@ else:
                                     scheduler=branch_scheduler, 
                                     training_phase='branch')
     branch_evaluator = TrainEvaluator(p['ERROR_NORM'])
+else:
+    optimizer = torch.optim.Adam(list(model.parameters()), lr=p["LEARNING_RATE"], weight_decay=p['L2_REGULARIZATION'])
+    scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=p['SCHEDULER_STEP_SIZE'], gamma=p['SCHEDULER_GAMMA'])
+    trainer = ModelTrainer(model, optimizer, scheduler)
+    evaluator = TrainEvaluator(p['ERROR_NORM'])
 
 saver = Saver(p['MODELNAME'], p['MODEL_FOLDER'], p['OUTPUT_LOG_FOLDER'], p['IMAGES_FOLDER'])
 best_model = None
@@ -112,9 +112,90 @@ niter_per_val_epoch = len(val_dataloader)
 best_avg_error_real = float('inf')
 
 # ----------------------------------------- Train loop (2 step) ---------------------------------
+
+model.freeze_trunk()
+
 start_time = time.time()
 
-if p['TWO_STEP_TRAINING']:
+# QUESTION: POD GIVES ONE SET OF BASIS FOR EACH OUTPUT. USE BOTH?
+if p['PROPER_ORTHOGONAL_DECOMPOSITION']:
+    full_data_train_real = dataset[dataset_indices['train']]['g_u_real'].T
+    full_data_train_imag = dataset[dataset_indices['train']]['g_u_imag'].T
+
+    U_r, S_r , V_r = torch.pca_lowrank(full_data_train_real, q=p['BASIS_FUNCTIONS'])
+    U_i, S_i , V_i = torch.pca_lowrank(full_data_train_imag, q=p['BASIS_FUNCTIONS'])
+    
+    pod_basis = torch.stack((U_r, U_i))
+    print(pod_basis.shape)
+    model.get_basis(pod_basis)
+
+    full_batch_train = dataset[dataset_indices['train']]
+
+    for epoch in tqdm(range(p['N_EPOCHS']), colour='GREEN'):
+        branch_epoch_train_loss = 0
+        branch_epoch_train_error_real = 0
+        branch_epoch_train_error_imag = 0
+        branch_epoch_learning_rate = scheduler.get_last_lr()[-1]
+
+        branch_train_data = copy.deepcopy(full_batch_train)
+
+        if p['INPUT_NORMALIZATION']:
+            branch_train_data = {key: (normalize_branch(value) if key == 'xb' \
+                        else value)
+                for key, value in branch_train_data.items()}
+
+        branch_train_outputs = trainer(branch_train_data)
+        branch_epoch_train_loss = branch_train_outputs['loss']
+
+        if p['OUTPUT_NORMALIZATION']:
+            branch_pred_real = denormalize_g_u_real(branch_train_outputs['pred_real'])
+            branch_g_u_real = denormalize_g_u_real(branch_train_data['g_u_real'])
+            branch_pred_imag = denormalize_g_u_imag(branch_train_outputs['pred_imag'])
+            branch_g_u_imag = denormalize_g_u_imag(branch_train_data['g_u_imag'])
+
+        else:
+            branch_pred_real = branch_train_outputs['pred_real']
+            branch_g_u_real = branch_train_data['g_u_real']
+            branch_pred_imag = branch_train_outputs['pred_imag']
+            branch_g_u_imag = branch_train_data['g_u_imag']
+        
+        branch_epoch_train_error_real = evaluator.compute_error(branch_g_u_real,
+                                                                        branch_pred_real)
+        branch_epoch_train_error_imag = evaluator.compute_error(branch_g_u_imag,
+                                                                        branch_pred_imag)
+
+        if p['CHANGE_OPTIMIZER']:
+            if epoch == p['CHANGE_AT_EPOCH']:
+                trainer.optimizer = torch.optim.Adam(list(model.branch_network.parameters()),
+                                                            lr=scheduler.get_last_lr()[-1])
+                p['LR_SCHEDULING'] = False
+
+        if p['LR_SCHEDULING']:
+            scheduler.step()
+
+        if epoch % 500 == 0:
+            print(f"POD loss for epoch {epoch}: {branch_epoch_train_loss:.3E}")
+
+        evaluator.store_epoch_train_loss(branch_epoch_train_loss)
+        evaluator.store_epoch_train_real_error(branch_epoch_train_error_real.item())
+        evaluator.store_epoch_train_imag_error(branch_epoch_train_error_imag.item())
+        
+        evaluator.store_epoch_learning_rate(branch_epoch_learning_rate)
+        
+    if branch_epoch_train_error_real < best_avg_error_real:
+        best_avg_error_real = branch_epoch_train_error_real
+        best_model_checkpoint = {
+            'model_state_dict': model.state_dict(),
+                'POD_basis': model.basis,
+            }
+        
+    last_model = {
+        'model_state_dict': model.state_dict(),
+        'optimizer_state_dict': optimizer.state_dict(),
+        'epochs': epochs
+    }
+
+elif p['TWO_STEP_TRAINING']:
 
     # ------------------------------------------- Trunk training -------------------------------------
     
@@ -424,18 +505,7 @@ else:
     branch_fig = plot_training(branch_epochs_plot, branch_history)
 
 # --------------------------- Save output -------------------------------
-if not p["TWO_STEP_TRAINING"]:
-    saver(model_state=best_model_checkpoint['model_state_dict'],
-          train_state=last_model,
-          model_info=p,
-          split_indices=dataset_indices,
-          norm_params=norm_params,
-          history=history,
-          figure=fig,
-          time=training_time,
-          figure_prefix="history",
-          time_prefix ="training")
-else:
+if p["TWO_STEP_TRAINING"]:
     saver(model_state=best_model_checkpoint,
           model_info=p,
           split_indices=dataset_indices,
@@ -452,3 +522,26 @@ else:
           figure=branch_fig,
           figure_prefix="branch_history",
           history_prefix='branch')
+    
+elif p["PROPER_ORTHOGONAL_DECOMPOSITION"]:
+    saver(model_state=best_model_checkpoint,
+          train_state=last_model,
+          model_info=p,
+          split_indices=dataset_indices,
+          norm_params=norm_params,
+          history=history,
+          figure=fig,
+          time=training_time,
+          figure_prefix="history",
+          time_prefix ="training")
+else:
+    saver(model_state=best_model_checkpoint['model_state_dict'],
+          train_state=last_model,
+          model_info=p,
+          split_indices=dataset_indices,
+          norm_params=norm_params,
+          history=history,
+          figure=fig,
+          time=training_time,
+          figure_prefix="history",
+          time_prefix ="training")

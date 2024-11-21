@@ -1,18 +1,14 @@
-# TODO refactor model initialization (encapsulate in a function where p is the input)
-
 import time
 import torch
 import numpy as np
+from modules import plotting
 from modules import dir_functions
 from modules import preprocessing as ppr
 from modules.saving import Saver
-from modules.deeponet import DeepONet
 from modules.model_factory import initialize_model
-from modules.deeponet_two_step import DeepONetTwoStep
 # from modules.animation import animate_wave
 from modules.test_evaluator import TestEvaluator
 from modules.greenfunc_dataset import GreenFuncDataset
-from modules.plotting import plot_field_comparison, plot_axis_comparison
 
 # ----------------------------- Load params file ------------------------
 p = dir_functions.load_params('params_test.yaml')
@@ -26,7 +22,7 @@ fig_folder = p['IMAGES_FOLDER']
 model_location = model_folder + f"model_state_{model_name}.pth"
 
 print(f"Model from: {model_location}")
-print(f"Data from: {path_to_data}")
+print(f"Data from: {path_to_data}\n")
 
 # ----------------------------- Initialize model -----------------------------
 
@@ -34,11 +30,11 @@ model, config = initialize_model(p['MODEL_FOLDER'], p['MODELNAME'], p['DEVICE'],
 
 # ------------------------- Load dataset ----------------------
 data = np.load(path_to_data)
-
 to_tensor_transform = ppr.ToTensor(dtype=precision, device=device)
 dataset = GreenFuncDataset(data, transform=to_tensor_transform)
-train_dataset = dataset[config['TEST_INDICES']]
-test_dataset = dataset[config['TEST_INDICES']]
+train_dataset = dataset[config['TRAIN_INDICES']]
+indices_for_inference = config['VAL_INDICES'] + config['TEST_INDICES']
+test_dataset = dataset[indices_for_inference]
 
 xb = test_dataset['xb']
 xt = dataset.get_trunk()
@@ -71,7 +67,6 @@ if config['INPUT_NORMALIZATION']:
 if config['OUTPUT_NORMALIZATION']:
     g_u_real_normalized = normalize_g_u_real(g_u_real)
     g_u_imag_normalized = normalize_g_u_imag(g_u_imag)
-
 if config['TRUNK_FEATURE_EXPANSION']:
     xt = ppr.trunk_feature_expansion(xt, config['TRUNK_EXPANSION_FEATURES_NUMBER'])
 
@@ -83,6 +78,10 @@ saver = Saver(model_name=model_name, model_folder=model_folder, data_output_fold
 # --------------------------------- Evaluation ---------------------------------
 start_time = time.time()
 if config['TWO_STEP_TRAINING']:
+    preds_real, preds_imag = model(xb=xb)
+    preds_real = preds_real.T
+    preds_imag = preds_imag.T
+elif config['PROPER_ORTHOGONAL_DECOMPOSITION']:
     preds_real, preds_imag = model(xb=xb)
     preds_real = preds_real.T
     preds_imag = preds_imag.T
@@ -116,15 +115,11 @@ if config['OUTPUT_NORMALIZATION']:
 inference_time = {'time' : (end_time - start_time)}
 
 # ------------------------------------ Plot & Save --------------------------------
-# To do: remove hardcoded index and implement animation
 
-index = 0
-freq = dataset[config['TEST_INDICES'][index]]['xb'].item()
-
+xt_plot = xt
+if config['TRUNK_FEATURE_EXPANSION']:
+    xt_plot = xt_plot[ : , : config["TRUNK_INPUT_SIZE"] // (1 + 2 * config['TRUNK_EXPANSION_FEATURES_NUMBER'])]
 if config['INPUT_NORMALIZATION']:
-    xt_plot = xt
-    if config['TRUNK_FEATURE_EXPANSION']:
-        xt_plot = xt[ : , : config["TRUNK_INPUT_SIZE"] // (1 + 2 * config['TRUNK_EXPANSION_FEATURES_NUMBER'])]
     xt_plot = denormalize_xt(xt_plot)
 
 r, z = ppr.trunk_to_meshgrid(xt_plot)
@@ -135,9 +130,27 @@ preds = ppr.reshape_from_model(preds, xt_plot)
 g_u = g_u_real + g_u_imag * 1j
 g_u = ppr.reshape_from_model(g_u, xt_plot)
 
-fig_field = plot_field_comparison(r, z, g_u[index], preds[index], freq)
-fig_axis = plot_axis_comparison(r, z, g_u[index], preds[index], freq)
+if config['TWO_STEP_TRAINING']:
+    basis_modes = (model.Q @ model.T).T
+elif config['PROPER_ORTHOGONAL_DECOMPOSITION']:
+    basis_modes = model.basis
+else:
+    basis_modes = model.trunk_network(xt).T
+print(basis_modes.ndim)
+basis_modes = ppr.reshape_from_model(basis_modes, xt)
 
+for i in range(len(indices_for_inference)):
+    freq = test_dataset['xb'][i].item()
+    fig_field = plotting.plot_field_comparison(r, z, g_u[i], preds[i], freq)
+    fig_axis = plotting.plot_axis_comparison(r, z, g_u[i], preds[i], freq)
+    saver(figure=fig_field, figure_prefix=f"field_for_{freq:.2f}")
+    saver(figure=fig_axis, figure_prefix=f"axis_for_{freq:.2f}")
+
+
+# basis_modes = basis_modes.transpose(3, 0, 1, 2)
+# for i in range(len(basis_modes)):
+#     fig_mode = plotting.plot_pod_basis(r, z, basis_modes[i], index=i)
+#     saver(figure=fig_mode, figure_prefix=f"pod_{i + 1}th_mode")
 # g_u, preds = ppr.mirror(g_u), ppr.mirror(preds)
 
 # print(g_u[0].real.shape, preds[0].real.shape)
@@ -146,5 +159,3 @@ fig_axis = plot_axis_comparison(r, z, g_u[index], preds[index], freq)
 
 saver(errors=errors)
 saver(time=inference_time, time_prefix="inference")
-saver(figure=fig_field, figure_prefix="field")
-saver(figure=fig_axis, figure_prefix="axis")
