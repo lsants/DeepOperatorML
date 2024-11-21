@@ -78,7 +78,7 @@ class Saver:
             return str(obj) 
 
     def save_checkpoint(self, model_state_dict, optimizer_state_dict, epoch):
-        filename = f'model_checkpoint_{self.name}_epoch{epoch}.pth'
+        filename = f'model_checkpoint_{self.name}_epoch_{epoch}.pth'
         model_path = self.make_output_dir(self.model_folder, filename)
         torch.save({
             'model_state_dict': model_state_dict,
