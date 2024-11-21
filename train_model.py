@@ -119,14 +119,25 @@ start_time = time.time()
 
 # QUESTION: POD GIVES ONE SET OF BASIS FOR EACH OUTPUT. USE BOTH?
 if p['PROPER_ORTHOGONAL_DECOMPOSITION']:
-    full_data_train_real = dataset[dataset_indices['train']]['g_u_real'].T
-    full_data_train_imag = dataset[dataset_indices['train']]['g_u_imag'].T
+    full_train_dataset_real = dataset[dataset_indices['train']]['g_u_real'].T
+    full_train_dataset_imag = dataset[dataset_indices['train']]['g_u_imag'].T
 
-    U_r, S_r , V_r = torch.pca_lowrank(full_data_train_real, q=p['BASIS_FUNCTIONS'])
-    U_i, S_i , V_i = torch.pca_lowrank(full_data_train_imag, q=p['BASIS_FUNCTIONS'])
+    mean_function_real = full_train_dataset_real.mean(axis=0)
+    mean_function_imag = full_train_dataset_imag.mean(axis=0)
+
+    print(full_train_dataset_real.shape)
+    print(mean_function_real.shape)
+
+    full_train_dataset_real -= mean_function_real.mean()
+    full_train_dataset_imag -= mean_function_imag.mean()
+
+    U_r, S_r , V_r = torch.pca_lowrank(full_train_dataset_real, q=p['BASIS_FUNCTIONS'])
+    U_i, S_i , V_i = torch.pca_lowrank(full_train_dataset_imag, q=p['BASIS_FUNCTIONS'])
     
+    mean_functions = torch.stack((mean_function_real, mean_function_imag))
     pod_basis = torch.stack((U_r, U_i))
-    print(pod_basis.shape)
+
+    model.get_mean_functions(mean_functions)
     model.get_basis(pod_basis)
 
     full_batch_train = dataset[dataset_indices['train']]
@@ -187,6 +198,7 @@ if p['PROPER_ORTHOGONAL_DECOMPOSITION']:
         best_model_checkpoint = {
             'model_state_dict': model.state_dict(),
                 'POD_basis': model.basis,
+                'mean_functions': model.mean_functions
             }
         
     last_model = {
@@ -495,14 +507,17 @@ training_time = {'time': end_time - start_time}
 print(f"Training concluded in: {end_time - start_time} s")
 
 # ------------------------------------ Plot --------------------------------
-if not p["TWO_STEP_TRAINING"]:
-    epochs_plot = [i for i in range(epochs)]
-    fig = plot_training(epochs_plot, history)
-else:
+if  p["TWO_STEP_TRAINING"]:
     trunk_epochs_plot = [i for i in range(p['TRUNK_TRAIN_EPOCHS'])]
     trunk_fig = plot_training(trunk_epochs_plot, trunk_history)
     branch_epochs_plot = [i for i in range(p['BRANCH_TRAIN_EPOCHS'])]
     branch_fig = plot_training(branch_epochs_plot, branch_history)
+elif p['PROPER_ORTHOGONAL_DECOMPOSITION']:
+    epochs_plot = [i for i in range(epochs)]
+    fig = plot_training(epochs_plot, history)
+else:
+    epochs_plot = [i for i in range(epochs)]
+    fig = plot_training(epochs_plot, history)
 
 # --------------------------- Save output -------------------------------
 if p["TWO_STEP_TRAINING"]:

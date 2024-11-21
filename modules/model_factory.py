@@ -227,8 +227,11 @@ def initialize_model(model_folder, model_name, device, precision):
         model.set_T(T_matrix.to(device, precision))
 
     if config['PROPER_ORTHOGONAL_DECOMPOSITION']:
+        print(checkpoint.keys())
         POD_matrix = checkpoint['POD_basis']
+        mean_fns = checkpoint['mean_functions']
         model.get_basis(POD_matrix.to(device, precision))
+        model.mean_functions(mean_fns.to(device, precision))
     
     model.eval()
     
