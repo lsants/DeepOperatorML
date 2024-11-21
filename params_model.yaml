@@ -51,12 +51,12 @@ TRUNK_FEATURE_EXPANSION: true
 TRUNK_EXPANSION_FEATURES_NUMBER: 15
 
 # ------------------- Parameters for vanilla training ------------------
-LEARNING_RATE: 0.005                   # float: learning rate used in training
-N_EPOCHS: 100                         # int: number of training epochs
-BATCH_SIZE: 50                         # int: Size of batch during training
-TRAIN_PERC: 0.8                         # float: the percentage of data used for training
-VAL_PERC: 0.1                           # float: the percentage of training data used for validation
-TEST_PERC: 0.1                           # float: the percentage of training data used for testing
+LEARNING_RATE: 0.005
+N_EPOCHS: 100
+BATCH_SIZE: 50
+TRAIN_PERC: 0.8
+VAL_PERC: 0.1
+TEST_PERC: 0.1
 ERROR_NORM: 2
 L2_REGULARIZATION: 0.0000001
 EARLY_STOPPING: false
