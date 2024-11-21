@@ -2,6 +2,7 @@ import os
 import yaml
 import torch
 from modules.deeponet import DeepONet
+from modules.deeponet_pod import PODDeepONet
 from modules.deeponet_two_step import DeepONetTwoStep
 
 def create_model(model_params):
@@ -17,16 +18,28 @@ def create_model(model_params):
     Returns:
         torch.nn.Module: Initialized model ready for training.
     """
-    if not model_params['TWO_STEP_TRAINING']:
-        model_params['BASIS_FUNCTIONS'] = model_params['TRUNK_OUTPUT_SIZE']
-    else:
+    if model_params['TWO_STEP_TRAINING'] and model_params['PROPER_ORTHOGONAL_DECOMPOSITION']:
+        raise ValueError("Invalid architecture (POD and two step can't be used together)")
+
+    if model_params['TWO_STEP_TRAINING']:
         model_params['MODELNAME'] += '_two_step'
         model_params['TRUNK_OUTPUT_SIZE'] = model_params['BASIS_FUNCTIONS']
+    
+    elif model_params['PROPER_ORTHOGONAL_DECOMPOSITION']:
+        model_params['MODELNAME'] += '_pod'
+    
+    else:
+        model_params['BASIS_FUNCTIONS'] = model_params['TRUNK_OUTPUT_SIZE']
 
     if model_params['TRUNK_FEATURE_EXPANSION']:
         model_params['TRUNK_INPUT_SIZE'] += 2 * model_params['TRUNK_INPUT_SIZE'] * model_params['TRUNK_EXPANSION_FEATURES_NUMBER']
 
-    model_params['BRANCH_LAYERS'] = [model_params['BRANCH_INPUT_SIZE']] + model_params['BRANCH_HIDDEN_LAYERS'] + [model_params['BASIS_FUNCTIONS'] * model_params['N_OUTPUTS']]
+    branch_output_size = model_params['BASIS_FUNCTIONS'] * model_params['N_OUTPUTS']
+    
+    if model_params['PROPER_ORTHOGONAL_DECOMPOSITION']:
+        branch_output_size = model_params['BASIS_FUNCTIONS']
+
+    model_params['BRANCH_LAYERS'] = [model_params['BRANCH_INPUT_SIZE']] + model_params['BRANCH_HIDDEN_LAYERS'] + [branch_output_size]
     model_params['TRUNK_LAYERS'] = [model_params['TRUNK_INPUT_SIZE']] + model_params['TRUNK_HIDDEN_LAYERS'] + [model_params['TRUNK_OUTPUT_SIZE']]
 
     branch_config = {
@@ -105,8 +118,13 @@ def create_model(model_params):
 
     if model_params['TWO_STEP_TRAINING']:
         model = DeepONetTwoStep(branch_config=branch_config,
-                        trunk_config=trunk_config,
-                        A_dim=(model_params['N_OUTPUTS'], model_params["BASIS_FUNCTIONS"], len(model_params['TRAIN_INDICES']))
+                                trunk_config=trunk_config,
+                                A_dim=(model_params['N_OUTPUTS'], model_params["BASIS_FUNCTIONS"], len(model_params['TRAIN_INDICES']))
+                        ).to(model_params['DEVICE'], eval(model_params['PRECISION']))
+    elif model_params['PROPER_ORTHOGONAL_DECOMPOSITION']:
+        model = PODDeepONet(branch_config=branch_config,
+                            trunk_config=trunk_config,
+                            n_outputs=model_params['N_OUTPUTS']
                         ).to(model_params['DEVICE'], eval(model_params['PRECISION']))
     else:
         model = DeepONet(branch_config=branch_config,
@@ -182,6 +200,11 @@ def initialize_model(model_folder, model_name, device, precision):
             trunk_config=trunk_config,
             A_dim=(config['N_OUTPUTS'], config['BASIS_FUNCTIONS'], len(config['TRAIN_INDICES']))
         ).to(device, precision)
+    elif config['PROPER_ORTHOGONAL_DECOMPOSITION']:
+        model = PODDeepONet(branch_config=branch_config,
+                            trunk_config=trunk_config,
+                            n_outputs=config['N_OUTPUTS']
+                        ).to(config['DEVICE'], eval(config['PRECISION']))
     else:
         model = DeepONet(
             branch_config=branch_config,
@@ -189,7 +212,6 @@ def initialize_model(model_folder, model_name, device, precision):
         ).to(device, precision)
 
     checkpoint = torch.load(model_path, map_location=device, weights_only=True)
-
     model_state = checkpoint.get('model_state_dict', 'old_save_type')
     if model_state == 'old_save_type':
         model.load_state_dict(checkpoint)
@@ -203,6 +225,11 @@ def initialize_model(model_folder, model_name, device, precision):
         model.set_Q(Q_matrix.to(device, precision))
         model.set_R(R_matrix.to(device, precision))
         model.set_T(T_matrix.to(device, precision))
+
+    if config['PROPER_ORTHOGONAL_DECOMPOSITION']:
+        print(checkpoint.keys())
+        POD_matrix = checkpoint['POD_basis']
+        model.get_basis(POD_matrix.to(device, precision))
     
     model.eval()
     
