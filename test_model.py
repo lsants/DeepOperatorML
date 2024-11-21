@@ -82,10 +82,12 @@ saver = Saver(model_name=model_name, model_folder=model_folder, data_output_fold
 
 # --------------------------------- Evaluation ---------------------------------
 start_time = time.time()
-preds_real, preds_imag = model(xb, xt)
 if config['TWO_STEP_TRAINING']:
+    preds_real, preds_imag = model(xb=xb)
     preds_real = preds_real.T
     preds_imag = preds_imag.T
+else:
+    preds_real, preds_imag = model(xb=xb, xt=xt)
 end_time = time.time()
 
 if config['OUTPUT_NORMALIZATION']:
