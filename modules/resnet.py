@@ -1,9 +1,10 @@
 import torch
 
 class ResidualBlock(torch.nn.Module):
-    def __init__(self, in_features, out_features, activation):
+    def __init__(self, in_features, out_features, activation, apply_activation=True):
         super(ResidualBlock, self).__init__()
         self.activation = activation
+        self.apply_activation = apply_activation 
         self.linear1 = torch.nn.Linear(in_features, out_features)
         self.linear2 = torch.nn.Linear(out_features, out_features)
         self.shortcut = None
@@ -18,6 +19,8 @@ class ResidualBlock(torch.nn.Module):
         out = self.activation(out)
         out = self.linear2(out)
         out += identity
+        if self.apply_activation:
+            out = self.activation(out)
         return out
 
 class ResNet(torch.nn.Module):
@@ -30,7 +33,11 @@ class ResNet(torch.nn.Module):
         for i in range(num_blocks):
             in_features = layers[i]
             out_features = layers[i + 1]
-            self.blocks.append(ResidualBlock(in_features, out_features, activation))
+            if i == num_blocks - 1:
+                self.blocks.append(ResidualBlock(in_features, out_features, activation, apply_activation=False))
+            else:
+                self.blocks.append(ResidualBlock(in_features, out_features, activation, apply_activation=True))
+
 
     def forward(self, inputs):
         out = inputs
