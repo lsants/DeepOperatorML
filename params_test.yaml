@@ -1,13 +1,8 @@
-# TODO: LOAD ALL PARAMETERS FROM MODELDATA 
-#(SHOULD ONLY INPUT MODEL NAME AND ARCHITECTURE FILE (E.G JSON))
-
-# Parameters for training DeepONets, loaded by train_model.py.
-MODELNAME: two_step_resnet_kan_deeponet_20241119_normalized_input_output_feature_expansion
+# Parameters for training DeepONets.
+MODELNAME: 20241120_deeponet_two_step_resnet_resnet_input_output_normalization_feature_expansion
 
 # Location of test file info
 DATAFILE: ./data/raw/displacements.npz
-INDICES_FILE: ./data/output/indices_two_step_resnet_kan_deeponet_20241119_normalized_input_output_feature_expansion.json
-NORM_PARAMS_FILE: ./data/output/norm_params_two_step_resnet_kan_deeponet_20241119_normalized_input_output_feature_expansion.json
 
 # Model location
 MODEL_FOLDER: ./models/
@@ -21,57 +16,3 @@ IMAGES_FOLDER: ./images/
 # Data type, device, and error norm
 PRECISION: torch.float64
 DEVICE: cpu
-ERROR_NORM: 2
-
-# Model architecture 
-TWO_STEP_TRAINING: true
-N_OUTPUTS: 2
-BRANCH_INPUT_SIZE: 1
-TRUNK_INPUT_SIZE: 2
-TRUNK_OUTPUT_SIZE: 30
-BASIS_FUNCTIONS: 35
-BRANCH_ARCHITECTURE: resnet
-BRANCH_MLP_ACTIVATION: relu
-BRANCH_KAN_DEGREE: 8
-BRANCH_HIDDEN_LAYERS:
-    - 100 
-    - 100 
-    - 100 
-
-TRUNK_ARCHITECTURE: mlp
-TRUNK_MLP_ACTIVATION: relu
-TRUNK_KAN_DEGREE: 8
-TRUNK_HIDDEN_LAYERS:
-    - 100 
-    - 100 
-    - 100 
-    - 100 
-    - 100 
-    - 100 
-
-INPUT_NORMALIZATION: true
-OUTPUT_NORMALIZATION: true
-TRUNK_FEATURE_EXPANSION: true
-TRUNK_EXPANSION_FEATURES_NUMBER: 15
-
-# ------------------- Parameters for two step training ------------------
-TRUNK_DECOMPOSITION: qr
-TRUNK_TRAIN_EPOCHS: 500
-TRUNK_LEARNING_RATE: 0.001
-TRUNK_L2_REGULARIZATION: 0.0000001
-TRUNK_EARLY_STOPPING: false
-TRUNK_LR_SCHEDULING: false
-TRUNK_SCHEDULER_STEP_SIZE: 500
-TRUNK_SCHEDULER_GAMMA: 0.8
-TRUNK_CHANGE_OPTIMIZER: false
-TRUNK_CHANGE_AT_EPOCH: 1000
-
-BRANCH_TRAIN_EPOCHS: 1000
-BRANCH_LEARNING_RATE: 0.001
-BRANCH_L2_REGULARIZATION: 0.0000001
-BRANCH_EARLY_STOPPING: false
-BRANCH_LR_SCHEDULING: false
-BRANCH_SCHEDULER_STEP_SIZE: 500
-BRANCH_SCHEDULER_GAMMA: 0.8
-BRANCH_CHANGE_OPTIMIZER: false
-BRANCH_CHANGE_AT_EPOCH: 1000
