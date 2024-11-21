@@ -162,8 +162,8 @@ def trunk_feature_expansion(xt, p):
     expansion_features = [xt]
     if p:
         for k in range(1, p + 1):
-            expansion_features.append(torch.sin(k * torch.pi * xt))
-            expansion_features.append(torch.cos(k * torch.pi * xt))
+            expansion_features.append(torch.sin(k * 2 * torch.pi * xt))
+            expansion_features.append(torch.cos(k * 2 * torch.pi * xt))
 
     trunk_features = torch.concat(expansion_features, axis=1)
     return trunk_features
