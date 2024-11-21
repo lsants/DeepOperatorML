@@ -147,10 +147,12 @@ for i in range(len(indices_for_inference)):
     saver(figure=fig_axis, figure_prefix=f"axis_for_{freq:.2f}")
 
 
-# basis_modes = basis_modes.transpose(3, 0, 1, 2)
-# for i in range(len(basis_modes)):
-#     fig_mode = plotting.plot_pod_basis(r, z, basis_modes[i], index=i)
-#     saver(figure=fig_mode, figure_prefix=f"pod_{i + 1}th_mode")
+if p['PLOT_BASIS']:
+    basis_modes = basis_modes.transpose(3, 0, 1, 2)
+    for i in range(len(basis_modes)):
+        fig_mode = plotting.plot_pod_basis(r, z, basis_modes[i], index=i)
+        saver(figure=fig_mode, figure_prefix=f"pod_{i + 1}th_mode")
+
 # g_u, preds = ppr.mirror(g_u), ppr.mirror(preds)
 
 # print(g_u[0].real.shape, preds[0].real.shape)
