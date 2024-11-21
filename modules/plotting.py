@@ -23,6 +23,8 @@ def plot_training(epochs, history):
     if val_loss is not None:
         ax[0].plot(epochs, val_loss, label='val_loss')
     ax[0].set_xlabel('epoch')
+    if len(epochs) >= 10000:
+        ax[0].set_xscale('log')
     ax[0].set_yscale('log')
     ax[0].set_title(r'Loss for $u_{zz}$')
     ax[0].legend()
@@ -37,6 +39,8 @@ def plot_training(epochs, history):
     if val_error_real:
         ax[1].plot(epochs, val_error_real, label='real_val')
     ax[1].set_xlabel('epoch')
+    if len(epochs) >= 10000:
+        ax[1].set_xscale('log')
     ax[1].set_yscale('log')
     ax[1].set_title(r'$L_2$ Error for $\Re(u_{zz})$')
     ax[1].legend()
@@ -49,6 +53,8 @@ def plot_training(epochs, history):
     if val_error_imag:
         ax[2].plot(epochs, val_error_imag, label='imag_val')
     ax[2].set_xlabel('epoch')
+    if len(epochs) >= 10000:
+        ax[2].set_xscale('log')
     ax[2].set_yscale('log')
     ax[2].set_title(r'$L_2$ Error for $\Im(u_{zz})$')
     ax[2].legend()
