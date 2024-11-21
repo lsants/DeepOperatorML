@@ -129,6 +129,7 @@ if p['TWO_STEP_TRAINING']:
         trunk_epoch_train_loss = 0
         trunk_epoch_train_error_real = 0
         trunk_epoch_train_error_imag = 0
+        epoch_learning_rate = trunk_scheduler.get_last_lr()[-1]
 
         full_batch_train['xt'] = xt
 
@@ -166,14 +167,16 @@ if p['TWO_STEP_TRAINING']:
                                                             basis_pred_real)
         trunk_epoch_train_error_imag = trunk_evaluator.compute_error(g_u_imag,
                                                             basis_pred_imag)
-        epoch_learning_rate = trunk_scheduler.get_last_lr()[-1]
         if p['TRUNK_CHANGE_OPTIMIZER']:
             if epoch == p['TRUNK_CHANGE_AT_EPOCH']:
-                trunk_trainer.optimizer = torch.optim.Adam(list(model.trunk_network.parameters()) + [model.A_real, model.A_imag],
+                trunk_trainer.optimizer = torch.optim.Adam(list(model.trunk_network.parameters()) + list(model.A_list),
                                                             lr=trunk_scheduler.get_last_lr()[-1])
                 p['TRUNK_LR_SCHEDULING'] = False
         if p['TRUNK_LR_SCHEDULING']:
             trunk_scheduler.step()
+
+        if epoch % 500 == 0:
+            print(f"Trunk loss for epoch {epoch}: {trunk_epoch_train_loss:.3E}")
 
         trunk_evaluator.store_epoch_train_loss(trunk_epoch_train_loss)
         trunk_evaluator.store_epoch_train_real_error(trunk_epoch_train_error_real.item())
@@ -245,7 +248,8 @@ if p['TWO_STEP_TRAINING']:
         if p['BRANCH_LR_SCHEDULING']:
             branch_scheduler.step()
 
-        # print(f"Loss (branch): {branch_epoch_train_loss}")
+        if epoch % 500 == 0:
+            print(f"Branch loss for epoch {epoch}: {branch_epoch_train_loss:.3E}")
 
         branch_evaluator.store_epoch_train_loss(branch_epoch_train_loss)
         branch_evaluator.store_epoch_train_real_error(branch_epoch_train_error_real.item())
@@ -353,7 +357,7 @@ else:
             epoch_val_error_real += batch_val_error_real
             epoch_val_error_imag += batch_val_error_imag
 
-        if epoch % 1000 == 0:
+        if epoch % 500 == 0:
             print(f"Loss for epoch {epoch}: {epoch_val_loss:.3E}")
 
         avg_epoch_val_loss = epoch_val_loss / niter_per_val_epoch
@@ -418,8 +422,6 @@ else:
     trunk_fig = plot_training(trunk_epochs_plot, trunk_history)
     branch_epochs_plot = [i for i in range(p['BRANCH_TRAIN_EPOCHS'])]
     branch_fig = plot_training(branch_epochs_plot, branch_history)
-
-print(best_model_checkpoint.keys())
 
 # --------------------------- Save output -------------------------------
 if not p["TWO_STEP_TRAINING"]:
