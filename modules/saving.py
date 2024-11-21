@@ -47,6 +47,10 @@ class Saver:
                     self.save_methods[key](value, filename_prefix=kwargs.get('figure_prefix'))
                 elif key == 'time':
                     self.save_methods[key](value, filename_prefix=kwargs.get('time_prefix'))
+                elif key == 'train_state':
+                    self.save_methods[key](value['model_state_dict'],
+                       value['optimizer_state_dict'],
+                       value['epochs'])
                 else:
                     self.save_methods[key](value)
 
