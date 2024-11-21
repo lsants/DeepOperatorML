@@ -25,7 +25,7 @@ class DeepONet(torch.nn.Module):
         
         return constructor(**config)
 
-    def forward(self, xb, xt):
+    def forward(self, xb=None, xt=None):
         branch_out = self.branch_network(xb)
         trunk_out = self.trunk_network(xt)
         num_basis = trunk_out.shape[1]
