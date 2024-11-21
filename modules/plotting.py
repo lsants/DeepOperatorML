@@ -313,14 +313,13 @@ def plot_pod_basis(r, z, wd, index=None, full=True, non_dim_plot=True):
         R, Z = np.meshgrid(r_full, z)
         u_flip = np.flip(wd[ : , 1 : , : ], axis=1)
         wd_full = np.concatenate((u_flip, wd), axis=1)
-        print(wd_full.shape)
     else:
         R, Z = np.meshgrid(r,z)
 
     u_real = wd_full[0].T
     u_imag = wd_full[1].T
 
-    l = r'$\Phi(r,z)$'
+    l = r'$\phi(r,z)$'
 
     if non_dim_plot:
         if index == 1:
@@ -347,7 +346,7 @@ def plot_pod_basis(r, z, wd, index=None, full=True, non_dim_plot=True):
     ax[0].invert_yaxis()
     ax[0].set_xlabel(x_label, fontsize=14)
     ax[0].set_ylabel(y_label, fontsize=14)
-    ax[0].set_title(title)
+    ax[0].set_title(title + ' real')
 
     cbar_real = fig.colorbar(contour_real, label=l, ax=ax[0])
     cbar_real.ax.set_ylabel(l, rotation=270, labelpad=15)
@@ -356,7 +355,7 @@ def plot_pod_basis(r, z, wd, index=None, full=True, non_dim_plot=True):
     ax[1].invert_yaxis()
     ax[1].set_xlabel(x_label, fontsize=14)
     ax[1].set_ylabel(y_label, fontsize=14)
-    ax[1].set_title(title)
+    ax[1].set_title(title + ' imag')
 
     cbar_imag = fig.colorbar(contour_imag, label=l, ax=ax[1])
     cbar_imag.ax.set_ylabel(l, rotation=270, labelpad=15)

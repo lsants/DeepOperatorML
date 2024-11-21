@@ -157,7 +157,7 @@ def reshape_from_model(displacements, z_axis_values):
         displacements = displacements.detach().numpy()
 
     if displacements.ndim == 3:
-        displacements = (displacements).reshape(len(displacements), int(displacements.shape[-2] / n_z), n_z, -1)
+        displacements = (displacements).reshape(len(displacements), -1, int(displacements.shape[-1] / n_z), n_z)
 
     if displacements.ndim == 2:
         displacements = (displacements).reshape(len(displacements), int(displacements.shape[-1] / n_z), n_z)
