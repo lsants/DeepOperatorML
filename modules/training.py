@@ -48,10 +48,9 @@ class ModelTrainer:
         return loss.item(), pred_real, pred_imag
 
 class TwoStepTrainer(ModelTrainer):
-    def __init__(self, model, optimizer, scheduler=None, training_phase='both', index_mapping=None):
+    def __init__(self, model, optimizer, scheduler=None, training_phase='both'):
         super().__init__(model, optimizer, scheduler)
         self.training_phase = training_phase
-        self.index_map_for_A = index_mapping
 
     def __call__(self, sample):
         if self.training_phase == 'branch':
