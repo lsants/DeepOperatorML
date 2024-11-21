@@ -187,8 +187,18 @@ def initialize_model(model_folder, model_name, device, precision):
             branch_config=branch_config,
             trunk_config=trunk_config
         ).to(device, precision)
-    
-    model.load_state_dict(torch.load(model_path, map_location=device, weights_only=True))
+
+    checkpoint = torch.load(model_path, map_location=device)
+    print(checkpoint.keys())
+    model.load_state_dict(checkpoint.get('model_state_dict'))
+
+    if config['TWO_STEP_TRAINING']:
+        Q_matrix = checkpoint['Q']
+        R_matrix = checkpoint['R']
+        T_matrix = checkpoint['T']
+        model.set_Q(Q_matrix.to(device, precision))
+        model.set_R(R_matrix.to(device, precision))
+        model.set_T(T_matrix.to(device, precision))
     
     model.eval()
     
