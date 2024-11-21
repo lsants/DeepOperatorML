@@ -134,6 +134,7 @@ if config['TWO_STEP_TRAINING']:
     basis_modes = (model.Q @ model.T).T
 elif config['PROPER_ORTHOGONAL_DECOMPOSITION']:
     basis_modes = model.basis
+    basis_modes = basis_modes.transpose(3, 0, 1, 2)
 else:
     basis_modes = model.trunk_network(xt).T
 print(basis_modes.ndim)
@@ -146,11 +147,13 @@ for i in range(len(indices_for_inference)):
     saver(figure=fig_field, figure_prefix=f"field_for_{freq:.2f}")
     saver(figure=fig_axis, figure_prefix=f"axis_for_{freq:.2f}")
 
-
 if p['PLOT_BASIS']:
-    basis_modes = basis_modes.transpose(3, 0, 1, 2)
     for i in range(len(basis_modes)):
-        fig_mode = plotting.plot_pod_basis(r, z, basis_modes[i], index=i)
+        if config['PROPER_ORTHOGONAL_DECOMPOSITION']:
+            fig_mode = plotting.plot_pod_basis(r, z, basis_modes[i], index=i)
+        else:
+            fig_mode = plotting.plot_basis_function(r, z, basis_modes[i], index=i)
+        
         saver(figure=fig_mode, figure_prefix=f"pod_{i + 1}th_mode")
 
 # g_u, preds = ppr.mirror(g_u), ppr.mirror(preds)
