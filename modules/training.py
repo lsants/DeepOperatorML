@@ -24,15 +24,16 @@ class ModelTrainer:
         xb, xt = sample.get('xb'), sample.get('xt')
         g_u_real, g_u_imag = sample['g_u_real'], sample['g_u_imag']
 
-        def closure():
-            self.optimizer.zero_grad()
+        self.optimizer.zero_grad()
+        if not xt:
+            pred_real, pred_imag = self.model(xb=xb)
+            pred_real, pred_imag = pred_real.T, pred_imag.T
+        else:
             pred_real, pred_imag = self.model(xb=xb, xt=xt)
-            loss = loss_complex(g_u_real, g_u_imag, pred_real, pred_imag)
-            loss.backward()
-            return loss
+        loss = loss_complex(g_u_real, g_u_imag, pred_real, pred_imag)
+        loss.backward()
         
-        pred_real, pred_imag = self.model(xb, xt)
-        loss = self.optimizer.step(closure)
+        self.optimizer.step()
 
         return loss.item(), pred_real, pred_imag
 
@@ -42,7 +43,11 @@ class ModelTrainer:
         g_u_real, g_u_imag = sample['g_u_real'], sample['g_u_imag']
 
         with torch.no_grad():  
-            pred_real, pred_imag = self.model(xb=xb, xt=xt)
+            if not xt:
+                pred_real, pred_imag = self.model(xb=xb)
+                pred_real, pred_imag = pred_real.T, pred_imag.T
+            else:
+                pred_real, pred_imag = self.model(xb=xb, xt=xt)
             loss = loss_complex(g_u_real, g_u_imag, pred_real, pred_imag)
 
         return loss.item(), pred_real, pred_imag
@@ -72,8 +77,6 @@ class TwoStepTrainer(ModelTrainer):
         self.model.train()
         xb, xt = sample.get('xb'), sample.get('xt')
         g_u_real, g_u_imag = sample['g_u_real'], sample['g_u_imag']
-        indices = sample['index']
-
 
         self.optimizer.zero_grad()
 
