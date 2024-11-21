@@ -14,7 +14,13 @@ class DeepONetTwoStep(DeepONet):
         for A in self.A_list:
             torch.nn.init.xavier_uniform_(A)
 
+        self.register_buffer('Q_initialized', torch.tensor(False))
+        self.register_buffer('R_initialized', torch.tensor(False))
+        self.register_buffer('T_initialized', torch.tensor(False))
+
         self.R = None
+        self.Q = None
+        self.T = None
         self.training_phase = 'both'
 
     def forward(self, xb=None, xt=None):
@@ -26,13 +32,17 @@ class DeepONetTwoStep(DeepONet):
             return basis_real, basis_imag
         
         elif self.training_phase == 'branch':
-            branch_out = self.branch_network(xb)
-            if self.R is None:
+            if not self.R_initialized:
                 raise ValueError("Basis functions have not been computed. Train trunk first.")
+            branch_out = self.branch_network(xb)
             return branch_out
         else:
+            if not self.Q_initialized or not self.T_initialized:
+                raise ValueError("Error in basis function decomposition. Recheck.")
+
             branch_out = self.branch_network(xb)
-            trunk_out = self.trunk_network(xt)
+            trunk_out = self.Q @ self.T
+
             num_basis = trunk_out.shape[1]
             branch_real_out = branch_out[ : , : num_basis]
             branch_imag_out = branch_out[ : , num_basis : ]
@@ -52,3 +62,15 @@ class DeepONetTwoStep(DeepONet):
     def unfreeze_A(self):
         for A in self.A_list:
             A.requires_grad = True
+    
+    def set_Q(self, Q_matrix):
+        self.Q = Q_matrix
+        self.Q_initialized.copy_(torch.tensor(True, device=Q_matrix.device, dtype=torch.bool))
+
+    def set_R(self, R_matrix):
+        self.R = R_matrix
+        self.R_initialized.copy_(torch.tensor(True, device=R_matrix.device, dtype=torch.bool))
+
+    def set_T(self, T_matrix):
+        self.T = T_matrix
+        self.T_initialized.copy_(torch.tensor(True, device=T_matrix.device, dtype=torch.bool))
