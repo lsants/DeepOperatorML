@@ -1,5 +1,5 @@
-# Parameters for training DeepONets, loaded by train_model.py.
-MODELNAME: two_step_resnet_kan_deeponet_20241119_normalized_input_output_feature_expansion
+# Model name (actually prefix)
+MODELNAME: 20241120_deeponet
 
 # Location of .npz data file
 DATAFILE: ./data/raw/displacements.npz # Path to input file
@@ -16,7 +16,7 @@ OUTPUT_LOG_FOLDER: ./data/output/ # For split indexes, normalization parameters 
 # Plots location
 IMAGES_FOLDER: ./images/
 
-# Model architecture
+# ------------------- Model architecture ------------------
 TWO_STEP_TRAINING: true
 N_OUTPUTS: 2
 BRANCH_INPUT_SIZE: 1
@@ -30,8 +30,11 @@ BRANCH_HIDDEN_LAYERS:
     - 100 
     - 100 
     - 100 
+    - 100 
+    - 100 
+    - 100 
 
-TRUNK_ARCHITECTURE: mlp
+TRUNK_ARCHITECTURE: resnet
 TRUNK_MLP_ACTIVATION: relu
 TRUNK_KAN_DEGREE: 8
 TRUNK_HIDDEN_LAYERS:
@@ -40,18 +43,21 @@ TRUNK_HIDDEN_LAYERS:
     - 100 
     - 100 
     - 100 
-    - 100 
+    - 100
 
-# Training parameters
+INPUT_NORMALIZATION: true
+OUTPUT_NORMALIZATION: true
+TRUNK_FEATURE_EXPANSION: true
+TRUNK_EXPANSION_FEATURES_NUMBER: 15
+
+# ------------------- Parameters for vanilla training ------------------
 LEARNING_RATE: 0.005                   # float: learning rate used in training
-N_EPOCHS: 1000                         # int: number of training epochs
+N_EPOCHS: 100                         # int: number of training epochs
 BATCH_SIZE: 50                         # int: Size of batch during training
 TRAIN_PERC: 0.8                         # float: the percentage of data used for training
 VAL_PERC: 0.1                           # float: the percentage of training data used for validation
 TEST_PERC: 0.1                           # float: the percentage of training data used for testing
 ERROR_NORM: 2
-
-
 L2_REGULARIZATION: 0.0000001
 EARLY_STOPPING: false
 LR_SCHEDULING: true
@@ -60,14 +66,9 @@ SCHEDULER_GAMMA: 0.8
 CHANGE_OPTIMIZER: false
 CHANGE_AT_EPOCH: 1000
 
-INPUT_NORMALIZATION: true
-OUTPUT_NORMALIZATION: true
-TRUNK_FEATURE_EXPANSION: true
-TRUNK_EXPANSION_FEATURES_NUMBER: 15
-
 # ------------------- Parameters for two step training ------------------
-TRUNK_DECOMPOSITION: qr
-TRUNK_TRAIN_EPOCHS: 500
+TRUNK_DECOMPOSITION: QR
+TRUNK_TRAIN_EPOCHS: 50
 TRUNK_LEARNING_RATE: 0.001
 TRUNK_L2_REGULARIZATION: 0.0000001
 TRUNK_EARLY_STOPPING: false
@@ -77,7 +78,7 @@ TRUNK_SCHEDULER_GAMMA: 0.8
 TRUNK_CHANGE_OPTIMIZER: false
 TRUNK_CHANGE_AT_EPOCH: 1000
 
-BRANCH_TRAIN_EPOCHS: 1000
+BRANCH_TRAIN_EPOCHS: 100
 BRANCH_LEARNING_RATE: 0.001
 BRANCH_L2_REGULARIZATION: 0.0000001
 BRANCH_EARLY_STOPPING: false
