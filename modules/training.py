@@ -25,7 +25,7 @@ class ModelTrainer:
         g_u_real, g_u_imag = sample['g_u_real'], sample['g_u_imag']
 
         self.optimizer.zero_grad()
-        if not xt:
+        if xt is None:
             pred_real, pred_imag = self.model(xb=xb)
             pred_real, pred_imag = pred_real.T, pred_imag.T
         else:
@@ -43,7 +43,7 @@ class ModelTrainer:
         g_u_real, g_u_imag = sample['g_u_real'], sample['g_u_imag']
 
         with torch.no_grad():  
-            if not xt:
+            if xt is None:
                 pred_real, pred_imag = self.model(xb=xb)
                 pred_real, pred_imag = pred_real.T, pred_imag.T
             else:
