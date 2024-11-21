@@ -35,6 +35,13 @@ class ModelTrainer:
         
         self.optimizer.step()
 
+        for name, param in self.model.named_parameters():
+            if param.requires_grad:
+                if param.grad is not None:
+                    print(f"{name}: grad norm = {param.grad.norm()}")
+                else:
+                    print(f"{name}: grad is None")
+
         return loss.item(), pred_real, pred_imag
 
     def val_step(self, sample):
@@ -82,7 +89,6 @@ class TwoStepTrainer(ModelTrainer):
 
         if self.training_phase == 'trunk':
             pred_real, pred_imag = self.model(xt=xt)
-            pred_real, pred_imag = pred_real.T, pred_imag.T
 
             loss = loss_complex(g_u_real, g_u_imag, pred_real, pred_imag)
 
@@ -92,22 +98,12 @@ class TwoStepTrainer(ModelTrainer):
             return loss.item(), pred_real, pred_imag
 
         elif self.training_phase == 'branch':
-
-            coefs_real = self.model.R @ self.model.A_list[0]
-            coefs_imag = self.model.R @ self.model.A_list[1]
-
-            num_basis = coefs_real.shape[0] # dims: (N, K) where K is batch size
-
-            branch_out = self.model(xb=xb) # dims: (K, 2N)
-            branch_out = branch_out.T # dims: (2N, K)
-            
-            pred_real = branch_out[ : num_basis , : ] # (N, K)
-            pred_imag = branch_out[num_basis : , : ]  # (N, K)
+            coefs_real, coefs_imag, pred_real, pred_imag = self.model(xb=xb)
 
             loss = loss_complex(coefs_real, coefs_imag, pred_real, pred_imag)
-
             loss.backward()
             self.optimizer.step()
+            
             return loss.item(), coefs_real, coefs_imag, pred_real, pred_imag
         
         else:

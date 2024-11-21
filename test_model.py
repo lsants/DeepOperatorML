@@ -29,18 +29,32 @@ print(f"Data from: {path_to_data}\n")
 
 model, config = initialize_model(p['MODEL_FOLDER'], p['MODELNAME'], p['DEVICE'], eval(p["PRECISION"]))
 
+if config['TWO_STEP_TRAINING']:
+    model.training_phase = 'both'
+
+# ------------------------- Initializing classes for test  -------------------
+
+evaluator = TestEvaluator(model, config['ERROR_NORM'])
+saver = Saver(model_name=model_name, model_folder=model_folder, data_output_folder=data_out_folder, figures_folder=fig_folder)
+
 # ------------------------- Load dataset ----------------------
 data = np.load(path_to_data)
 to_tensor_transform = ppr.ToTensor(dtype=precision, device=device)
 dataset = GreenFuncDataset(data, transform=to_tensor_transform)
-train_dataset = dataset[config['TRAIN_INDICES']]
-indices_for_inference = config['VAL_INDICES'] + config['TEST_INDICES']
-test_dataset = dataset[indices_for_inference]
 
-xb = test_dataset['xb']
+if p['INFERENCE_ON'] == 'train':
+    indices_for_inference = config['TRAIN_INDICES']
+if p['INFERENCE_ON'] == 'val':
+    indices_for_inference = config['VAL_INDICES']
+if p['INFERENCE_ON'] == 'test':
+    indices_for_inference = config['TRAIN_INDICES']
+
+inference_dataset = dataset[indices_for_inference]
+
+xb = inference_dataset['xb']
 xt = dataset.get_trunk()
-g_u_real = test_dataset['g_u_real']
-g_u_imag = test_dataset['g_u_imag']
+g_u_real = inference_dataset['g_u_real']
+g_u_imag = inference_dataset['g_u_imag']
 
 # ---------------------- Initialize normalization functions ------------------------
 xb_min = torch.tensor(config['NORMALIZATION_PARAMETERS']['xb']['min'], dtype=precision, device=device)
@@ -71,28 +85,34 @@ if config['OUTPUT_NORMALIZATION']:
 if config['TRUNK_FEATURE_EXPANSION']:
     xt = ppr.trunk_feature_expansion(xt, config['TRUNK_EXPANSION_FEATURES_NUMBER'])
 
-# ------------------------- Initializing classes for test  -------------------
-
-evaluator = TestEvaluator(model, config['ERROR_NORM'])
-saver = Saver(model_name=model_name, model_folder=model_folder, data_output_folder=data_out_folder, figures_folder=fig_folder)
 
 # --------------------------------- Evaluation ---------------------------------
 start_time = time.time()
 if config['TWO_STEP_TRAINING']:
-    preds_real, preds_imag = model(xb=xb)
-    preds_real = preds_real.T
-    preds_imag = preds_imag.T
+    if model.training_phase == 'trunk':
+        preds_real, preds_imag = model(xt=xt)
+    elif model.training_phase == 'branch':
+        coefs_real, coefs_imag, preds_real, preds_imag = model(xb=xb)
+        g_u_real, g_u_imag = coefs_real, coefs_imag
+
+        if config['OUTPUT_NORMALIZATION']:
+            g_u_real_normalized, g_u_imag_normalized = coefs_real, coefs_imag
+            
+    else:
+        preds_real, preds_imag = model(xb=xb, xt=xt)
+
 elif config['PROPER_ORTHOGONAL_DECOMPOSITION']:
     preds_real, preds_imag = model(xb=xb)
-    preds_real = preds_real.T
-    preds_imag = preds_imag.T
+
 else:
     preds_real, preds_imag = model(xb=xb, xt=xt)
+
 end_time = time.time()
 
 if config['OUTPUT_NORMALIZATION']:
     preds_real_normalized, preds_imag_normalized = preds_real, preds_imag
-    preds_real, preds_imag = denormalize_g_u_real(preds_real_normalized), denormalize_g_u_imag(preds_imag_normalized) 
+    preds_real, preds_imag = denormalize_g_u_real(preds_real_normalized), denormalize_g_u_imag(preds_imag_normalized)
+    print(g_u_real_normalized.shape, preds_real_normalized.shape)
     test_error_real_normalized = evaluator(g_u_real_normalized, preds_real_normalized)
     test_error_imag_normalized = evaluator(g_u_imag_normalized, preds_imag_normalized)
 
@@ -132,7 +152,7 @@ g_u = g_u_real + g_u_imag * 1j
 g_u = ppr.reshape_from_model(g_u, xt_plot)
 
 if config['TWO_STEP_TRAINING']:
-    basis_modes = (model.Q @ model.T).T
+    basis_modes = (model.trained_trunk).T
 elif config['PROPER_ORTHOGONAL_DECOMPOSITION']:
     basis_modes = torch.transpose(model.basis, 1, 2)
     basis_modes = torch.transpose(basis_modes, 0, 1)
@@ -141,10 +161,18 @@ else:
     basis_modes = model.trunk_network(xt).T
 basis_modes = ppr.reshape_from_model(basis_modes, xt)
 
-s = min(p['SAMPLES_TO_PLOT'], len(indices_for_inference))
-b = min(p['BASIS_TO_PLOT'], len(basis_modes))
+if p['SAMPLES_TO_PLOT'] == 'all':
+    s = len(indices_for_inference)
+else:
+    s = min(p['SAMPLES_TO_PLOT'], len(indices_for_inference))
+
+if p['BASIS_TO_PLOT'] == 'all':
+    b = len(basis_modes)
+else:
+    b = min(p['BASIS_TO_PLOT'], len(basis_modes))
+
 for i in tqdm(range(s), colour='MAGENTA'):
-    freq = test_dataset['xb'][i].item()
+    freq = inference_dataset['xb'][i].item()
     if p['PLOT_FIELD']:
         fig_field = plotting.plot_field_comparison(r, z, g_u[i], preds[i], freq)
         saver(figure=fig_field, figure_prefix=f"field_for_{freq:.2f}")
