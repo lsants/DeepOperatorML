@@ -140,12 +140,12 @@ else:
     basis_modes = model.trunk_network(xt).T
 basis_modes = ppr.reshape_from_model(basis_modes, xt)
 
-# for i in range(len(indices_for_inference)):
-#     freq = test_dataset['xb'][i].item()
-#     fig_field = plotting.plot_field_comparison(r, z, g_u[i], preds[i], freq)
-#     fig_axis = plotting.plot_axis_comparison(r, z, g_u[i], preds[i], freq)
-#     saver(figure=fig_field, figure_prefix=f"field_for_{freq:.2f}")
-#     saver(figure=fig_axis, figure_prefix=f"axis_for_{freq:.2f}")
+for i in range(len(indices_for_inference)):
+    freq = test_dataset['xb'][i].item()
+    fig_field = plotting.plot_field_comparison(r, z, g_u[i], preds[i], freq)
+    fig_axis = plotting.plot_axis_comparison(r, z, g_u[i], preds[i], freq)
+    saver(figure=fig_field, figure_prefix=f"field_for_{freq:.2f}")
+    saver(figure=fig_axis, figure_prefix=f"axis_for_{freq:.2f}")
 
 if p['PLOT_BASIS']:
     for i in range(len(basis_modes)):
