@@ -18,7 +18,8 @@ class Saver:
         self.data_output_folder = data_output_folder
         self.figures_folder = figures_folder
         self.save_methods = {
-            'model_state_dict': self.save_model,
+            'train_state': self.save_checkpoint,
+            'model_state': self.save_model,
             'model_info': self.save_model_info,
             'split_indices': self.save_indices,
             'norm_params': self.save_norm_params,
@@ -26,7 +27,6 @@ class Saver:
             'figure': self.save_plots,
             'errors': self.save_errors,
             'time': self.save_time,
-            'optimizer_state_dict': self.save_optimizer_state
         }
 
     def __call__(self, **kwargs):
