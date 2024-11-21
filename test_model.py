@@ -141,7 +141,9 @@ else:
     basis_modes = model.trunk_network(xt).T
 basis_modes = ppr.reshape_from_model(basis_modes, xt)
 
-for i in tqdm(range(len(indices_for_inference)//2), colour='MAGENTA'):
+s = min(p['SAMPLES_TO_PLOT'], len(indices_for_inference))
+b = min(p['BASIS_TO_PLOT'], len(basis_modes))
+for i in tqdm(range(s), colour='MAGENTA'):
     freq = test_dataset['xb'][i].item()
     if p['PLOT_FIELD']:
         fig_field = plotting.plot_field_comparison(r, z, g_u[i], preds[i], freq)
@@ -151,7 +153,7 @@ for i in tqdm(range(len(indices_for_inference)//2), colour='MAGENTA'):
         saver(figure=fig_axis, figure_prefix=f"axis_for_{freq:.2f}")
 
 if p['PLOT_BASIS']:
-    for i in tqdm(range(len(basis_modes)), colour='CYAN'):
+    for i in tqdm(range(b), colour='CYAN'):
         if config['PROPER_ORTHOGONAL_DECOMPOSITION']:
             fig_mode = plotting.plot_pod_basis(r, z, basis_modes[i], index=i)
         else:
