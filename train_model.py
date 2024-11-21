@@ -132,29 +132,29 @@ if p['TWO_STEP_TRAINING']:
 
         full_batch_train['xt'] = xt
 
-        batch_train = copy.deepcopy(full_batch_train)
+        trunk_training_data = copy.deepcopy(full_batch_train)
 
         if p['INPUT_NORMALIZATION']:
-            batch_train = {key: (normalize_trunk(value) if key == 'xt' \
+            trunk_training_data = {key: (normalize_trunk(value) if key == 'xt' \
                             else value)
-                    for key, value in batch_train.items()}
+                    for key, value in trunk_training_data.items()}
         if p['OUTPUT_NORMALIZATION']:
-            batch_train = {key: (normalize_g_u_real(value) if key == 'g_u_real' \
+            trunk_training_data = {key: (normalize_g_u_real(value) if key == 'g_u_real' \
                             else normalize_g_u_imag(value) if key == 'g_u_imag'\
                             else value)
-                    for key, value in batch_train.items()}
+                    for key, value in trunk_training_data.items()}
         if p['TRUNK_FEATURE_EXPANSION']:
-            batch_train = {key: (ppr.trunk_feature_expansion(value, p['TRUNK_EXPANSION_FEATURES_NUMBER']) if key == 'xt' else value)
-                        for key, value in batch_train.items()}
+            trunk_training_data = {key: (ppr.trunk_feature_expansion(value, p['TRUNK_EXPANSION_FEATURES_NUMBER']) if key == 'xt' else value)
+                        for key, value in trunk_training_data.items()}
             
-        trunk_train_outputs = trunk_trainer(batch_train)
+        trunk_train_outputs = trunk_trainer(trunk_training_data)
 
         trunk_epoch_train_loss += trunk_train_outputs['loss']
 
         basis_pred_real = trunk_train_outputs['pred_real']
-        g_u_real = batch_train['g_u_real']
+        g_u_real = trunk_training_data['g_u_real']
         basis_pred_imag = trunk_train_outputs['pred_imag']
-        g_u_imag = batch_train['g_u_imag']
+        g_u_imag = trunk_training_data['g_u_imag']
 
         if p['OUTPUT_NORMALIZATION']:
             basis_pred_real = denormalize_g_u_real(basis_pred_real)
@@ -183,14 +183,18 @@ if p['TWO_STEP_TRAINING']:
     # -------------------------------------------------- Trunk Decomposition ---------------------------------------------------------------------------
     
     with torch.no_grad():
-        phi = model.trunk_network(batch_train['xt'])
+        phi = model.trunk_network(trunk_training_data['xt'])
         if p['TRUNK_DECOMPOSITION'].lower() == 'qr':
             Q, R = torch.linalg.qr(phi)
             
         if p['TRUNK_DECOMPOSITION'].lower() == 'svd':
             Q, Sd, Vd = torch.linalg.svd(phi, full_matrices=False)
             R = torch.diag(Sd) @ Vd
-        model.R = R
+
+        T = torch.linalg.inv(R)
+        model.set_Q(Q)
+        model.set_R(R)
+        model.set_T(T)
 
     # -------------------------------------------------- Branch Training ---------------------------------------------------------------------------
     
@@ -231,7 +235,7 @@ if p['TWO_STEP_TRAINING']:
                                                                         branch_pred_real)
         branch_epoch_train_error_imag = branch_evaluator.compute_error(branch_g_u_imag,
                                                                         branch_pred_imag)
-        
+
         if p['BRANCH_CHANGE_OPTIMIZER']:
             if epoch == p['BRANCH_CHANGE_AT_EPOCH']:
                 branch_trainer.optimizer = torch.optim.Adam(list(model.branch_network.parameters()),
@@ -251,7 +255,12 @@ if p['TWO_STEP_TRAINING']:
         
     if branch_epoch_train_error_real < best_avg_error_real:
         best_avg_error_real = branch_epoch_train_error_real
-        best_model = model.state_dict()
+        best_model_checkpoint = {
+            'model_state_dict': model.state_dict(),
+                'Q': model.Q,
+                'T': model.T,
+                'R': model.R,
+            }
 
 # ----------------------------------------- Train loop (regular) ---------------------------------
 else:
@@ -357,8 +366,17 @@ else:
 
         if avg_epoch_val_error_real < best_avg_error_real:
             best_avg_error_real = avg_epoch_val_error_real
-            best_model = model.state_dict()
-
+            best_model_checkpoint = {
+                'model_state_dict': model.state_dict(),
+                'optimizer_state_dict': optimizer.state_dict()
+            }
+    
+    last_model = {
+            'model_state_dict': model.state_dict(),
+            'optimizer_state_dict': optimizer.state_dict(),
+            'epochs': epochs
+        }
+    
 end_time = time.time()
 
 # -------------------------------  Getting info from training ---------------------
@@ -401,9 +419,12 @@ else:
     branch_epochs_plot = [i for i in range(p['BRANCH_TRAIN_EPOCHS'])]
     branch_fig = plot_training(branch_epochs_plot, branch_history)
 
+print(best_model_checkpoint.keys())
+
 # --------------------------- Save output -------------------------------
 if not p["TWO_STEP_TRAINING"]:
-    saver(model_state_dict=best_model,
+    saver(model_state=best_model_checkpoint['model_state_dict'],
+          train_state=last_model,
           model_info=p,
           split_indices=dataset_indices,
           norm_params=norm_params,
@@ -413,7 +434,7 @@ if not p["TWO_STEP_TRAINING"]:
           figure_prefix="history",
           time_prefix ="training")
 else:
-    saver(model_state_dict=best_model,
+    saver(model_state=best_model_checkpoint,
           model_info=p,
           split_indices=dataset_indices,
           norm_params=norm_params,
