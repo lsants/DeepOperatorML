@@ -41,12 +41,3 @@ class GreenFuncDataset(torch.utils.data.Dataset):
         if self.transform:
             xt = self.transform(xt)
         return xt
-    
-    def get_trunk_normalization_params(self):
-        r, z = trunk_to_meshgrid(self.xt)
-        min_max_params = np.array([[r.min(), z.min()],
-                                   [r.max(), z.max()]])
-
-        min_max_params = {'min' : [r.min(), z.min()],
-                          'max' : [r.max(), z.max()]}
-        return min_max_params

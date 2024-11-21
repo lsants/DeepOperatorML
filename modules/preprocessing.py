@@ -173,3 +173,12 @@ def mirror(arr):
     arr_mirrored = np.concatenate((arr_flip, arr), axis=1)
     arr_mirrored = arr_mirrored.T
     return arr_mirrored
+
+def get_trunk_normalization_params(xt):
+    r, z = trunk_to_meshgrid(xt)
+    min_max_params = np.array([[r.min(), z.min()],
+                                [r.max(), z.max()]])
+
+    min_max_params = {'min' : [r.min(), z.min()],
+                        'max' : [r.max(), z.max()]}
+    return min_max_params
