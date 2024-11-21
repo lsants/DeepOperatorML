@@ -7,6 +7,7 @@ from modules import dir_functions
 from modules import preprocessing as ppr
 from modules.saving import Saver
 from modules.deeponet import DeepONet
+from modules.model_factory import initialize_model
 from modules.deeponet_two_step import DeepONetTwoStep
 # from modules.animation import animate_wave
 from modules.test_evaluator import TestEvaluator
@@ -18,7 +19,6 @@ p = dir_functions.load_params('params_test.yaml')
 path_to_data = p['DATAFILE']
 precision = eval(p['PRECISION'])
 device = p['DEVICE']
-error_type = p['ERROR_NORM']
 model_name = p['MODELNAME']
 model_folder = p['MODEL_FOLDER']
 data_out_folder = p['OUTPUT_LOG_FOLDER']
@@ -28,28 +28,17 @@ model_location = model_folder + f"model_state_{model_name}.pth"
 print(f"Model from: {model_location}")
 print(f"Data from: {path_to_data}")
 
-# ------------------------- Load indexes and normalization params ----------------
-indices = dir_functions.load_data_info(p['INDICES_FILE'])
-norm_params = dir_functions.load_data_info(p['NORM_PARAMS_FILE'])
+# ----------------------------- Initialize model -----------------------------
 
-train_indices = indices['train']
-test_indices = indices['test']
-
-print(f"Indices from: {p['INDICES_FILE']}")
-print(f"Normalization parameters from: {p['NORM_PARAMS_FILE']} \n")
-
-branch_norm_params = norm_params['xb']
-trunk_norm_params = norm_params['xt']
-real_part_norm_params = norm_params['g_u_real']
-imag_part_norm_params = norm_params['g_u_imag']
+model, config = initialize_model(p['MODEL_FOLDER'], p['MODELNAME'], p['DEVICE'], eval(p["PRECISION"]))
 
 # ------------------------- Load dataset ----------------------
 data = np.load(path_to_data)
 
 to_tensor_transform = ppr.ToTensor(dtype=precision, device=device)
 dataset = GreenFuncDataset(data, transform=to_tensor_transform)
-train_dataset = dataset[train_indices]
-test_dataset = dataset[test_indices]
+train_dataset = dataset[config['TEST_INDICES']]
+test_dataset = dataset[config['TEST_INDICES']]
 
 xb = test_dataset['xb']
 xt = dataset.get_trunk()
@@ -57,12 +46,17 @@ g_u_real = test_dataset['g_u_real']
 g_u_imag = test_dataset['g_u_imag']
 
 # ---------------------- Initialize normalization functions ------------------------
-xb_min, xb_max = torch.tensor(branch_norm_params['min'], dtype=precision), torch.tensor(branch_norm_params['max'], dtype=precision)
-xt_min, xt_max = torch.tensor(trunk_norm_params['min'], dtype=precision), torch.tensor(trunk_norm_params['max'], dtype=precision)
-g_u_real_min, g_u_real_max = torch.tensor(real_part_norm_params['min'], dtype=precision), torch.tensor(real_part_norm_params['max'], dtype=precision)
-g_u_imag_min, g_u_imag_max = torch.tensor(imag_part_norm_params['min'], dtype=precision), torch.tensor(imag_part_norm_params['max'], dtype=precision)
+xb_min = torch.tensor(config['NORMALIZATION_PARAMETERS']['xb']['min'], dtype=precision, device=device)
+xb_max = torch.tensor(config['NORMALIZATION_PARAMETERS']['xb']['max'], dtype=precision, device=device)
+xt_min = torch.tensor(config['NORMALIZATION_PARAMETERS']['xt']['min'], dtype=precision, device=device)
+xt_max = torch.tensor(config['NORMALIZATION_PARAMETERS']['xt']['max'], dtype=precision, device=device)
+g_u_real_min = torch.tensor(config['NORMALIZATION_PARAMETERS']['g_u_real']['min'], dtype=precision, device=device) 
+g_u_real_max = torch.tensor(config['NORMALIZATION_PARAMETERS']['g_u_real']['max'], dtype=precision, device=device)
+g_u_imag_min = torch.tensor(config['NORMALIZATION_PARAMETERS']['g_u_imag']['min'], dtype=precision, device=device)
+g_u_imag_max = torch.tensor(config['NORMALIZATION_PARAMETERS']['g_u_imag']['max'], dtype=precision, device=device)
 
-normalize_branch, normalize_trunk = ppr.Normalize(xb_min, xb_max), ppr.Normalize(xt_min, xt_max)
+normalize_branch = ppr.Normalize(xb_min, xb_max)
+normalize_trunk = ppr.Normalize(xt_min, xt_max)
 normalize_g_u_real = ppr.Normalize(g_u_real_min, g_u_real_max)
 normalize_g_u_imag = ppr.Normalize(g_u_imag_min, g_u_imag_max)
 
@@ -71,104 +65,30 @@ denormalize_xt = ppr.Denormalize(xt_min, xt_max)
 denormalize_g_u_real = ppr.Denormalize(g_u_real_min, g_u_real_max)
 denormalize_g_u_imag = ppr.Denormalize(g_u_imag_min, g_u_imag_max)
 
-if p['INPUT_NORMALIZATION']:
+if config['INPUT_NORMALIZATION']:
     xb = normalize_branch(xb)
     xt = normalize_trunk(xt)
-if p['OUTPUT_NORMALIZATION']:
+if config['OUTPUT_NORMALIZATION']:
     g_u_real_normalized = normalize_g_u_real(g_u_real)
     g_u_imag_normalized = normalize_g_u_imag(g_u_imag)
 
-if p['TRUNK_FEATURE_EXPANSION']:
-    xt = ppr.trunk_feature_expansion(xt, p['TRUNK_EXPANSION_FEATURES_NUMBER'])
-
-# ----------------------------- Initialize model -----------------------------
-trunk_expansion_dim = p['TRUNK_EXPANSION_FEATURES_NUMBER']
-u_dim = p["BRANCH_INPUT_SIZE"]
-x_dim = p["TRUNK_INPUT_SIZE"]
-n_outputs = p['N_OUTPUTS']
-hidden_B = p['BRANCH_HIDDEN_LAYERS']
-hidden_T = p['TRUNK_HIDDEN_LAYERS']
-trunk_output_size = p['TRUNK_OUTPUT_SIZE']
-num_basis = p["BASIS_FUNCTIONS"]
-
-if not p['TWO_STEP_TRAINING']:
-    num_basis = trunk_output_size
-else:
-    trunk_output_size = num_basis
-
-if p['TRUNK_FEATURE_EXPANSION']:
-    x_dim += 4 * trunk_expansion_dim
-
-layers_B = [u_dim] + hidden_B + [num_basis * n_outputs]
-layers_T = [x_dim] + hidden_T + [trunk_output_size]
-
-branch_config = {
-    'architecture': p['BRANCH_ARCHITECTURE'],
-    'layers': layers_B,
-}
-
-trunk_config = {
-    'architecture': p['TRUNK_ARCHITECTURE'],
-    'layers': layers_T,
-}
-
-if p['BRANCH_ARCHITECTURE'].lower() == 'mlp' or p['BRANCH_ARCHITECTURE'].lower() == 'resnet':
-    try:
-        if p['BRANCH_MLP_ACTIVATION'].lower() == 'relu':
-            branch_activation = torch.nn.ReLU()
-        elif p['BRANCH_MLP_ACTIVATION'].lower() == 'leaky_relu':
-            branch_activation = torch.nn.LeakyReLU(negative_slope=0.01)
-        elif p['BRANCH_MLP_ACTIVATION'].lower() == 'tanh':
-            branch_activation = torch.tanh
-        else:
-            raise ValueError
-    except ValueError:
-        print('Invalid activation function for branch net.')
-    branch_config['activation'] = branch_activation
-else:
-    branch_config['degree'] = p['BRANCH_KAN_DEGREE']
-
-if p['TRUNK_ARCHITECTURE'].lower() == 'kan':
-    trunk_config['degree'] = p['TRUNK_KAN_DEGREE']
-else:
-    try:
-        if p['TRUNK_MLP_ACTIVATION'].lower() == 'relu':
-            trunk_activation = torch.nn.ReLU()
-        elif p['TRUNK_MLP_ACTIVATION'].lower() == 'leaky_relu':
-            trunk_activation = torch.nn.LeakyReLU(negative_slope=0.01)
-        elif p['TRUNK_MLP_ACTIVATION'].lower() == 'tanh':
-            trunk_activation = torch.tanh
-        else:
-            raise ValueError
-    except ValueError:
-        print('Invalid activation function for trunk net.')
-    trunk_config['activation'] = trunk_activation
-
-if p['TWO_STEP_TRAINING']:
-    model = DeepONetTwoStep(branch_config=branch_config,
-                    trunk_config=trunk_config,
-                    A_dim=(n_outputs, num_basis, len(train_indices))
-                    ).to(device, precision)
-else:
-    model = DeepONet(branch_config=branch_config,
-                    trunk_config=trunk_config,
-                    ).to(device, precision)
-
-model.load_state_dict(torch.load(model_location, weights_only=True))
+if config['TRUNK_FEATURE_EXPANSION']:
+    xt = ppr.trunk_feature_expansion(xt, config['TRUNK_EXPANSION_FEATURES_NUMBER'])
 
 # ------------------------- Initializing classes for test  -------------------
-evaluator = TestEvaluator(model, error_type)
+
+evaluator = TestEvaluator(model, config['ERROR_NORM'])
 saver = Saver(model_name=model_name, model_folder=model_folder, data_output_folder=data_out_folder, figures_folder=fig_folder)
 
 # --------------------------------- Evaluation ---------------------------------
 start_time = time.time()
 preds_real, preds_imag = model(xb, xt)
-if p['TWO_STEP_TRAINING']:
+if config['TWO_STEP_TRAINING']:
     preds_real = preds_real.T
     preds_imag = preds_imag.T
 end_time = time.time()
 
-if p['OUTPUT_NORMALIZATION']:
+if config['OUTPUT_NORMALIZATION']:
     preds_real_normalized, preds_imag_normalized = preds_real, preds_imag
     preds_real, preds_imag = denormalize_g_u_real(preds_real_normalized), denormalize_g_u_imag(preds_imag_normalized) 
     test_error_real_normalized = evaluator(g_u_real_normalized, preds_real_normalized)
@@ -185,7 +105,7 @@ errors = {
 print(f"Test error for real part (physical): {test_error_real:.2%}")
 print(f"Test error for imaginary part (physical): {test_error_imag:.2%}")
 
-if p['OUTPUT_NORMALIZATION']:
+if config['OUTPUT_NORMALIZATION']:
     errors['real_normalized'] = test_error_real_normalized
     errors['imag_normalized'] = test_error_imag_normalized
     print(f"Test error for real part (normalized): {test_error_real_normalized:.2%}")
@@ -197,12 +117,12 @@ inference_time = {'time' : (end_time - start_time)}
 # To do: remove hardcoded index and implement animation
 
 index = 0
-freq = dataset[test_indices[index]]['xb'].item()
+freq = dataset[config['TEST_INDICES'][index]]['xb'].item()
 
-if p['INPUT_NORMALIZATION']:
+if config['INPUT_NORMALIZATION']:
     xt_plot = xt
-    if p['TRUNK_FEATURE_EXPANSION']:
-        xt_plot = xt[ : , : p["TRUNK_INPUT_SIZE"]]
+    if config['TRUNK_FEATURE_EXPANSION']:
+        xt_plot = xt[ : , : config["TRUNK_INPUT_SIZE"] // (1 + 2 * config['TRUNK_EXPANSION_FEATURES_NUMBER'])]
     xt_plot = denormalize_xt(xt_plot)
 
 r, z = ppr.trunk_to_meshgrid(xt_plot)
@@ -216,7 +136,6 @@ g_u = ppr.reshape_from_model(g_u, xt_plot)
 fig_field = plot_field_comparison(r, z, g_u[index], preds[index], freq)
 fig_axis = plot_axis_comparison(r, z, g_u[index], preds[index], freq)
 
-
 # g_u, preds = ppr.mirror(g_u), ppr.mirror(preds)
 
 # print(g_u[0].real.shape, preds[0].real.shape)
@@ -225,5 +144,5 @@ fig_axis = plot_axis_comparison(r, z, g_u[index], preds[index], freq)
 
 saver(errors=errors)
 saver(time=inference_time, time_prefix="inference")
-saver(figure=fig_field, figure_suffix="field")
-saver(figure=fig_axis, figure_suffix="axis")
+saver(figure=fig_field, figure_prefix="field")
+saver(figure=fig_axis, figure_prefix="axis")
