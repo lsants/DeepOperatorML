@@ -155,8 +155,14 @@ def reshape_from_model(displacements, z_axis_values):
 
     if isinstance(displacements, torch.Tensor):
         displacements = displacements.detach().numpy()
+
+    if displacements.ndim == 3:
+        displacements = (displacements).reshape(len(displacements), int(displacements.shape[-2] / n_z), n_z, -1)
+
+    if displacements.ndim == 2:
+        displacements = (displacements).reshape(len(displacements), int(displacements.shape[-1] / n_z), n_z)
     
-    return (displacements).reshape(len(displacements), int(displacements.shape[-1] / n_z), n_z)
+    return displacements
 
 def trunk_feature_expansion(xt, p):
     expansion_features = [xt]
