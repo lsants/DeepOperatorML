@@ -188,9 +188,13 @@ def initialize_model(model_folder, model_name, device, precision):
             trunk_config=trunk_config
         ).to(device, precision)
 
-    checkpoint = torch.load(model_path, map_location=device)
-    print(checkpoint.keys())
-    model.load_state_dict(checkpoint.get('model_state_dict'))
+    checkpoint = torch.load(model_path, map_location=device, weights_only=True)
+
+    model_state = checkpoint.get('model_state_dict', 'old_save_type')
+    if model_state == 'old_save_type':
+        model.load_state_dict(checkpoint)
+    else:
+        model.load_state_dict(model_state)
 
     if config['TWO_STEP_TRAINING']:
         Q_matrix = checkpoint['Q']
