@@ -188,7 +188,7 @@ def initialize_model(model_folder, model_name, device, precision):
             trunk_config=trunk_config
         ).to(device, precision)
     
-    model.load_state_dict(torch.load(model_path, map_location=device))
+    model.load_state_dict(torch.load(model_path, map_location=device, weights_only=True))
     
     model.eval()
     
