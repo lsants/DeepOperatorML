@@ -111,7 +111,7 @@ niter_per_train_epoch = len(train_dataloader)
 niter_per_val_epoch = len(val_dataloader)
 best_avg_error_real = float('inf')
 
-# ----------------------------------------- Train loop (2 step) ---------------------------------
+# ----------------------------------------- POD Train loop ---------------------------------
 
 model.freeze_trunk()
 
@@ -122,17 +122,14 @@ if p['PROPER_ORTHOGONAL_DECOMPOSITION']:
     full_train_dataset_real = dataset[dataset_indices['train']]['g_u_real'].T
     full_train_dataset_imag = dataset[dataset_indices['train']]['g_u_imag'].T
 
-    mean_function_real = full_train_dataset_real.mean(axis=0).mean()
-    mean_function_imag = full_train_dataset_imag.mean(axis=0).mean()
-
-    # print(full_train_dataset_real.shape)
-    # print(mean_function_real)
+    mean_function_real = full_train_dataset_real.mean(axis=0)
+    mean_function_imag = full_train_dataset_imag.mean(axis=0)
 
     full_train_dataset_real -= mean_function_real
     full_train_dataset_imag -= mean_function_imag
 
-    U_r, S_r , V_r = torch.pca_lowrank(full_train_dataset_real, q=p['BASIS_FUNCTIONS'])
-    U_i, S_i , V_i = torch.pca_lowrank(full_train_dataset_imag, q=p['BASIS_FUNCTIONS'])
+    U_r, S_r , V_r = torch.linalg.svd(full_train_dataset_real)
+    U_i, S_i , V_i = torch.linalg.svd(full_train_dataset_imag)
     
     mean_functions = torch.stack((mean_function_real, mean_function_imag))
     pod_basis = torch.stack((U_r, U_i))
