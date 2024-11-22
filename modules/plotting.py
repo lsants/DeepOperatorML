@@ -259,9 +259,10 @@ def plot_axis(r ,z, wd, freq, non_dim_plot=True, axis=None):
     return fig
 
 def plot_basis_function(r , z, wd, index=None, full=True, non_dim_plot=True):
-    index += 1
+    if index:
+        index += 1
     if full:
-        r_full = np.concatenate((-np.flip(r[1:]), r))
+        r_full = np.concatenate((-np.flip(r[1 : ]), r))
         R, Z = np.meshgrid(r_full,z)
         u_flip = np.flip(wd[1 : , : ], axis=0)
         wd_full = np.concatenate((u_flip, wd), axis=0)
@@ -280,8 +281,10 @@ def plot_basis_function(r , z, wd, index=None, full=True, non_dim_plot=True):
             title = f'{index}nd mode'
         elif index == 3:
             title = f'{index}rd mode'
-        else:
+        elif index >= 4:
             title = f'{index}th mode'
+        else:
+            title = f"Mode"
 
         x_label = r'$\frac{r}{a}$'
         y_label = r'$\frac{z}{a}$'
