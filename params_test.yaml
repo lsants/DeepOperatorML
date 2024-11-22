@@ -1,5 +1,5 @@
 # Parameters for training DeepONets.
-MODELNAME: 20241121_deeponet_two_step_resnet_resnet
+MODELNAME: 20241121_deeponet_two_step_resnet_resnet_input_normalization_feature_expansion
 
 # Location of test file info
 DATAFILE: ./data/raw/displacements.npz
@@ -17,7 +17,7 @@ IMAGES_FOLDER: ./images/two_step_inference_plots/
 PRECISION: torch.float32
 DEVICE: cpu
 
-PLOT_FIELD: false
+PLOT_FIELD: true
 PLOT_AXIS: false
 PLOT_BASIS: true
 
