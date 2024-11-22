@@ -157,10 +157,10 @@ def reshape_from_model(displacements, z_axis_values):
         displacements = displacements.detach().numpy()
 
     if displacements.ndim == 3:
-        displacements = (displacements).reshape(len(displacements), -1, int(displacements.shape[-1] / n_z), n_z)
+        displacements = (displacements).reshape(len(displacements), - 1, int(z_axis_values.shape[0] / n_z), n_z)
 
     if displacements.ndim == 2:
-        displacements = (displacements).reshape(len(displacements), int(displacements.shape[-1] / n_z), n_z)
+        displacements = (displacements).reshape(-1, int(z_axis_values.shape[0] / n_z), n_z)
     
     return displacements
 
@@ -188,3 +188,11 @@ def get_trunk_normalization_params(xt):
     min_max_params = {'min' : [r.min(), z.min()],
                         'max' : [r.max(), z.max()]}
     return min_max_params
+
+def compute_pod_modes(data, variance_share=0.95):
+    U, S, _ = torch.linalg.svd(data)
+    explained_variance_ratio = torch.cumsum(S**2, dim=0) / torch.linalg.norm(S)**2
+    most_significant_modes = (explained_variance_ratio < variance_share).sum() + 1
+    pod_modes = U[ : , : most_significant_modes]
+
+    return pod_modes

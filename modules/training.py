@@ -35,13 +35,6 @@ class ModelTrainer:
         
         self.optimizer.step()
 
-        for name, param in self.model.named_parameters():
-            if param.requires_grad:
-                if param.grad is not None:
-                    print(f"{name}: grad norm = {param.grad.norm()}")
-                else:
-                    print(f"{name}: grad is None")
-
         return loss.item(), pred_real, pred_imag
 
     def val_step(self, sample):

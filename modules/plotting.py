@@ -275,16 +275,17 @@ def plot_basis_function(r , z, wd, index=None, full=True, non_dim_plot=True):
     l = r'$\Phi(r,z)$'
 
     if non_dim_plot:
-        if index == 1:
+        if not index:
+            title = f"Mode"
+        elif index == 1:
             title = f'{index}st mode'
         elif index == 2:
             title = f'{index}nd mode'
         elif index == 3:
             title = f'{index}rd mode'
-        elif index >= 4:
-            title = f'{index}th mode'
         else:
-            title = f"Mode"
+            title = f'{index}th mode'
+            
 
         x_label = r'$\frac{r}{a}$'
         y_label = r'$\frac{z}{a}$'
@@ -297,7 +298,8 @@ def plot_basis_function(r , z, wd, index=None, full=True, non_dim_plot=True):
                        ncols=1,
                        figsize=(4, 4))
     
-    contour = ax.contourf(R,Z, u, cmap="viridis")
+    print(u.shape)
+    contour = ax.contourf(R, Z, u, cmap="viridis")
     ax.invert_yaxis()
     ax.set_xlabel(x_label, fontsize=14)
     ax.set_ylabel(y_label, fontsize=14)
