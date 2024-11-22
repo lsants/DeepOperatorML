@@ -112,7 +112,6 @@ end_time = time.time()
 if config['OUTPUT_NORMALIZATION']:
     preds_real_normalized, preds_imag_normalized = preds_real, preds_imag
     preds_real, preds_imag = denormalize_g_u_real(preds_real_normalized), denormalize_g_u_imag(preds_imag_normalized)
-    print(g_u_real_normalized.shape, preds_real_normalized.shape)
     test_error_real_normalized = evaluator(g_u_real_normalized, preds_real_normalized)
     test_error_imag_normalized = evaluator(g_u_imag_normalized, preds_imag_normalized)
 
