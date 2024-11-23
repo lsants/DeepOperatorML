@@ -123,8 +123,7 @@ def create_model(model_params):
                         ).to(model_params['DEVICE'], eval(model_params['PRECISION']))
     elif model_params['PROPER_ORTHOGONAL_DECOMPOSITION']:
         model = PODDeepONet(branch_config=branch_config,
-                            trunk_config=trunk_config,
-                            n_outputs=model_params['N_OUTPUTS']
+                            trunk_config=trunk_config
                         ).to(model_params['DEVICE'], eval(model_params['PRECISION']))
     else:
         model = DeepONet(branch_config=branch_config,

@@ -117,7 +117,6 @@ model.freeze_trunk()
 
 start_time = time.time()
 
-# QUESTION: POD GIVES ONE SET OF BASIS FOR EACH OUTPUT. USE BOTH?
 if p['PROPER_ORTHOGONAL_DECOMPOSITION']:
     full_train_dataset_real = dataset[dataset_indices['train']]['g_u_real'].T
     full_train_dataset_imag = dataset[dataset_indices['train']]['g_u_imag'].T
@@ -285,6 +284,7 @@ elif p['TWO_STEP_TRAINING']:
             R = torch.diag(Sd) @ Vd
 
         T = torch.linalg.inv(R)
+        print(Q.shape, R.shape, T.shape)
         model.set_Q(Q)
         model.set_R(R)
         model.set_T(T)

@@ -2,7 +2,7 @@ import torch
 from .deeponet import DeepONet
 
 class PODDeepONet(DeepONet):
-    def __init__(self, branch_config, trunk_config, n_outputs):
+    def __init__(self, branch_config, trunk_config):
         super().__init__(branch_config, trunk_config)
         self.register_buffer('POD_basis_initialized', torch.tensor(False))
         self.register_buffer('mean_functions_initialized', torch.tensor(False))

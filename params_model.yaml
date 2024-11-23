@@ -3,7 +3,7 @@ MODELNAME: 20241121_deeponet
 
 # Location of .npz data file
 DATAFILE: ./data/raw/displacements.npz # Path to input file
-PRECISION: torch.float32
+PRECISION: float32
 DEVICE: cpu
 SEED: 42
 
@@ -17,8 +17,8 @@ OUTPUT_LOG_FOLDER: ./data/output/ # For split indexes, normalization parameters 
 IMAGES_FOLDER: ./images/two_step_history_plots/
 
 # ------------------- Model architecture ------------------
-TWO_STEP_TRAINING: false
-PROPER_ORTHOGONAL_DECOMPOSITION: true
+TRAINING_STRATEGY: two_step
+OUTPUT_HANDLING: single_trunk_split_branch
 N_OUTPUTS: 2
 BRANCH_INPUT_SIZE: 1
 TRUNK_INPUT_SIZE: 2
@@ -68,6 +68,7 @@ CHANGE_OPTIMIZER: true
 CHANGE_AT_EPOCH: 5000
 
 # ------------------- Parameters for POD training ------------------
+NUM_MODES: 1601 # What should be done here: create a function that determines the amount of modes for > 90% energy or look at the data in a separate script to find the good value manually, or chose desired variance (do htis later)
 LEARNING_RATE: 0.001
 N_EPOCHS: 1000
 BATCH_SIZE: 50
