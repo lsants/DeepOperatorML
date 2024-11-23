@@ -10,93 +10,135 @@ class ToTensor:
         tensor = torch.tensor(sample, dtype=self.dtype, device=self.device)
         return tensor
     
-class Standardize:
-    def __init__(self, mu, std):
-        self.mu = mu
+class Scaling:
+    def __init__(self, min_val=None, max_val=None, mean=None, std=None):
+        """
+        A generic class for scaling values, supporting both normalization and standardization.
+
+        Args:
+            min_val (float or Tensor, optional): Minimum value for normalization.
+            max_val (float or Tensor, optional): Maximum value for normalization.
+            mean (float or Tensor, optional): Mean value for standardization.
+            std (float or Tensor, optional): Standard deviation for standardization.
+        """
+        self.min_val = min_val
+        self.max_val = max_val
+        self.mean = mean
         self.std = std
 
-    def __call__(self, vals):
-        vals = (vals - self.mu) / self.std
-        return vals
-    
-class Destandardize:
-    def __init__(self, mu, std):
-        self.mu = mu
-        self.std = std
+        if not ((min_val is not None and max_val is not None) or (mean is not None and std is not None)):
+            raise ValueError("Either min_val and max_val or mean and std must be provided.")
 
-    def __call__(self, vals):
-        vals = (vals * self.std) + self.mu
-        return vals
-    
-class Normalize:
-    def __init__(self, v_min, v_max):
-        self.v_min = v_min
-        self.v_max = v_max
+    def normalize(self, values):
+        """
+        Normalizes values to the range [0, 1].
 
-    def __call__(self, vals):
-        v_min = torch.as_tensor(self.v_min, dtype=vals.dtype, device=vals.device)
-        v_max = torch.as_tensor(self.v_max, dtype=vals.dtype, device=vals.device)
-        vals = (vals - v_min) / (v_max - v_min)
-        return vals
-class Denormalize:
-    def __init__(self, v_min, v_max):
-        self.v_min = v_min
-        self.v_max = v_max
+        Args:
+            values (Tensor): Input values.
 
-    def __call__(self, vals):
-        if isinstance(vals, torch.Tensor):
-            v_min = torch.as_tensor(self.v_min, dtype=vals.dtype, device=vals.device)
-            v_max = torch.as_tensor(self.v_max, dtype=vals.dtype, device=vals.device)
-        else:
-            v_min = self.v_min
-            v_max = self.v_max
-        vals = (vals * (v_max - v_min)) + v_min
-        return vals
+        Returns:
+            Tensor: Normalized values.
+        """
+        if self.min_val is None or self.max_val is None:
+            raise ValueError("min_val and max_val must be provided for normalization.")
+        
+        v_min = torch.as_tensor(self.min_val, dtype=values.dtype, device=values.device)
+        v_max = torch.as_tensor(self.max_val, dtype=values.dtype, device=values.device)
+        return (values - v_min) / (v_max - v_min)
 
-def get_minmax_norm_params(loader):
-    dataiter = iter(loader)
-    first_sample = next(dataiter)
-    device = first_sample['xb'].device
-    dtype = first_sample['xb'].dtype
+    def denormalize(self, values):
+        """
+        Denormalizes values from the range [0, 1] back to the original range.
 
-    samples_min_xb = torch.tensor(float('inf'), device=device, dtype=dtype)
-    samples_max_xb = torch.tensor(-float('inf'), device=device, dtype=dtype)
+        Args:
+            values (Tensor): Input normalized values.
 
-    samples_min_g_u_real = torch.tensor(float('inf'), device=device, dtype=dtype)
-    samples_max_g_u_real = torch.tensor(-float('inf'), device=device, dtype=dtype)
+        Returns:
+            Tensor: Denormalized values.
+        """
+        if self.min_val is None or self.max_val is None:
+            raise ValueError("min_val and max_val must be provided for denormalization.")
+        
+        v_min = torch.as_tensor(self.min_val, dtype=values.dtype, device=values.device)
+        v_max = torch.as_tensor(self.max_val, dtype=values.dtype, device=values.device)
+        return values * (v_max - v_min) + v_min
 
-    samples_min_g_u_imag = torch.tensor(float('inf'), device=device, dtype=dtype)
-    samples_max_g_u_imag = torch.tensor(-float('inf'), device=device, dtype=dtype)
+    def standardize(self, values):
+        """
+        Standardizes values using the provided mean and standard deviation.
+
+        Args:
+            values (Tensor): Input values.
+
+        Returns:
+            Tensor: Standardized values.
+        """
+        if self.mean is None or self.std is None:
+            raise ValueError("mean and std must be provided for standardization.")
+        
+        mu = torch.as_tensor(self.mean, dtype=values.dtype, device=values.device)
+        sigma = torch.as_tensor(self.std, dtype=values.dtype, device=values.device)
+        return (values - mu) / sigma
+
+    def destandardize(self, values):
+        """
+        Destandardizes values back to the original scale using mean and standard deviation.
+
+        Args:
+            values (Tensor): Input standardized values.
+
+        Returns:
+            Tensor: Destandardized values.
+        """
+        if self.mean is None or self.std is None:
+            raise ValueError("mean and std must be provided for destandardization.")
+        
+        mu = torch.as_tensor(self.mean, dtype=values.dtype, device=values.device)
+        sigma = torch.as_tensor(self.std, dtype=values.dtype, device=values.device)
+        return values * sigma + mu
 
 
-    for sample in loader:
-        xb = sample['xb']
-        g_u_real = sample['g_u_real']
-        g_u_imag = sample['g_u_imag']
-        samples_min_xb = min(xb.min(), samples_min_xb)
-        samples_max_xb = max(xb.max(), samples_max_xb)
+def get_minmax_norm_params(dataset, keys=None):
+    """
+    Compute min-max normalization parameters for specified keys in the dataset.
 
-        samples_min_g_u_real = min(g_u_real.min(), samples_min_g_u_real)
-        samples_max_g_u_real = max(g_u_real.max(), samples_max_g_u_real)
+    Args:
+        dataset (torch.utils.data.Dataset or torch.utils.data.Subset): Dataset or subset.
+        keys (list of str, optional): Keys to normalize. If None, includes 'xb', 'xt', and all outputs.
 
-        samples_min_g_u_imag = min(g_u_imag.min(), samples_min_g_u_imag)
-        samples_max_g_u_imag = max(g_u_imag.max(), samples_max_g_u_imag)
+    Returns:
+        dict: Dictionary containing min and max values for each key.
+    """
+    if isinstance(dataset, torch.utils.data.Subset):
+        original_dataset = dataset.dataset
+        indices = dataset.indices
+    else:
+        original_dataset = dataset
+        indices = range(len(dataset))
 
-    if isinstance(samples_min_xb, torch.Tensor) or isinstance(samples_min_g_u_real, torch.Tensor) or isinstance(samples_min_g_u_imag, torch.Tensor):
-        samples_min_xb = samples_min_xb.item()
-        samples_max_xb = samples_max_xb.item()
-    
-        samples_min_g_u_real = samples_min_g_u_real.item()
-        samples_max_g_u_real = samples_max_g_u_real.item()
-    
-        samples_min_g_u_imag = samples_min_g_u_imag.item()
-        samples_max_g_u_imag = samples_max_g_u_imag.item()
+    if keys is None:
+        keys = ['xb', 'xt'] + getattr(original_dataset, 'output_keys', [])
 
-    min_max_params = {'xb' : {'min' : samples_min_xb, 'max' : samples_max_xb},
-                      'g_u_real' : {'min' : samples_min_g_u_real, 'max' : samples_max_g_u_real},
-                      'g_u_imag' : {'min' : samples_min_g_u_imag, 'max' : samples_max_g_u_imag}}
+    min_max_params = {key: {'min': float('inf'), 'max': -float('inf')} for key in keys}
+
+    for idx in indices:
+        sample = original_dataset[idx]
+
+        for key in keys:
+            if key == 'xt':
+                values = original_dataset.get_trunk()
+            else:
+                values = sample[key]
+
+            if isinstance(values, torch.Tensor):
+                values = values.detach().cpu().numpy()
+
+            min_max_params[key]['min'] = min(min_max_params[key]['min'], np.min(values))
+            min_max_params[key]['max'] = max(min_max_params[key]['max'], np.max(values))
 
     return min_max_params
+
+
 
 def get_gaussian_norm_params(loader):
     samples_sum_xb = torch.zeros(1)
@@ -189,10 +231,43 @@ def get_trunk_normalization_params(xt):
                         'max' : [r.max(), z.max()]}
     return min_max_params
 
-def compute_pod_modes(data, variance_share=0.95):
-    U, S, _ = torch.linalg.svd(data)
-    explained_variance_ratio = torch.cumsum(S**2, dim=0) / torch.linalg.norm(S)**2
-    most_significant_modes = (explained_variance_ratio < variance_share).sum() + 1
-    pod_modes = U[ : , : most_significant_modes]
 
-    return pod_modes
+def get_pod_parameters(train_dataset, variance_share=0.95):
+    """
+    Computes the POD basis and mean functions from the training data.
+
+    Args:
+        train_dataset (torch.utils.data.Subset): Training dataset.
+        num_modes (int): Number of POD modes to retain per output.
+
+    Returns:
+        torch.Tensor: POD basis matrices, shape (n_outputs, num_modes, features)
+        torch.Tensor: Mean functions, shape (n_outputs, features)
+    """
+    n_outputs = train_dataset.dataset.n_outputs
+    pod_basis_list = []
+    mean_functions_list = []
+    
+    for i in range(n_outputs):
+        if i == 0:
+            outputs = torch.stack([train_dataset.dataset[idx]['g_u_real'] for idx in train_dataset.indices], dim=0)
+            outputs = torch.stack([train_dataset.dataset[idx]['g_u_imag'] for idx in train_dataset.indices], dim=0)
+        else:
+            outputs = torch.stack([train_dataset.dataset[idx][f'g_u_{i}'] for idx in train_dataset.indices], dim=0)
+        
+        mean = torch.mean(outputs, dim=0)
+        mean_functions_list.append(mean)
+        
+        centered = outputs - mean
+        
+        U, S, _ = torch.linalg.svd(centered)
+        explained_variance_ratio = torch.cumsum(S**2, dim=0) / torch.linalg.norm(S)**2
+        most_significant_modes = (explained_variance_ratio < variance_share).sum() + 1
+        basis = U[ : , : most_significant_modes]
+        
+        pod_basis_list.append(basis)
+    
+    pod_basis = torch.stack(pod_basis_list, dim=0)
+    mean_functions = torch.stack(mean_functions_list, dim=0)
+    
+    return pod_basis, mean_functions
