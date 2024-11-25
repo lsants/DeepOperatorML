@@ -130,8 +130,9 @@ def create_model(model_params, **kwargs):
     elif training_strategy_name == 'two_step':
         batch_size = kwargs.get('train_dataset_length')
         if batch_size is None:
-            raise ValueError("Batch size must be provided for TwoStepTrainingStrategy.")
-        training_strategy = TwoStepTrainingStrategy(train_dataset_length=batch_size)
+            training_strategy = TwoStepTrainingStrategy()
+        else:
+            training_strategy = TwoStepTrainingStrategy(train_dataset_length=batch_size)
 
     elif training_strategy_name == 'standard':
         training_strategy = StandardTrainingStrategy()
@@ -178,51 +179,33 @@ def initialize_model(model_folder, model_name, device, precision):
     model_path = os.path.join(model_folder, f"model_state_{model_name}.pth")
     config_path = os.path.join(model_folder, f"model_info_{model_name}.yaml")
 
-    # Ensure configuration file exists
-    if not os.path.exists(config_path):
-        raise FileNotFoundError(f"Configuration file not found: {config_path}")
     
-    # Load configuration
     with open(config_path, 'r') as file:
         model_params = yaml.safe_load(file)
 
     model_params['DEVICE'] = device
     model_params['PRECISION'] = precision
 
-    # Ensure model file exists
-    if not os.path.exists(model_path):
-        raise FileNotFoundError(f"Model file not found: {model_path}")
-
     # Load checkpoint
-    checkpoint = torch.load(model_path, map_location=device)
-    if not checkpoint or 'model_state_dict' not in checkpoint:
-        raise ValueError(f"Invalid or corrupted checkpoint file: {model_path}")
+    checkpoint = torch.load(model_path, map_location=device, weights_only=True)
 
-    # Load POD-specific parameters if needed
     pod_basis = checkpoint.get('POD_basis', None)
     mean_functions = checkpoint.get('mean_functions', None)
 
-    # Create model
     model, _ = create_model(
         model_params,
         pod_basis=pod_basis,
         mean_functions=mean_functions,
     )
 
-    # Load model state
-    try:
-        model.load_state_dict(checkpoint['model_state_dict'])
-    except KeyError as e:
-        raise ValueError(f"Key 'model_state_dict' missing in checkpoint: {e}")
-    except RuntimeError as e:
-        raise ValueError(f"Mismatch in model and checkpoint state dict: {e}")
+    model.load_state_dict(checkpoint['model_state_dict'])
 
-    # Load additional parameters for specific strategies
     training_strategy = model_params.get('TRAINING_STRATEGY', '').lower()
     if training_strategy == 'two_step':
-        model.set_Q(checkpoint.get('Q', torch.tensor([])).to(device, dtype=getattr(torch, precision)))
-        model.set_R(checkpoint.get('R', torch.tensor([])).to(device, dtype=getattr(torch, precision)))
-        model.set_T(checkpoint.get('T', torch.tensor([])).to(device, dtype=getattr(torch, precision)))
+        print(checkpoint.keys())
+        model.training_strategy.set_matrices(Q_list=checkpoint.get('Q'),
+                                                     R_list=checkpoint.get('R'),
+                                                     T_list=checkpoint.get('T'))
     elif training_strategy == 'pod':
         if pod_basis is not None:
             model.get_basis(pod_basis.to(device, dtype=getattr(torch, precision)))

@@ -71,7 +71,7 @@ class Saver:
             return str(obj)
 
     def save_checkpoint(self, model_state_dict, optimizer_state_dict, epoch, phase=None):
-        filename = f'{phase or "default"}_checkpoint_{self.name}_epoch_{epoch}.pth'
+        filename = f'checkpoint_{self.name}_epoch_{epoch}.pth'
         model_path = self.make_output_dir(self.model_folder, filename)
         torch.save({
             'model_state_dict': model_state_dict,
@@ -81,14 +81,14 @@ class Saver:
         print(f"Checkpoint saved to {model_path}\n")
 
     def save_model(self, model_state, phase=None):
-        filename = f'{phase or "default"}_model_state_{self.name}.pth'
+        filename = f'model_state_{self.name}.pth'
         model_path = self.make_output_dir(self.model_folder, filename)
 
         torch.save(model_state, model_path)
         print(f"Model saved to {model_path}\n")
 
     def save_model_info(self, model_info_dict, phase=None):
-        filename = f'{phase or "default"}_model_info_{self.name}.yaml'
+        filename = f'model_info_{self.name}.yaml'
         model_info_path = self.make_output_dir(self.model_folder, filename)
         serializable_model_info = self.make_serializable(model_info_dict)
         with open(model_info_path, 'w') as f:
@@ -96,14 +96,14 @@ class Saver:
         print(f"Model information saved to {model_info_path}\n")
 
     def save_indices(self, indices_dict, phase=None):
-        filename = f'{phase or "default"}_indices_{self.name}.yaml'
+        filename = f'indices_{self.name}.yaml'
         indices_path = self.make_output_dir(self.data_output_folder, filename)
         with open(indices_path, 'w') as f:
             yaml.dump(indices_dict, f)
         print(f"Indices saved to {indices_path}\n")
 
     def save_norm_params(self, norm_params_dict, phase=None):
-        filename = f'{phase or "default"}_norm_params_{self.name}.yaml'
+        filename = f'norm_params_{self.name}.yaml'
         norm_params_path = self.make_output_dir(self.data_output_folder, filename)
         serializable_norm_params = self.make_serializable(norm_params_dict)
         with open(norm_params_path, 'w') as f:
@@ -111,7 +111,7 @@ class Saver:
         print(f"Normalization parameters saved to {norm_params_path}\n")
 
     def save_history(self, history_dict, phase=None, filename_prefix=None):
-        filename = f'{phase or "default"}_{filename_prefix or "history"}_{self.name}.yaml'
+        filename = f'{filename_prefix or "history"}_{self.name}.yaml'
         history_path = self.make_output_dir(self.data_output_folder, filename)
         serializable_history = self.make_serializable(history_dict)
         with open(history_path, 'w') as f:
@@ -120,7 +120,7 @@ class Saver:
 
     def save_plots(self, figure, phase=None, filename_prefix=None):
         prefix = f"{filename_prefix}_" if filename_prefix else ""
-        filename = f'{phase or "default"}_{prefix}plot_{self.name}.png'
+        filename = f'{prefix}plot_{self.name}.png'
         fig_path = self.make_output_dir(self.figures_folder, filename)
         figure.savefig(fig_path)
         print(f"Figure saved to {fig_path}\n")

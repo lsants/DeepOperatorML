@@ -173,6 +173,9 @@ class TrainingLoop:
                 if not self.training_strategy.can_validate():
                     best_model_checkpoint = {
                         'model_state_dict': self.model.state_dict(),
+                        'Q': self.training_strategy.Q_list,
+                        'T': self.training_strategy.T_list,
+                        'R': self.training_strategy.R_list,
                         'optimizer_state_dict': self.optimizers['optimizer'].state_dict() if self.optimizers.get('optimizer') else None,
                         'val_loss': None
                     }
@@ -221,7 +224,7 @@ class TrainingLoop:
 
         self.saver(
             phase=self.training_strategy.current_phase,
-            model_state=best_model_checkpoint['model_state_dict'] if best_model_checkpoint else None,
+            model_state=best_model_checkpoint,
             model_info=self.p,
             split_indices=self.p['TRAIN_INDICES'],
             norm_params=self.p['NORMALIZATION_PARAMETERS'],

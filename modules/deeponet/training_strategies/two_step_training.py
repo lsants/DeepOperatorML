@@ -3,9 +3,10 @@ from .training_strategy_base import TrainingStrategy
 from ..loss_functions.loss_complex import loss_complex
 
 class TwoStepTrainingStrategy(TrainingStrategy):
-    def __init__(self, train_dataset_length):
-
+    def __init__(self, train_dataset_length=None):
         self.train_dataset_length = train_dataset_length
+        if not self.train_dataset_length:
+            print("Initializing the model without A matrix. Only do this if you're doing inference.")
         self.A_list = None
         self.Q_list = []
         self.R_list = []
@@ -23,14 +24,15 @@ class TwoStepTrainingStrategy(TrainingStrategy):
 
     def prepare_training(self, model, **kwargs):
         branch_output_size = getattr(model.output_strategy, 'branch_output_dim')
-        A_dim = (branch_output_size, self.train_dataset_length)
+        if self.train_dataset_length:
+            A_dim = (branch_output_size, self.train_dataset_length)
 
-        self.A_list = torch.nn.ParameterList([
-            torch.nn.Parameter(torch.randn(A_dim))
-            for _ in range(len(model.branch_networks))
-        ])
-        for A in self.A_list:
-            torch.nn.init.kaiming_uniform_(A)
+            self.A_list = torch.nn.ParameterList([
+                torch.nn.Parameter(torch.randn(A_dim))
+                for _ in range(len(model.branch_networks))
+            ])
+            for A in self.A_list:
+                torch.nn.init.kaiming_uniform_(A)
     
     def prepare_for_phase(self, model, **kwargs):
         params = kwargs.get('model_params')
@@ -254,3 +256,17 @@ class TwoStepTrainingStrategy(TrainingStrategy):
                     f"Trunk decomposition failed. At least one of the matrices wasn't stored.")
             else:
                 print(f"Trunk decomposed successfully. \nMoving on to second step...")
+
+    def set_matrices(self, **kwargs):
+        self.Q_list = kwargs.get('Q_list')
+        self.R_list = kwargs.get('R_list')
+        self.T_list = kwargs.get('T_list')
+
+        if not self.Q_list:
+            raise ValueError("ERROR: Q matrices couldn't be assigned.")
+        if not self.R_list:
+            raise ValueError("ERROR: R matrices couldn't be assigned.")
+        if not self.T_list:
+            raise ValueError("ERROR: T matrices couldn't be assigned.")
+        self.trained_trunk_list = [Q @ R @ T for Q, R, T in 
+                                    zip(self.Q_list, self.R_list, self.T_list)]
