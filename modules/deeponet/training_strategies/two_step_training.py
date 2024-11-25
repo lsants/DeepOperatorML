@@ -1,0 +1,256 @@
+import torch
+from .training_strategy_base import TrainingStrategy
+from ..loss_functions.loss_complex import loss_complex
+
+class TwoStepTrainingStrategy(TrainingStrategy):
+    def __init__(self, train_dataset_length):
+
+        self.train_dataset_length = train_dataset_length
+        self.A_list = None
+        self.Q_list = []
+        self.R_list = []
+        self.T_list = []
+        self.trained_trunk_list = []
+        self.phases = ['trunk', 'branch', 'final']
+        self.current_phase = self.phases[0]
+
+    def get_epochs(self, params):
+            return [params['TRUNK_TRAIN_EPOCHS'], params['BRANCH_TRAIN_EPOCHS']]
+
+    def update_training_phase(self, phase, **kwargs):
+        self.current_phase = phase
+        print(f'Current phase: {self.current_phase}')
+
+    def prepare_training(self, model, **kwargs):
+        branch_output_size = getattr(model.output_strategy, 'branch_output_dim')
+        A_dim = (branch_output_size, self.train_dataset_length)
+
+        self.A_list = torch.nn.ParameterList([
+            torch.nn.Parameter(torch.randn(A_dim))
+            for _ in range(len(model.branch_networks))
+        ])
+        for A in self.A_list:
+            torch.nn.init.kaiming_uniform_(A)
+    
+    def prepare_for_phase(self, model, **kwargs):
+        params = kwargs.get('model_params')
+        xt = kwargs.get('train_batch')
+        self._set_phase_params(model, self.current_phase)
+        if self.current_phase == 'branch':
+            self.update_q_r_t_matrices(model, params, xt)
+            with torch.no_grad():
+                self.branch_matrices = {
+                    'trunk_matrices': self.R_list,  # R
+                    'branch_matrices': self.A_list  # A
+                }
+
+    def _set_phase_params(self, model, phase):
+        if phase == 'trunk':
+            self._freeze_branch(model)
+            self._unfreeze_trunk(model)
+        elif phase == 'branch':
+            self._freeze_trunk(model)
+            self._unfreeze_branch(model)
+
+    def _freeze_trunk(self, model):
+        for trunk in model.trunk_networks:
+            for param in trunk.parameters():
+                param.requires_grad = False
+        for A in self.A_list:
+            A.requires_grad = False
+
+    def _unfreeze_trunk(self, model):
+        for trunk in model.trunk_networks:
+            for param in trunk.parameters():
+                param.requires_grad = True
+        for A in self.A_list:
+            A.requires_grad = True
+
+    def _freeze_branch(self, model):
+        for branch in model.branch_networks:
+            for param in branch.parameters():
+                param.requires_grad = False
+
+    def _unfreeze_branch(self, model):
+        for branch in model.branch_networks:
+            for param in branch.parameters():
+                param.requires_grad = True
+   
+    def compute_loss(self, outputs, batch, model, params, **kwargs):
+        if self.current_phase == 'trunk':
+            targets = tuple(batch[key] for key in params['OUTPUT_KEYS'])
+            loss = loss_complex(targets, outputs)
+        elif self.current_phase == 'branch':
+            targets = model.output_strategy.forward(
+                model, 
+                data_branch=None, 
+                data_trunk=None, 
+                matrices_branch=self.A_list, 
+                matrices_trunk=self.R_list
+            )
+
+            loss = loss_complex(targets, outputs)
+        elif self.current_phase == 'final':
+            targets = tuple(batch[key] for key in params['OUTPUT_KEYS'])
+            loss = loss_complex(targets, outputs)
+        else:
+            raise ValueError(f"Unknown training phase: {self.current_phase}")
+        return loss
+
+    def compute_errors(self, outputs, batch, model, params, **kwargs):
+        errors = {}
+        if self.current_phase in ['trunk', 'final']:
+            targets = {k:v for k,v in batch.items() if k in params['OUTPUT_KEYS']}
+            for key, target, pred in zip(params['OUTPUT_KEYS'], targets.values(), outputs):
+                if key in params['OUTPUT_KEYS']:
+                    error = (
+                        torch.linalg.vector_norm(target - pred, ord=params['ERROR_NORM'])
+                        / torch.linalg.vector_norm(target, ord=params['ERROR_NORM'])
+                    ).item()
+                    errors[key] = error
+        elif self.current_phase == 'branch':
+            targets = model.output_strategy.forward(
+                model, 
+                data_branch=None, 
+                data_trunk=None, 
+                matrices_branch=self.A_list, 
+                matrices_trunk=self.R_list
+            )
+            for _, (key, target, pred) in enumerate(zip(params['OUTPUT_KEYS'], targets, outputs)):
+                error = (
+                    torch.linalg.vector_norm(target - pred, ord=params['ERROR_NORM'])
+                    / torch.linalg.vector_norm(target, ord=params['ERROR_NORM'])
+                ).item()
+                errors[key] = error
+        else:
+            raise ValueError(f"Unknown training phase: {self.current_phase}")
+        return errors
+
+    def can_validate(self):
+        return False
+
+    def after_epoch(self, epoch, model, params, **kwargs):
+        if self.current_phase == 'trunk' and epoch + 1 == params['TRUNK_TRAIN_EPOCHS']:
+            train_batch = kwargs.get('train_batch')
+            self.update_q_r_t_matrices(model, params, train_batch)
+            print(f"Trunk matrices updated and phase transition triggered at epoch {epoch + 1}")
+
+    def get_optimizers(self, model, params):
+        optimizers = {}
+
+        trunk_params = []
+        for trunk in model.trunk_networks:
+            trunk_params += list(trunk.parameters())
+        trunk_params += list(self.A_list)
+        optimizers['trunk_optimizer'] = torch.optim.Adam(
+            trunk_params, lr=params['TRUNK_LEARNING_RATE'], weight_decay=params['L2_REGULARIZATION'])
+        
+        branch_params = []
+        for branch in model.branch_networks:
+            branch_params += list(branch.parameters())
+        optimizers['branch_optimizer'] = torch.optim.Adam(
+            branch_params, lr=params['BRANCH_LEARNING_RATE'], weight_decay=params['L2_REGULARIZATION'])
+
+        return optimizers
+    
+    def get_schedulers(self, optimizers, params):
+        schedulers = {}
+        schedulers['trunk_scheduler'] = torch.optim.lr_scheduler.StepLR(
+            optimizers['trunk_optimizer'],
+            step_size=params['TRUNK_SCHEDULER_STEP_SIZE'],
+            gamma=params['TRUNK_SCHEDULER_GAMMA']
+        )
+        schedulers['branch_scheduler'] = torch.optim.lr_scheduler.StepLR(
+            optimizers['branch_optimizer'],
+            step_size=params['BRANCH_SCHEDULER_STEP_SIZE'],
+            gamma=params['BRANCH_SCHEDULER_GAMMA']
+        )
+        return schedulers
+    
+    def zero_grad(self, optimizers):
+        if self.current_phase == 'trunk':
+            optimizers['trunk_optimizer'].zero_grad()
+        elif self.current_phase == 'branch':
+            optimizers['branch_optimizer'].zero_grad()
+
+    def step(self, optimizers):
+        if self.current_phase == 'trunk':
+            optimizers['trunk_optimizer'].step()
+        elif self.current_phase == 'branch':
+            optimizers['branch_optimizer'].step()
+
+    def step_schedulers(self, schedulers):
+        if self.current_phase == 'trunk':
+            schedulers['trunk_scheduler'].step()
+        elif self.current_phase == 'branch':
+            schedulers['branch_scheduler'].step()
+
+
+    def get_trunk_output(self, model, i, xt_i):
+        return model.trunk_networks[i % len(model.trunk_networks)](xt_i)
+
+    def get_branch_output(self, model, i, xb_i):
+        branch_output = model.branch_networks[i % len(model.branch_networks)](xb_i)
+        return branch_output.T
+
+    def forward(self, model, xb, xt):
+        if self.current_phase == 'trunk':
+            input_branch = self.A_list
+            input_trunk = xt
+            return model.output_strategy.forward(model, 
+                                                 data_branch=None, 
+                                                 data_trunk=input_trunk, 
+                                                 matrices_branch=input_branch, 
+                                                 matrices_trunk=None)
+        elif self.current_phase == 'branch':
+            input_branch = xb
+            input_trunk = [aij @ bij for aij, bij in zip(self.T_list, self.R_list)]
+            return model.output_strategy.forward(model, 
+                                                 data_branch=input_branch, 
+                                                 data_trunk=None, 
+                                                 matrices_branch=None, 
+                                                 matrices_trunk=input_trunk)
+        else:
+            input_branch = xb
+            input_trunk = self.trained_trunk_list
+            return model.output_strategy.forward(model, 
+                                                 data_branch=xb, 
+                                                 data_trunk=None, 
+                                                 matrices_branch=None, 
+                                                 matrices_trunk=input_trunk)
+
+
+    def update_q_r_t_matrices(self, model, params,  xt):
+        with torch.no_grad():
+            trunks = model.trunk_networks
+            decomposition = params.get('TRUNK_DECOMPOSITION')
+            for trunk in trunks:
+                phi = trunk(xt)
+                if decomposition.lower() == 'qr':
+                    Q, R = torch.linalg.qr(phi)
+                    self.Q_list.append(Q)
+                    self.R_list.append(R)
+
+                if decomposition.lower() == 'svd':
+                    Q, Sd, Vd = torch.linalg.svd(phi, full_matrices=False)
+                    R = torch.diag(Sd) @ Vd
+                    print(phi.shape, 'Phi matrix')
+                    print(Q.shape, R.shape, 'QR Decomposition matrices')
+                    self.Q_list.append(Q)
+                    self.R_list.append(R)
+
+                T = torch.linalg.inv(R)
+                self.T_list.append(torch.linalg.inv(R))
+
+                self.trained_trunk_list.append(Q @ R @ T)
+
+                print(f"Q shape: {Q.shape}, R shape: {R.shape}, T shape: {T.shape}")
+                print(f"Reconstructed Phi shape: {(Q @ R @ T).shape}")
+                print(f"Q @ R == Phi check: {torch.allclose(Q @ R, phi, atol=1e-6)}")
+
+
+            if not self.Q_list or not self.R_list or not self.T_list:
+                raise ValueError(
+                    f"Trunk decomposition failed. At least one of the matrices wasn't stored.")
+            else:
+                print(f"Trunk decomposed successfully. \nMoving on to second step...")
