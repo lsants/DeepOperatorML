@@ -157,3 +157,6 @@ cython_debug/
 /images
 /models
 /axsgrscelib
+
+# macosx file that escaped into the repo
+.DS_Store
