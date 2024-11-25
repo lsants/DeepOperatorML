@@ -1,5 +1,5 @@
 # Parameters for training DeepONets.
-MODELNAME: 20241121_deeponet_two_step_resnet_resnet_input_normalization_feature_expansion
+MODELNAME: 20241121_deeponet_standard_in_norm_trunk_expansion
 
 # Location of test file info
 DATAFILE: ./data/raw/displacements.npz
@@ -14,7 +14,7 @@ OUTPUT_LOG_FOLDER: ./data/output/
 IMAGES_FOLDER: ./images/two_step_inference_plots/
 
 # Data type, device, and error norm
-PRECISION: torch.float32
+PRECISION: float32
 DEVICE: cpu
 
 PLOT_FIELD: true
