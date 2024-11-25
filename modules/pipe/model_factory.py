@@ -2,13 +2,13 @@ import os
 import yaml
 import torch
 
-from ..modules.deeponet.deeponet import DeepONet
-from ..modules.deeponet.training_strategies import (
+from ..deeponet.deeponet import DeepONet
+from ..deeponet.training_strategies import (
     StandardTrainingStrategy,
     TwoStepTrainingStrategy,
     PODTrainingStrategy
 )
-from ..modules.deeponet.output_strategies import (
+from ..deeponet.output_strategies import (
     SingleTrunkSplitBranchStrategy,
     MultipleTrunksSplitBranchStrategy,
     SingleTrunkMultipleBranchesStrategy,

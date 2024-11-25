@@ -1,9 +1,9 @@
 import time
 import torch
-from ..data_processing import preprocessing as ppr
 from tqdm.auto import tqdm
-from ..modules.plotting.plot_training import plot_training, align_epochs
-from pipe.store_ouptuts import HistoryStorer
+from .store_ouptuts import HistoryStorer
+from ..data_processing import preprocessing as ppr
+from ..plotting.plot_training import plot_training, align_epochs
 
 class TrainingLoop:
     def __init__(self, model, training_strategy, saver, params):

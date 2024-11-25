@@ -2,12 +2,12 @@ import time
 import torch
 import numpy as np
 from modules.utilities import dir_functions
-from data_processing import preprocessing as ppr
-from pipe.saving import Saver
-from pipe.training import TrainingLoop
-from pipe.model_factory import create_model
-from data_processing.compose_transformations import Compose
-from data_processing.greenfunc_dataset import GreenFuncDataset
+from modules.data_processing import preprocessing as ppr
+from modules.pipe.saving import Saver
+from modules.pipe.training import TrainingLoop
+from modules.pipe.model_factory import create_model
+from modules.data_processing.compose_transformations import Compose
+from modules.data_processing.greenfunc_dataset import GreenFuncDataset
 
 # --------------------------- Load params file ------------------------
 p = dir_functions.load_params('params_model.yaml')
