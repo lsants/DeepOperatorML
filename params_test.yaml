@@ -1,5 +1,5 @@
 # Parameters for training DeepONets.
-MODELNAME: 20241121_deeponet_standard_in_norm_trunk_expansion
+MODELNAME: 20241121_deeponet_two_step_in_norm_trunk_expansion
 
 # Location of test file info
 DATAFILE: ./data/raw/displacements.npz

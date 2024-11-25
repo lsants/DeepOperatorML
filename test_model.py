@@ -4,12 +4,11 @@ import numpy as np
 from tqdm.auto import tqdm
 from modules.plotting import plot_labels_axis
 from modules.utilities import dir_functions
-from data_processing import preprocessing as ppr
-from pipe.saving import Saver
-from pipe.model_factory import initialize_model
+from modules.data_processing import preprocessing as ppr
+from modules.pipe.saving import Saver
+from modules.pipe.model_factory import initialize_model
 # from modules.animation import animate_wave
-from modules.test_evaluator import TestEvaluator
-from data_processing.greenfunc_dataset import GreenFuncDataset
+from modules.data_processing.greenfunc_dataset import GreenFuncDataset
 
 # ----------------------------- Load params file ------------------------
 p = dir_functions.load_params('params_test.yaml')
