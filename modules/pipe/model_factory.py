@@ -211,6 +211,7 @@ def initialize_model(model_folder, model_name, device, precision):
             model.get_basis(pod_basis.to(device, dtype=getattr(torch, precision)))
         if mean_functions is not None:
             model.get_mean_functions(mean_functions.to(device, dtype=getattr(torch, precision)))
-
+    
+    model.training_strategy.inference_mode()
     model.eval()
     return model, model_params

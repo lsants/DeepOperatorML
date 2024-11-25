@@ -2,13 +2,26 @@ import time
 import torch
 import numpy as np
 from tqdm.auto import tqdm
-from modules.plotting import plot_labels_axis
 from modules.utilities import dir_functions
 from modules.data_processing import preprocessing as ppr
 from modules.pipe.saving import Saver
 from modules.pipe.model_factory import initialize_model
 # from modules.animation import animate_wave
+from modules.plotting.plot_comparison import plot_field_comparison, plot_axis_comparison
+from modules.plotting.plot_labels_axis import plot_labels_axis
 from modules.data_processing.greenfunc_dataset import GreenFuncDataset
+
+class TestEvaluator:
+    def __init__(self, model, error_norm):
+        self.model = model
+        self.error_norm = error_norm
+
+    def __call__(self, g_u, pred):
+        self.model.eval()
+        with torch.no_grad():
+            test_error = torch.linalg.vector_norm((pred - g_u), ord=self.error_norm)\
+                        / torch.linalg.vector_norm(g_u, ord=self.error_norm)
+        return test_error.detach().numpy()
 
 # ----------------------------- Load params file ------------------------
 p = dir_functions.load_params('params_test.yaml')
@@ -149,7 +162,9 @@ g_u = g_u_real + g_u_imag * 1j
 g_u = ppr.reshape_from_model(g_u, xt_plot)
 
 if config['TRAINING_STRATEGY'] == 'two_step':
-    basis_modes = (model.trained_trunk).T
+    trunks = [i for i in model.training_strategy.trained_trunk_list]
+    first_set_of_modes = trunks[0]
+    basis_modes = (first_set_of_modes).T
 elif config['TRAINING_STRATEGY'] == 'pod':
     basis_modes = torch.transpose(model.basis, 1, 2)
     basis_modes = torch.transpose(basis_modes, 0, 1)
@@ -171,10 +186,10 @@ else:
 for i in tqdm(range(s), colour='MAGENTA'):
     freq = inference_dataset['xb'][i].item()
     if p['PLOT_FIELD']:
-        fig_field = plot_labels_axis.plot_field_comparison(r, z, g_u[i], preds[i], freq)
+        fig_field = plot_field_comparison(r, z, g_u[i], preds[i], freq)
         saver(figure=fig_field, figure_prefix=f"field_for_{freq:.2f}")
     if p['PLOT_AXIS']:
-        fig_axis = plot_labels_axis.plot_axis_comparison(r, z, g_u[i], preds[i], freq)
+        fig_axis = plot_axis_comparison(r, z, g_u[i], preds[i], freq)
         saver(figure=fig_axis, figure_prefix=f"axis_for_{freq:.2f}")
 
 if p['PLOT_BASIS']:

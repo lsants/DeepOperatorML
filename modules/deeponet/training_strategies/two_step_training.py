@@ -216,7 +216,7 @@ class TwoStepTrainingStrategy(TrainingStrategy):
             input_branch = xb
             input_trunk = self.trained_trunk_list
             return model.output_strategy.forward(model, 
-                                                 data_branch=xb, 
+                                                 data_branch=input_branch, 
                                                  data_trunk=None, 
                                                  matrices_branch=None, 
                                                  matrices_trunk=input_trunk)
@@ -270,3 +270,6 @@ class TwoStepTrainingStrategy(TrainingStrategy):
             raise ValueError("ERROR: T matrices couldn't be assigned.")
         self.trained_trunk_list = [Q @ R @ T for Q, R, T in 
                                     zip(self.Q_list, self.R_list, self.T_list)]
+
+    def inference_mode(self):
+        self.current_phase = 'final'

@@ -10,6 +10,10 @@ class TrainingStrategy(ABC):
     @abstractmethod
     def prepare_training(self, model):
         pass
+
+    @abstractmethod
+    def inference_mode(self):
+        pass
     
     def get_phases(self):
         return self.phases

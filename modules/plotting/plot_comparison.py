@@ -1,5 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
+import matplotlib.colors as colors
 
 def plot_field_comparison(r, z, wd, g_u, freq, full=True, non_dim_plot=True):
     R, Z = np.meshgrid(r, z)
@@ -62,9 +63,9 @@ def plot_field_comparison(r, z, wd, g_u, freq, full=True, non_dim_plot=True):
     plot_imag_min = min(np.min(g_u_imag), np.min(wd_imag))
     plot_imag_max = max(np.max(g_u_imag), np.max(wd_imag))
 
-    plot_norm_abs = Normalize(vmin=plot_abs_min, vmax=plot_abs_max)
-    plot_norm_real = Normalize(vmin=plot_real_min, vmax=plot_real_max)
-    plot_norm_imag = Normalize(vmin=plot_imag_min, vmax=plot_imag_max)
+    plot_norm_abs = colors.Normalize(vmin=plot_abs_min, vmax=plot_abs_max)
+    plot_norm_real = colors.Normalize(vmin=plot_real_min, vmax=plot_real_max)
+    plot_norm_imag = colors.Normalize(vmin=plot_imag_min, vmax=plot_imag_max)
 
     # Defining figure
     fig, ax = plt.subplots(nrows=3,
