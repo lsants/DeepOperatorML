@@ -1,19 +1,13 @@
-# train_model.py
-
 import time
-import copy
 import torch
 import numpy as np
-from tqdm.auto import tqdm
-from modules import dir_functions
-from modules import preprocessing as ppr
-from modules.saving import Saver
-from modules.training import TrainingLoop
-from modules.plotting import plot_training
-from modules.model_factory import create_model
-from modules.train_evaluator import TrainEvaluator
-from modules.compose_transformations import Compose
-from modules.greenfunc_dataset import GreenFuncDataset
+from modules.utilities import dir_functions
+from data_processing import preprocessing as ppr
+from pipe.saving import Saver
+from pipe.training import TrainingLoop
+from pipe.model_factory import create_model
+from data_processing.compose_transformations import Compose
+from data_processing.greenfunc_dataset import GreenFuncDataset
 
 # --------------------------- Load params file ------------------------
 p = dir_functions.load_params('params_model.yaml')
@@ -28,12 +22,11 @@ transformations = Compose([
     to_tensor_transform
 ])
 
-data = np.load(p['DATAFILE'], allow_pickle=True)  # Ensure correct loading
+data = np.load(p['DATAFILE'], allow_pickle=True)
 output_keys = ['g_u_real', 'g_u_imag']
 dataset = GreenFuncDataset(data, transformations, output_keys=output_keys)
 
-# Get outputs count from dataset
-n_outputs = dataset.n_outputs  # Ensure 'n_outputs' is defined in GreenFuncDataset
+n_outputs = dataset.n_outputs
 
 train_dataset, val_dataset, test_dataset = torch.utils.data.random_split(dataset, [p['TRAIN_PERC'], p['VAL_PERC'], p['TEST_PERC']])
 
@@ -44,6 +37,7 @@ dataset_indices = {'train': train_dataset.indices,
 p['TRAIN_INDICES'] = train_dataset.indices
 p['VAL_INDICES'] = val_dataset.indices
 p['TEST_INDICES'] = test_dataset.indices
+p['OUTPUT_KEYS'] = output_keys
 
 p['A_DIM'] = (p['BASIS_FUNCTIONS'], len(p['TRAIN_INDICES']))
 
@@ -66,7 +60,6 @@ normalize_trunk = ppr.Scaling(min_val=xt_min, max_val=xt_max)
 normalize_g_u_real = ppr.Scaling(min_val=g_u_real_min, max_val=g_u_real_max)
 normalize_g_u_imag = ppr.Scaling(min_val=g_u_imag_min, max_val=g_u_imag_max)
 
-# Store normalization parameters in p["NORMALIZATION_PARAMETERS"]
 p["NORMALIZATION_PARAMETERS"] = {
     "xb": {
         "min": xb_min,
@@ -99,14 +92,12 @@ model, model_name = create_model(
     model_params=p,
     pod_basis=p.get('pod_basis'),
     mean_functions=p.get('mean_functions'),
-    A_dim=p.get('A_DIM')
+    train_dataset_length=len(train_dataset)
 )
 
 p['MODELNAME'] = model_name
-# print(model)
 
 # ---------------------------------- Initializing classes for training  -------------------
-evaluator = TrainEvaluator(p['ERROR_NORM'])
 
 saver = Saver(
     model_name=p['MODELNAME'], 
@@ -122,7 +113,6 @@ training_strategy = model.training_strategy
 training_loop = TrainingLoop(
     model=model,
     training_strategy=training_strategy,
-    evaluator=evaluator,
     saver=saver,
     params=p
 )
@@ -133,7 +123,7 @@ def get_single_batch(dataset, indices):
 
     batch = {}
     batch['xb'] = torch.stack([dataset[idx]['xb'] for idx in indices], dim=0).to(dtype=dtype, device=device)
-    batch['xt'] = torch.tensor(dataset.get_trunk(), dtype=dtype, device=device)
+    batch['xt'] = dataset.get_trunk()
     batch['g_u_real'] = torch.stack([dataset[idx]['g_u_real'] for idx in indices], dim=0).to(dtype=dtype, device=device)
     batch['g_u_imag'] = torch.stack([dataset[idx]['g_u_imag'] for idx in indices], dim=0).to(dtype=dtype, device=device)
     return batch
