@@ -1,5 +1,5 @@
 # Parameters for training DeepONets.
-MODELNAME: 20241121_deeponet_two_step_in_norm_trunk_expansion
+MODELNAME: 20241224_deeponet_standard_in_norm_trunk_expansion
 
 # Location of test file info
 DATAFILE: ./data/raw/displacements.npz
@@ -22,5 +22,5 @@ PLOT_AXIS: false
 PLOT_BASIS: true
 
 INFERENCE_ON: test
-SAMPLES_TO_PLOT: all
-BASIS_TO_PLOT: all
+SAMPLES_TO_PLOT: 5
+BASIS_TO_PLOT: 5
