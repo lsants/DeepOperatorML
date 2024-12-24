@@ -1,18 +1,10 @@
 import torch
 from  .training_strategy_base import TrainingStrategy
-from ..loss_functions.loss_complex import loss_complex
+from ..optimization.loss_complex import loss_complex
 
 class PODTrainingStrategy(TrainingStrategy):
     def __init__(self, pod_basis, mean_functions):
-        """
-        Initializes the POD training strategy.
-
-        Args:
-            pod_basis (torch.Tensor): Precomputed POD basis matrices.
-                                       Shape: (n_outputs, num_modes, features)
-            mean_functions (torch.Tensor): Precomputed mean functions.
-                                           Shape: (n_outputs, features)
-        """
+        super().__init__()
         self.pod_basis = pod_basis
         self.mean_functions = mean_functions
 
@@ -31,7 +23,7 @@ class PODTrainingStrategy(TrainingStrategy):
             for param in trunk.parameters():
                 param.requires_grad = False
 
-    def update_training_phase(self, model, phase, params):
+    def update_training_phase(self, phase):
         """
         Not used here.
 
