@@ -8,7 +8,11 @@ class HistoryStorer:
         
         # Dynamically initialize history based on provided phases
         self.history = {
-            phase: {'train_loss': [], 'train_errors': [], 'val_loss': [], 'val_errors': []}
+            phase: {'train_loss': [], 
+                    'train_errors': [], 
+                    'val_loss': [], 
+                    'val_errors': [],
+                    'learning_rate': []}
             for phase in phases
         }
 
@@ -31,6 +35,11 @@ class HistoryStorer:
         if phase not in self.history:
             raise ValueError(f"Unknown phase: {phase}")
         self.history[phase]['val_errors'].append(errors)
+
+    def store_learning_rate(self, phase, learning_rate):
+        if phase not in self.history:
+            raise ValueError(f"Unknown phase: {phase}")
+        self.history[phase]['learning_rate'].append(learning_rate)
 
     def get_history(self):
         return self.history

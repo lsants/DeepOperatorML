@@ -107,52 +107,16 @@ class TrainingLoop:
 
                 self.training_strategy.zero_grad(self.optimizers)
                 loss.backward()
-                
-                # print("==== Gradients of Parameters ====")
-                # for name, param in self.model.named_parameters():
-                #     if param.requires_grad:
-                #         print(f"Parameter: {name}")
-                #         if param.grad is not None:
-                #             print(f"Gradient Mean: {param.grad.mean().item()}, Std: {param.grad.std().item()}")
-                #         else:
-                #             print("No gradient computed for this parameter!")
-                            
-               
-                # if hasattr(self.training_strategy, "A_list"):
-                #     for i, A in enumerate(self.training_strategy.A_list):
-                #         print(f"A_list[{i}] gradient:")
-                #         if A.grad is not None:
-                #             print(f"Gradient Mean: {A.grad.mean().item()}, Std: {A.grad.std().item()}")
-                #         else:
-                #             print("No gradient computed for A_list!")
-                # print("==============================")
 
                 print(f"Loss: {loss.item()}")
 
-                # print(self.optimizers)
-
                 self.training_strategy.step(self.optimizers)
-
-
-                # Print parameter names and shapes for the optimizer in each phase
-
-
-
-                # print(f"Optimizer Params for Branch Phase: {[p.size() for p in self.optimizers['optimizer'].param_groups[0]['params']]}")
-
-
-
 
                 errors = self.training_strategy.compute_errors(outputs, train_batch_processed, self.model, self.p)
 
-                # for group in optimizer.param_groups:
-                #     for param in group['params']:
-                #         print(f"Optimizer param: {param.shape}, requires_grad={param.requires_grad}")
-
-
-
                 self.storer.store_epoch_train_loss(current_phase, loss.item())
                 self.storer.store_epoch_train_errors(current_phase, errors)
+                self.storer.store_learning_rate(current_phase, self.optimizers[self.training_strategy.current_phase].param_groups[-1]['lr'])
 
                 if self.training_strategy.can_validate() and val_batch:
                     val_metrics = self._validate(val_batch)
@@ -176,11 +140,14 @@ class TrainingLoop:
                         'Q': self.training_strategy.Q_list,
                         'T': self.training_strategy.T_list,
                         'R': self.training_strategy.R_list,
-                        'optimizer_state_dict': self.optimizers['optimizer'].state_dict() if self.optimizers.get('optimizer') else None,
+                        'optimizer_state_dict': self.optimizers[self.training_strategy.current_phase].state_dict() if self.optimizers.get(self.training_strategy.current_phase) else None,
                         'val_loss': None
                     }
-                self.training_strategy.step_schedulers(self.schedulers)
+                if epoch < self.p[self.training_strategy.current_phase.upper() + '_CHANGE_AT_EPOCH']:
+                    self.training_strategy.step_schedulers(self.schedulers)
                 self.training_strategy.after_epoch(epoch, self.model, self.p, train_batch=train_batch_processed['xt'])
+
+
             
             phase_end_time = time.time()
             phase_duration = phase_end_time - phase_start_time
