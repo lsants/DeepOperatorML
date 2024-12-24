@@ -9,6 +9,7 @@ from modules.pipe.model_factory import initialize_model
 # from modules.animation import animate_wave
 from modules.plotting.plot_comparison import plot_field_comparison, plot_axis_comparison
 from modules.plotting.plot_labels_axis import plot_labels_axis
+from modules.plotting.plot_basis import plot_basis_function
 from modules.data_processing.greenfunc_dataset import GreenFuncDataset
 
 class TestEvaluator:
@@ -197,7 +198,7 @@ if p['PLOT_BASIS']:
         if config['TRAINING_STRATEGY'] == 'pod':
             fig_mode = plot_labels_axis.plot_pod_basis(r, z, basis_modes[i], index=i)
         else:
-            fig_mode = plot_labels_axis.plot_basis_function(r, z, basis_modes[i], index=i)
+            fig_mode = plot_basis_function(r, z, basis_modes[i], index=i)
         
         saver(figure=fig_mode, figure_prefix=f"pod_{i + 1}th_mode")
 
