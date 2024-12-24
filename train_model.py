@@ -43,8 +43,10 @@ p['A_DIM'] = (p['BASIS_FUNCTIONS'], len(p['TRAIN_INDICES']))
 
 if p['TRAINING_STRATEGY'] == 'pod':
     pod_basis, mean_functions = ppr.get_pod_parameters(
-        train_dataset, num_modes=p.get('NUM_MODES', 20)
+        train_dataset, num_modes=p.get('NUM_MODES'), labels=output_keys
     )
+    p['pod_basis'] = pod_basis
+    p['mean_functions'] = mean_functions
 
 # ------------------------------ Setup data normalization functions ------------------------
 
