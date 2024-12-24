@@ -1,17 +1,17 @@
 import torch
 from .training_strategy_base import TrainingStrategy
-from ..loss_functions.loss_complex import loss_complex
+from ..optimization.loss_complex import loss_complex
 
 class StandardTrainingStrategy(TrainingStrategy):
     def __init__(self):
         super().__init__()
-        self.phases = ['final']
+        self.phases = ['default']
 
     def get_epochs(self, params):
         return [params['EPOCHS']]
 
     def update_training_phase(self, phase):
-        if phase != 'final':
+        if phase != 'default':
             raise ValueError(f"Invalid phase for StandardTrainingStrategy: {phase}")
         self.current_phase = phase
 

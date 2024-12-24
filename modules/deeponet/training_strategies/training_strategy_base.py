@@ -1,17 +1,16 @@
 from abc import ABC, abstractmethod
 import torch
-from ..loss_functions.loss_complex import loss_complex
+from ..optimization.loss_complex import loss_complex
 
 class TrainingStrategy(ABC):
     def __init__(self):
-        self.phases = ['final']
-        self.current_phase = 'final'
+        self.phases = ['default']
+        self.current_phase = 'default'
 
     @abstractmethod
     def prepare_training(self, model):
         pass
 
-    @abstractmethod
     def inference_mode(self):
         pass
     
@@ -60,7 +59,7 @@ class TrainingStrategy(ABC):
         optimizer = torch.optim.Adam(list(model.parameters()), 
                                      lr=params['LEARNING_RATE'], 
                                      weight_decay=params['L2_REGULARIZATION'])
-        return {'optimizer': optimizer}
+        return {self.current_phase: optimizer}
 
     def get_schedulers(self, optimizers, params):
         if 'optimizer' in optimizers and optimizers['optimizer']:
@@ -76,16 +75,19 @@ class TrainingStrategy(ABC):
         return True
     
     def zero_grad(self, optimizers):
-        if 'optimizer' in optimizers and optimizers['optimizer']:
-            optimizers['optimizer'].zero_grad()
+        for _, optimizer in optimizers.items():
+            if optimizer is not None:
+                optimizer.zero_grad()
 
     def step(self, optimizers):
-        if 'optimizer' in optimizers and optimizers['optimizer']:
-            optimizers['optimizer'].step()
+        for _, optimizer in optimizers.items():
+            if optimizer is not None:
+                optimizer.step()
 
     def step_schedulers(self, schedulers):
-        if 'scheduler' in schedulers and schedulers['scheduler']:
-            schedulers['scheduler'].step()
+        for _, scheduler in schedulers.items():
+            if scheduler is not None:
+                scheduler.step()
 
     def forward(self, model, xb, xt):
         return model.output_strategy.forward(model, xb, xt)

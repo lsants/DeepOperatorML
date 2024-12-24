@@ -1,6 +1,6 @@
 import torch
 from .training_strategy_base import TrainingStrategy
-from ..loss_functions.loss_complex import loss_complex
+from ..optimization.loss_complex import loss_complex
 
 class TwoStepTrainingStrategy(TrainingStrategy):
     def __init__(self, train_dataset_length=None):
@@ -144,26 +144,26 @@ class TwoStepTrainingStrategy(TrainingStrategy):
         for trunk in model.trunk_networks:
             trunk_params += list(trunk.parameters())
         trunk_params += list(self.A_list)
-        optimizers['trunk_optimizer'] = torch.optim.Adam(
+        optimizers['trunk'] = torch.optim.Adam(
             trunk_params, lr=params['TRUNK_LEARNING_RATE'], weight_decay=params['L2_REGULARIZATION'])
         
         branch_params = []
         for branch in model.branch_networks:
             branch_params += list(branch.parameters())
-        optimizers['branch_optimizer'] = torch.optim.Adam(
+        optimizers['branch'] = torch.optim.Adam(
             branch_params, lr=params['BRANCH_LEARNING_RATE'], weight_decay=params['L2_REGULARIZATION'])
 
         return optimizers
     
     def get_schedulers(self, optimizers, params):
         schedulers = {}
-        schedulers['trunk_scheduler'] = torch.optim.lr_scheduler.StepLR(
-            optimizers['trunk_optimizer'],
+        schedulers['trunk'] = torch.optim.lr_scheduler.StepLR(
+            optimizers['trunk'],
             step_size=params['TRUNK_SCHEDULER_STEP_SIZE'],
             gamma=params['TRUNK_SCHEDULER_GAMMA']
         )
-        schedulers['branch_scheduler'] = torch.optim.lr_scheduler.StepLR(
-            optimizers['branch_optimizer'],
+        schedulers['branch'] = torch.optim.lr_scheduler.StepLR(
+            optimizers['branch'],
             step_size=params['BRANCH_SCHEDULER_STEP_SIZE'],
             gamma=params['BRANCH_SCHEDULER_GAMMA']
         )
@@ -171,21 +171,21 @@ class TwoStepTrainingStrategy(TrainingStrategy):
     
     def zero_grad(self, optimizers):
         if self.current_phase == 'trunk':
-            optimizers['trunk_optimizer'].zero_grad()
+            optimizers['trunk'].zero_grad()
         elif self.current_phase == 'branch':
-            optimizers['branch_optimizer'].zero_grad()
+            optimizers['branch'].zero_grad()
 
     def step(self, optimizers):
         if self.current_phase == 'trunk':
-            optimizers['trunk_optimizer'].step()
+            optimizers['trunk'].step()
         elif self.current_phase == 'branch':
-            optimizers['branch_optimizer'].step()
+            optimizers['branch'].step()
 
     def step_schedulers(self, schedulers):
         if self.current_phase == 'trunk':
-            schedulers['trunk_scheduler'].step()
+            schedulers['trunk'].step()
         elif self.current_phase == 'branch':
-            schedulers['branch_scheduler'].step()
+            schedulers['branch'].step()
 
 
     def get_trunk_output(self, model, i, xt_i):
