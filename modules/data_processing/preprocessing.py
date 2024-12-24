@@ -232,7 +232,7 @@ def get_trunk_normalization_params(xt):
     return min_max_params
 
 
-def get_pod_parameters(train_dataset, variance_share=0.95):
+def get_pod_parameters(train_dataset, num_modes, variance_share=0.95, **kwargs):
     """
     Computes the POD basis and mean functions from the training data.
 
@@ -244,16 +244,12 @@ def get_pod_parameters(train_dataset, variance_share=0.95):
         torch.Tensor: POD basis matrices, shape (n_outputs, num_modes, features)
         torch.Tensor: Mean functions, shape (n_outputs, features)
     """
-    n_outputs = train_dataset.dataset.n_outputs
+    outputs_names = kwargs.get('labels')
     pod_basis_list = []
     mean_functions_list = []
     
-    for i in range(n_outputs):
-        if i == 0:
-            outputs = torch.stack([train_dataset.dataset[idx]['g_u_real'] for idx in train_dataset.indices], dim=0)
-            outputs = torch.stack([train_dataset.dataset[idx]['g_u_imag'] for idx in train_dataset.indices], dim=0)
-        else:
-            outputs = torch.stack([train_dataset.dataset[idx][f'g_u_{i}'] for idx in train_dataset.indices], dim=0)
+    for i in outputs_names:
+        outputs = torch.stack([train_dataset.dataset[idx][i] for idx in train_dataset.indices], dim=0)
         
         mean = torch.mean(outputs, dim=0)
         mean_functions_list.append(mean)
@@ -262,7 +258,11 @@ def get_pod_parameters(train_dataset, variance_share=0.95):
         
         U, S, _ = torch.linalg.svd(centered)
         explained_variance_ratio = torch.cumsum(S**2, dim=0) / torch.linalg.norm(S)**2
-        most_significant_modes = (explained_variance_ratio < variance_share).sum() + 1
+        if variance_share:
+            most_significant_modes = (explained_variance_ratio < variance_share).sum() + 1
+        else:
+            most_significant_modes = num_modes
+
         basis = U[ : , : most_significant_modes]
         
         pod_basis_list.append(basis)
