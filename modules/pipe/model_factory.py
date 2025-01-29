@@ -10,7 +10,8 @@ from ..deeponet.training_strategies import (
 )
 from ..deeponet.output_strategies import (
     SingleTrunkSplitBranchStrategy,
-    MultipleTrunksSplitBranchStrategy,
+    SplitTrunkSingleBranchStrategy,
+    MultipleTrunksSingleBranchStrategy,
     SingleTrunkMultipleBranchesStrategy,
     MultipleTrunksMultipleBranchesStrategy
 )
@@ -57,6 +58,8 @@ def create_model(model_params, **kwargs):
         return activation_map[name]
     
     model_name = model_params.get('MODELNAME', 'DeepONet')
+    var_share = model_params.get('VAR_SHARE')
+    data = kwargs.get('train_data')
 
     trunk_input_size = model_params['TRUNK_INPUT_SIZE']
     if model_params.get('TRUNK_FEATURE_EXPANSION', False):
@@ -64,17 +67,15 @@ def create_model(model_params, **kwargs):
             2 * model_params['TRUNK_INPUT_SIZE'] * model_params['TRUNK_EXPANSION_FEATURES_NUMBER']
         )
 
+
     branch_architecture = model_params['BRANCH_ARCHITECTURE']
     trunk_architecture = model_params['TRUNK_ARCHITECTURE']
-    
-    basis_functions = model_params.get('BASIS_FUNCTIONS')
 
     branch_config = {
         'architecture': branch_architecture,
         'layers': (
             [model_params['BRANCH_INPUT_SIZE']]
             + model_params['BRANCH_HIDDEN_LAYERS']
-            + [model_params['BRANCH_HIDDEN_LAYERS'][-1]]
         ),
     }
 
@@ -83,10 +84,8 @@ def create_model(model_params, **kwargs):
         'layers': (
             [trunk_input_size]
             + model_params['TRUNK_HIDDEN_LAYERS']
-            + [model_params['TRUNK_HIDDEN_LAYERS'][-1]]
         ),
     }
-
     if branch_architecture.lower() == 'mlp':
         branch_config['activation'] = get_activation_function(model_params.get('BRANCH_ACTIVATION'))
 
@@ -105,10 +104,11 @@ def create_model(model_params, **kwargs):
     if trunk_architecture.lower() == 'kan':
         trunk_config['degree'] = model_params.get('TRUNK_DEGREE')
 
-    output_handling = model_params.get('OUTPUT_HANDLING', 'single_trunk_split_branch').lower()
+    output_handling = model_params.get('OUTPUT_HANDLING', 'single_trunk_single_branch').lower()
     output_strategy_mapping = {
         'single_trunk_split_branch': SingleTrunkSplitBranchStrategy,
-        'multiple_trunks_split_branch': MultipleTrunksSplitBranchStrategy,
+        'split_trunk_single_branch': SplitTrunkSingleBranchStrategy,
+        'multiple_trunks_single_branch': MultipleTrunksSingleBranchStrategy,
         'single_trunk_multiple_branches': SingleTrunkMultipleBranchesStrategy,
         'multiple_trunks_multiple_branches': MultipleTrunksMultipleBranchesStrategy,
     }
@@ -118,21 +118,20 @@ def create_model(model_params, **kwargs):
 
     output_strategy = output_strategy_mapping[output_handling]()
 
+    model_params['BASIS_CONFIG'] = output_strategy.get_basis_config()['type']
+
     training_strategy_name = model_params.get('TRAINING_STRATEGY').lower()
 
     if training_strategy_name == 'pod':
-        pod_basis = kwargs.get('pod_basis')
-        mean_functions = kwargs.get('mean_functions')
-        if pod_basis is None or mean_functions is None:
-            raise ValueError("POD basis and mean functions must be provided for PODTrainingStrategy.")
-        training_strategy = PODTrainingStrategy(pod_basis=pod_basis, mean_functions=mean_functions)
+        inference_mode = kwargs.get('inference', False)
+        training_strategy = PODTrainingStrategy(data=data, var_share=var_share, inference=inference_mode)
 
     elif training_strategy_name == 'two_step':
-        batch_size = kwargs.get('train_dataset_length')
-        if batch_size is None:
+        train_dataset_length = len(data['xb']) if data else None
+        if train_dataset_length is None:
             training_strategy = TwoStepTrainingStrategy()
         else:
-            training_strategy = TwoStepTrainingStrategy(train_dataset_length=batch_size)
+            training_strategy = TwoStepTrainingStrategy(train_dataset_length=train_dataset_length)
 
     elif training_strategy_name == 'standard':
         training_strategy = StandardTrainingStrategy()
@@ -140,13 +139,13 @@ def create_model(model_params, **kwargs):
     else:
         raise ValueError(f"Unsupported TRAINING_STRATEGY: {training_strategy_name}")
 
-    model = DeepONet(
+    model = DeepONet( 
         branch_config=branch_config,
         trunk_config=trunk_config,
         output_strategy=output_strategy,
         training_strategy=training_strategy,
         n_outputs=model_params['N_OUTPUTS'],
-        basis_functions=basis_functions,
+        n_basis_functions=model_params['BASIS_FUNCTIONS']
     ).to(model_params['DEVICE'], dtype=getattr(torch, model_params['PRECISION']))
     
     if model_params.get('TRAINING_STRATEGY', False):
@@ -159,6 +158,16 @@ def create_model(model_params, **kwargs):
         model_name += '_norm'
     if model_params.get('TRUNK_FEATURE_EXPANSION', False):
         model_name += '_trunk_expansion'
+    if model_params.get('OUTPUT_HANDLING', False):
+        if 'single_trunk' in model_params.get('OUTPUT_HANDLING').lower():
+            model_name += '_' + 'single' + '_'
+            model_name += 'basis'
+        elif 'multiple_trunks' in model_params.get('OUTPUT_HANDLING').lower():
+            model_name += '_' + 'multiple' + '_'
+            model_name += 'trunks'
+        elif 'split_trunk' in model_params.get('OUTPUT_HANDLING').lower():
+            model_name += '_' + 'multiple' + '_'
+            model_name += 'basis'
 
     return model, model_name
 
@@ -186,31 +195,23 @@ def initialize_model(model_folder, model_name, device, precision):
     model_params['DEVICE'] = device
     model_params['PRECISION'] = precision
 
-    # Load checkpoint
     checkpoint = torch.load(model_path, map_location=device, weights_only=True)
-
-    pod_basis = checkpoint.get('POD_basis', None)
-    mean_functions = checkpoint.get('mean_functions', None)
 
     model, _ = create_model(
         model_params,
-        pod_basis=pod_basis,
-        mean_functions=mean_functions,
+        inference=True
     )
 
-    model.load_state_dict(checkpoint['model_state_dict'])
+    model.load_state_dict(checkpoint['model_state_dict'], strict=False)
 
     training_strategy = model_params.get('TRAINING_STRATEGY', '').lower()
     if training_strategy == 'two_step':
-        print(checkpoint.keys())
         model.training_strategy.set_matrices(Q_list=checkpoint.get('Q'),
                                                      R_list=checkpoint.get('R'),
                                                      T_list=checkpoint.get('T'))
     elif training_strategy == 'pod':
-        if pod_basis is not None:
-            model.get_basis(pod_basis.to(device, dtype=getattr(torch, precision)))
-        if mean_functions is not None:
-            model.get_mean_functions(mean_functions.to(device, dtype=getattr(torch, precision)))
+        model.training_strategy.set_basis(pod_basis=checkpoint.get('pod_basis'),
+                                                     mean_functions=checkpoint.get('pod_basis'))
     
     model.training_strategy.inference_mode()
     model.eval()
