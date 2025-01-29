@@ -22,7 +22,6 @@ class GreenFuncDataset(torch.utils.data.Dataset):
             data['g_u'].real.reshape(num_features, num_coordinates),
             data['g_u'].imag.reshape(num_features, num_coordinates)
         ], axis=-1) 
-        print(f"Shape of displacement fields: {self.displacement_fields.shape}")
         self.transform = transform
 
         self.output_keys = output_keys or [f"g_u_{part}" for part in ['real', 'imag']]
