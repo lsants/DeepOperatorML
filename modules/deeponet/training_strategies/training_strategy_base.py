@@ -6,9 +6,16 @@ class TrainingStrategy(ABC):
     def __init__(self):
         self.phases = ['default']
         self.current_phase = 'default'
+        self.prepare_before_configure = False
 
     @abstractmethod
-    def prepare_training(self, model):
+    def prepare_training(self, model, **kwargs):
+        pass
+
+    def get_basis_config(self):
+        pass
+
+    def get_basis_functions(self):
         pass
 
     def inference_mode(self):
@@ -18,10 +25,9 @@ class TrainingStrategy(ABC):
         return self.phases
 
     def update_training_phase(self, phase):
-        if phase not in self.phases:
-            raise ValueError(f"Unknown phase: {phase}")
+        if phase != 'default':
+            raise ValueError(f"Invalid phase for current strategy: {phase}")
         self.current_phase = phase
-        print(f"Updated to phase: {self.current_phase}")
 
     def prepare_for_phase(self, model, **kwargs):
         pass
@@ -89,7 +95,7 @@ class TrainingStrategy(ABC):
             if scheduler is not None:
                 scheduler.step()
 
-    def forward(self, model, xb, xt):
+    def forward(self, model, xb=None, xt=None):
         return model.output_strategy.forward(model, xb, xt)
 
     def get_trunk_output(self, model, i, xt_i):
