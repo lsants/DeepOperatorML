@@ -14,6 +14,7 @@ class TwoStepTrainingStrategy(TrainingStrategy):
         self.trained_trunk_list = []
         self.phases = ['trunk', 'branch', 'final']
         self.current_phase = self.phases[0]
+        self.prepare_before_configure = False
 
     def get_epochs(self, params):
             return [params['TRUNK_TRAIN_EPOCHS'], params['BRANCH_TRAIN_EPOCHS']]
@@ -42,8 +43,8 @@ class TwoStepTrainingStrategy(TrainingStrategy):
             self.update_q_r_t_matrices(model, params, xt)
             with torch.no_grad():
                 self.branch_matrices = {
-                    'trunk_matrices': self.R_list,  # R
-                    'branch_matrices': self.A_list  # A
+                    'trunk_matrices': self.R_list,
+                    'branch_matrices': self.A_list
                 }
 
     def _set_phase_params(self, model, phase):
@@ -187,7 +188,6 @@ class TwoStepTrainingStrategy(TrainingStrategy):
         elif self.current_phase == 'branch':
             schedulers['branch'].step()
 
-
     def get_trunk_output(self, model, i, xt_i):
         return model.trunk_networks[i % len(model.trunk_networks)](xt_i)
 
@@ -195,7 +195,7 @@ class TwoStepTrainingStrategy(TrainingStrategy):
         branch_output = model.branch_networks[i % len(model.branch_networks)](xb_i)
         return branch_output.T
 
-    def forward(self, model, xb, xt):
+    def forward(self, model, xb=None, xt=None):
         if self.current_phase == 'trunk':
             input_branch = self.A_list
             input_trunk = xt
@@ -221,7 +221,6 @@ class TwoStepTrainingStrategy(TrainingStrategy):
                                                  matrices_branch=None, 
                                                  matrices_trunk=input_trunk)
 
-
     def update_q_r_t_matrices(self, model, params,  xt):
         with torch.no_grad():
             trunks = model.trunk_networks
@@ -236,8 +235,6 @@ class TwoStepTrainingStrategy(TrainingStrategy):
                 if decomposition.lower() == 'svd':
                     Q, Sd, Vd = torch.linalg.svd(phi, full_matrices=False)
                     R = torch.diag(Sd) @ Vd
-                    print(phi.shape, 'Phi matrix')
-                    print(Q.shape, R.shape, 'QR Decomposition matrices')
                     self.Q_list.append(Q)
                     self.R_list.append(R)
 
