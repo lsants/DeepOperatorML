@@ -8,7 +8,6 @@ from modules.pipe.saving import Saver
 from modules.pipe.model_factory import initialize_model
 # from modules.animation import animate_wave
 from modules.plotting.plot_comparison import plot_field_comparison, plot_axis_comparison
-from modules.plotting.plot_labels_axis import plot_labels_axis
 from modules.plotting.plot_basis import plot_basis_function
 from modules.data_processing.greenfunc_dataset import GreenFuncDataset
 
@@ -25,14 +24,13 @@ class TestEvaluator:
         return test_error.detach().numpy()
 
 # ----------------------------- Load params file ------------------------
+
 p = dir_functions.load_params('params_test.yaml')
 path_to_data = p['DATAFILE']
 precision = p['PRECISION']
 device = p['DEVICE']
 model_name = p['MODELNAME']
 model_folder = p['MODEL_FOLDER']
-data_out_folder = p['OUTPUT_LOG_FOLDER']
-fig_folder = p['IMAGES_FOLDER']
 model_location = model_folder + f"model_state_{model_name}.pth"
 
 print(f"Model from: {model_location}")
@@ -44,6 +42,12 @@ model, config = initialize_model(p['MODEL_FOLDER'], p['MODELNAME'], p['DEVICE'],
 
 if config['TRAINING_STRATEGY']:
     model.training_phase = 'both'
+
+# ---------------------------- Outputs folder --------------------------------
+
+data_out_folder = p['OUTPUT_LOG_FOLDER'] + '/' + config['TRAINING_STRATEGY'] + '/' + config['OUTPUT_HANDLING'] +  '/' + model_name + "/"
+fig_folder = p['IMAGES_FOLDER'] + '/' + config['TRAINING_STRATEGY'] + '/' + config['OUTPUT_HANDLING'] + '/' + model_name + "/"
+
 
 # ------------------------- Initializing classes for test  -------------------
 
@@ -99,9 +103,9 @@ if config['TRUNK_FEATURE_EXPANSION']:
 # --------------------------------- Evaluation ---------------------------------
 start_time = time.time()
 if config['TRAINING_STRATEGY'].lower() == 'two_step':
-    if model.training_phase == 'trunk':
+    if p["PHASE"] == 'trunk':
         preds_real, preds_imag = model(xt=xt)
-    elif model.training_phase == 'branch':
+    elif p["PHASE"] == 'branch':
         coefs_real, coefs_imag, preds_real, preds_imag = model(xb=xb)
         g_u_real, g_u_imag = coefs_real, coefs_imag
 
@@ -119,7 +123,7 @@ else:
 
 end_time = time.time()
 
-inference_time = start_time - end_time
+inference_time = end_time - start_time
 
 if config['OUTPUT_NORMALIZATION']:
     preds_real_normalized = g_u_real_scaler.normalize(preds_real)
@@ -157,22 +161,28 @@ if config['INPUT_NORMALIZATION']:
 r, z = ppr.trunk_to_meshgrid(xt_plot)
 
 preds = preds_real + preds_imag * 1j
-preds = ppr.reshape_from_model(preds, xt_plot)
+preds = ppr.reshape_outputs_to_plot_format(preds, xt_plot)
 
 g_u = g_u_real + g_u_imag * 1j
-g_u = ppr.reshape_from_model(g_u, xt_plot)
+g_u = ppr.reshape_outputs_to_plot_format(g_u, xt_plot)
 
 if config['TRAINING_STRATEGY'] == 'two_step':
-    trunks = [i for i in model.training_strategy.trained_trunk_list]
-    first_set_of_modes = trunks[0]
-    basis_modes = (first_set_of_modes).T
+    trunks = [net for net in model.training_strategy.trained_trunk_list]
+    basis_modes = torch.stack(tuple(net for net, _ in zip(trunks, range(len(trunks)))), dim=0)
 elif config['TRAINING_STRATEGY'] == 'pod':
-    basis_modes = torch.transpose(model.basis, 1, 2)
-    basis_modes = torch.transpose(basis_modes, 0, 1)
-
+    basis_modes = torch.transpose(model.training_strategy.pod_basis, 1, 2)
 else:
-    basis_modes = model.trunk_networks[0](xt).T
-basis_modes = ppr.reshape_from_model(basis_modes, xt)
+    trunks = [net(xt) for net, _ in zip(model.trunk_networks, range(len(model.trunk_networks)))]
+    basis_modes = torch.stack(tuple(net for net, _ in zip(trunks, range(len(trunks)))), dim=0)
+
+basis_modes = ppr.reshape_outputs_to_plot_format(basis_modes, xt)
+
+if basis_modes.ndim < 4:
+    print("Expanded dims for plot")
+    basis_modes = np.expand_dims(basis_modes, axis=1)
+
+print("Basis set shape: ", basis_modes.shape)
+
 
 if p['SAMPLES_TO_PLOT'] == 'all':
     s = len(indices_for_inference)
@@ -180,27 +190,36 @@ else:
     s = min(p['SAMPLES_TO_PLOT'], len(indices_for_inference))
 
 if p['BASIS_TO_PLOT'] == 'all':
-    b = len(basis_modes)
+    modes_to_plot = len(basis_modes)
 else:
-    b = min(p['BASIS_TO_PLOT'], len(basis_modes))
+    modes_to_plot = min(p['BASIS_TO_PLOT'], len(basis_modes))
 
-for i in tqdm(range(s), colour='MAGENTA'):
-    freq = inference_dataset['xb'][i].item()
+for sample in tqdm(range(s), colour='MAGENTA'):
+    freq = inference_dataset['xb'][sample].item()
     if p['PLOT_FIELD']:
-        fig_field = plot_field_comparison(r, z, g_u[i], preds[i], freq)
+        fig_field = plot_field_comparison(r, z, g_u[sample], preds[sample], freq)
         saver(figure=fig_field, figure_prefix=f"field_for_{freq:.2f}")
     if p['PLOT_AXIS']:
-        fig_axis = plot_axis_comparison(r, z, g_u[i], preds[i], freq)
+        fig_axis = plot_axis_comparison(r, z, g_u[sample], preds[sample], freq)
         saver(figure=fig_axis, figure_prefix=f"axis_for_{freq:.2f}")
 
 if p['PLOT_BASIS']:
-    for i in tqdm(range(b), colour='CYAN'):
-        if config['TRAINING_STRATEGY'] == 'pod':
-            fig_mode = plot_labels_axis.plot_pod_basis(r, z, basis_modes[i], index=i)
+    for i in tqdm(range(1, modes_to_plot + 1), colour='CYAN'):
+        print(f"Mode #{i}: ", basis_modes[i].shape)
+        fig_mode = plot_basis_function(r, 
+                                       z, 
+                                       basis_modes[i], 
+                                       index=i, 
+                                       basis_config=config['BASIS_CONFIG'], 
+                                       strategy=config['TRAINING_STRATEGY'] if config['TRAINING_STRATEGY'] == 'pod' else "NN")
+        if i == 1:
+            saver(figure=fig_mode, figure_prefix=f"{i}st_mode")
+        elif i == 2:
+            saver(figure=fig_mode, figure_prefix=f"{i}nd_mode")
+        elif i == 3:
+            saver(figure=fig_mode, figure_prefix=f"{i}rd_mode")
         else:
-            fig_mode = plot_basis_function(r, z, basis_modes[i], index=i)
-        
-        saver(figure=fig_mode, figure_prefix=f"pod_{i + 1}th_mode")
+            saver(figure=fig_mode, figure_prefix=f"{i}th_mode")
 
 # g_u, preds = ppr.mirror(g_u), ppr.mirror(preds)
 
