@@ -4,7 +4,7 @@ from abc import ABC, abstractmethod
 
 class OutputHandlingStrategy(ABC):
     @abstractmethod
-    def forward(self, model, xb, xt):
+    def forward(self, model, xb=None, xt=None):
         """Defines how outputs are handled during the model's forward pass.
 
         Args:
@@ -15,7 +15,9 @@ class OutputHandlingStrategy(ABC):
             tuple: outputs as determined by the strategy.
         """
         pass
-    def configure_networks(self, model, branch_config, trunk_config):
+
+    @abstractmethod
+    def configure_networks(self, model, branch_config, trunk_config, **kwargs):
         """
         Configures the number and output sizes of the networks (branch and trunk).
 
@@ -27,4 +29,8 @@ class OutputHandlingStrategy(ABC):
         Returns:
             tuple: (list of branch networks, list of trunk networks)
         """
+        pass
+
+    @abstractmethod
+    def get_basis_config(self):
         pass
