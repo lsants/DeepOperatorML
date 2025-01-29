@@ -4,6 +4,11 @@ from tqdm.auto import tqdm
 from .store_ouptuts import HistoryStorer
 from ..data_processing import preprocessing as ppr
 from ..plotting.plot_training import plot_training, align_epochs
+from ..deeponet.training_strategies import (
+    StandardTrainingStrategy,
+    TwoStepTrainingStrategy,
+    PODTrainingStrategy
+)
 
 class TrainingLoop:
     def __init__(self, model, training_strategy, saver, params):
@@ -102,7 +107,6 @@ class TrainingLoop:
                 train_batch_processed = self.prepare_batch(train_batch)
 
                 outputs = self.model(train_batch_processed['xb'], train_batch_processed['xt'])
-
                 loss = self.training_strategy.compute_loss(outputs, train_batch_processed, self.model, self.p)
 
                 self.training_strategy.zero_grad(self.optimizers)
@@ -135,20 +139,25 @@ class TrainingLoop:
                         }
 
                 if not self.training_strategy.can_validate():
-                    best_model_checkpoint = {
-                        'model_state_dict': self.model.state_dict(),
-                        'Q': self.training_strategy.Q_list,
-                        'T': self.training_strategy.T_list,
-                        'R': self.training_strategy.R_list,
-                        'optimizer_state_dict': self.optimizers[self.training_strategy.current_phase].state_dict() if self.optimizers.get(self.training_strategy.current_phase) else None,
-                        'val_loss': None
-                    }
+                    if isinstance(self.training_strategy, TwoStepTrainingStrategy):
+                        best_model_checkpoint = {
+                            'model_state_dict': self.model.state_dict(),
+                            'Q': self.training_strategy.Q_list,
+                            'T': self.training_strategy.T_list,
+                            'R': self.training_strategy.R_list,
+                            'optimizer_state_dict': self.optimizers[self.training_strategy.current_phase].state_dict() if self.optimizers.get(self.training_strategy.current_phase) else None,
+                            'val_loss': None
+                        }
+                
+                if isinstance(self.training_strategy, PODTrainingStrategy):
+                    best_model_checkpoint['pod_basis'] = self.training_strategy.pod_basis
+                    best_model_checkpoint['mean_functions'] = self.training_strategy.mean_functions
+                
                 if epoch < self.p[self.training_strategy.current_phase.upper() + '_CHANGE_AT_EPOCH']:
                     self.training_strategy.step_schedulers(self.schedulers)
                 self.training_strategy.after_epoch(epoch, self.model, self.p, train_batch=train_batch_processed['xt'])
-
-
             
+
             phase_end_time = time.time()
             phase_duration = phase_end_time - phase_start_time
 
