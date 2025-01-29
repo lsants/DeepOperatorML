@@ -41,13 +41,6 @@ p['OUTPUT_KEYS'] = output_keys
 
 p['A_DIM'] = (p['BASIS_FUNCTIONS'], len(p['TRAIN_INDICES']))
 
-if p['TRAINING_STRATEGY'] == 'pod':
-    pod_basis, mean_functions = ppr.get_pod_parameters(
-        train_dataset, num_modes=p.get('NUM_MODES'), labels=output_keys
-    )
-    p['pod_basis'] = pod_basis
-    p['mean_functions'] = mean_functions
-
 # ------------------------------ Setup data normalization functions ------------------------
 
 norm_params = ppr.get_minmax_norm_params(train_dataset)
@@ -92,20 +85,25 @@ p["NORMALIZATION_PARAMETERS"] = {
 
 model, model_name = create_model(
     model_params=p,
-    pod_basis=p.get('pod_basis'),
-    mean_functions=p.get('mean_functions'),
-    train_dataset_length=len(train_dataset)
+    train_data=train_dataset[:]
 )
 
+# ---------------------------- Outputs folder --------------------------------
+
 p['MODELNAME'] = model_name
+
+data_out_folder = p['OUTPUT_LOG_FOLDER'] + p['TRAINING_STRATEGY'] + '/' + p['OUTPUT_HANDLING'] +  '/' + model_name + "/"
+fig_folder = p['IMAGES_FOLDER'] + p['TRAINING_STRATEGY'] + '/' + p['OUTPUT_HANDLING'] + '/' + model_name + "/"
+
+print(data_out_folder, fig_folder)
 
 # ---------------------------------- Initializing classes for training  -------------------
 
 saver = Saver(
     model_name=p['MODELNAME'], 
     model_folder=p['MODEL_FOLDER'], 
-    data_output_folder=p['OUTPUT_LOG_FOLDER'], 
-    figures_folder=p['IMAGES_FOLDER']
+    data_output_folder=data_out_folder, 
+    figures_folder=fig_folder
 )
 
 best_model_checkpoint = None
