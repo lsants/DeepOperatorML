@@ -5,7 +5,7 @@ class SingleTrunkMultipleBranchesStrategy(OutputHandlingStrategy):
     """Using a single set of basis functions to map the operator's input space.
        Interesting to use when the outputs' behaviors (e.g. frequency) are similar.
     """
-    def forward(self, model, xb, xt):
+    def forward(self, model, xb=None, xt=None):
         trunk_out = model.get_trunk_output(0, xt)
         outputs = []
         for i in range(model.n_outputs):
