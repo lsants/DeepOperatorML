@@ -189,7 +189,7 @@ def meshgrid_to_trunk(r_values, z_values):
     xt = np.column_stack((R_mesh.flatten(), Z_mesh.flatten()))
     return xt
 
-def reshape_from_model(displacements, z_axis_values):
+def reshape_outputs_to_plot_format(displacements, z_axis_values):
     if z_axis_values.ndim == 2:
         n_z = len(np.unique(z_axis_values[ : , 1]))
     else:
@@ -199,10 +199,10 @@ def reshape_from_model(displacements, z_axis_values):
         displacements = displacements.detach().numpy()
 
     if displacements.ndim == 3:
-        displacements = (displacements).reshape(len(displacements), - 1, int(z_axis_values.shape[0] / n_z), n_z)
+        displacements = (displacements).reshape(- 1, len(displacements), int(z_axis_values.shape[0] / n_z), n_z)
 
     if displacements.ndim == 2:
-        displacements = (displacements).reshape(-1, int(z_axis_values.shape[0] / n_z), n_z)
+        displacements = (displacements).reshape(- 1, int(z_axis_values.shape[0] / n_z), n_z)
     
     return displacements
 
@@ -230,44 +230,3 @@ def get_trunk_normalization_params(xt):
     min_max_params = {'min' : [r.min(), z.min()],
                         'max' : [r.max(), z.max()]}
     return min_max_params
-
-
-def get_pod_parameters(train_dataset, num_modes, variance_share=0.95, **kwargs):
-    """
-    Computes the POD basis and mean functions from the training data.
-
-    Args:
-        train_dataset (torch.utils.data.Subset): Training dataset.
-        num_modes (int): Number of POD modes to retain per output.
-
-    Returns:
-        torch.Tensor: POD basis matrices, shape (n_outputs, num_modes, features)
-        torch.Tensor: Mean functions, shape (n_outputs, features)
-    """
-    outputs_names = kwargs.get('labels')
-    pod_basis_list = []
-    mean_functions_list = []
-    
-    for i in outputs_names:
-        outputs = torch.stack([train_dataset.dataset[idx][i] for idx in train_dataset.indices], dim=0)
-        
-        mean = torch.mean(outputs, dim=0)
-        mean_functions_list.append(mean)
-        
-        centered = outputs - mean
-        
-        U, S, _ = torch.linalg.svd(centered)
-        explained_variance_ratio = torch.cumsum(S**2, dim=0) / torch.linalg.norm(S)**2
-        if variance_share:
-            most_significant_modes = (explained_variance_ratio < variance_share).sum() + 1
-        else:
-            most_significant_modes = num_modes
-
-        basis = U[ : , : most_significant_modes]
-        
-        pod_basis_list.append(basis)
-    
-    pod_basis = torch.stack(pod_basis_list, dim=0)
-    mean_functions = torch.stack(mean_functions_list, dim=0)
-    
-    return pod_basis, mean_functions
