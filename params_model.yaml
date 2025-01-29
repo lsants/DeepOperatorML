@@ -1,5 +1,5 @@
 # Model name (actually prefix)
-MODELNAME: 20241224_deeponet
+MODELNAME: 20250126_deeponet
 
 # Location of .npz data file
 DATAFILE: ./data/raw/displacements.npz
@@ -60,7 +60,7 @@ TRUNK_EXPANSION_FEATURES_NUMBER: 10
 
 # ------------------- Parameters for vanilla training ------------------
 LEARNING_RATE: 0.001
-EPOCHS: 300
+EPOCHS: 5000
 BATCH_SIZE: 50
 TRAIN_PERC: 0.8
 VAL_PERC: 0.1
@@ -69,32 +69,17 @@ ERROR_NORM: 2
 L2_REGULARIZATION: 0.00001
 EARLY_STOPPING: false
 LR_SCHEDULING: true
-SCHEDULER_STEP_SIZE: 1000
+SCHEDULER_STEP_SIZE: 1000 # Apparently not working for POD
 SCHEDULER_GAMMA: 0.5
 CHANGE_OPTIMIZER: true
 DEFAULT_CHANGE_AT_EPOCH: 5000
 PROGRESS_BAR_COLOR: 'blue'
 
-# ------------------- Parameters for POD training ------------------
-NUM_MODES: 1601 # What should be done here: create a function that determines the amount of modes for > 90% energy or look at the data in a separate script to find the good value manually, or chose desired variance (do htis later)
-LEARNING_RATE: 0.001
-N_EPOCHS: 1000
-BATCH_SIZE: 50
-TRAIN_PERC: 0.8
-VAL_PERC: 0.1
-TEST_PERC: 0.1
-ERROR_NORM: 2
-L2_REGULARIZATION: 0.000001
-EARLY_STOPPING: false
-LR_SCHEDULING: true
-SCHEDULER_STEP_SIZE: 1000
-SCHEDULER_GAMMA: 0.5
-CHANGE_OPTIMIZER: true
-CHANGE_AT_EPOCH: 5000
-PROGRESS_BAR_COLOR: 'blue'
+# ------------------- Parameters for POD training ----------------------
+VAR_SHARE: 0.99
 
 # ------------------- Parameters for two step training ------------------
-TRUNK_TRAIN_EPOCHS: 30000
+TRUNK_TRAIN_EPOCHS: 5000
 TRUNK_DECOMPOSITION: svd
 TRUNK_LEARNING_RATE: 0.001
 TRUNK_L2_REGULARIZATION: 0.0000001
@@ -106,7 +91,7 @@ TRUNK_CHANGE_OPTIMIZER: true
 TRUNK_CHANGE_AT_EPOCH: 8000
 TRUNK_PROGRESS_BAR_COLOR: 'magenta'
 
-BRANCH_TRAIN_EPOCHS: 30000
+BRANCH_TRAIN_EPOCHS: 5000
 BRANCH_LEARNING_RATE: 0.001
 BRANCH_L2_REGULARIZATION: 0.0000001
 BRANCH_EARLY_STOPPING: false
