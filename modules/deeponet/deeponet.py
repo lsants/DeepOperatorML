@@ -13,7 +13,7 @@ NETWORK_ARCHITECTURES = {
 
 
 class DeepONet(torch.nn.Module):
-    def __init__(self, branch_config, trunk_config, output_strategy, training_strategy, n_outputs, **kwargs):
+    def __init__(self, branch_config, trunk_config, output_strategy, training_strategy, n_outputs, n_basis_functions, **kwargs):
         """Initializes the DeepONet model with specified strategies.
 
         Args:
@@ -22,20 +22,32 @@ class DeepONet(torch.nn.Module):
             output_strategy (OutputHandlingStrategy): Strategy for handling the outputs.
             training_strategy (TrainingStrategy): Strategy for training.
             n_outputs (int): Number of outputs.
+            data (optional): Data for strategies requiring pre-computed basis.
+            var_share (optional): For POD.
         """
         super(DeepONet, self).__init__()
         self.n_outputs = n_outputs
+        self.n_basis_functions = n_basis_functions
         self.output_strategy = output_strategy
         self.training_strategy = training_strategy
 
+        basis_config = self.output_strategy.get_basis_config()
+
+        if self.training_strategy.prepare_before_configure:
+            self.training_strategy.prepare_training(self, basis_config=basis_config)
+
         self.branch_networks, self.trunk_networks = self.output_strategy.configure_networks(
             self, 
-            branch_config, 
-            trunk_config, 
+            branch_config,
+            trunk_config,
             **kwargs
         )
 
-        self.training_strategy.prepare_training(self)
+        if not self.training_strategy.prepare_before_configure:
+            self.training_strategy.prepare_training(self, basis_config=basis_config)
+        
+        if hasattr(self.training_strategy, 'after_networks_configured'):
+            self.training_strategy.after_networks_configured(self)
 
     def create_network(self, config):
         """Creates a neural network based on provided configuration.
@@ -64,7 +76,7 @@ class DeepONet(torch.nn.Module):
 
         return constructor(**config)
 
-    def forward(self, xb, xt):
+    def forward(self, xb=None, xt=None):
         """Forward pass that delegates to the training strategy's forward method.
 
         Args:
@@ -74,6 +86,7 @@ class DeepONet(torch.nn.Module):
         Returns:
             tuple: Outputs as determined by the output handling strategy.
         """
+        
         return self.training_strategy.forward(self, xb, xt)
     
     def get_trunk_output(self, i, xt_i):
