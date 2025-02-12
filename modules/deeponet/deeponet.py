@@ -1,6 +1,7 @@
 # modules/model/deeponet.py
 
 import torch
+import logging
 from .nn.mlp import MLP
 from .nn.kan import ChebyshevKAN
 from .nn.resnet import ResNet
@@ -11,6 +12,7 @@ NETWORK_ARCHITECTURES = {
     'resnet': ResNet
 }
 
+logger = logging.getLogger(__name__)
 
 class DeepONet(torch.nn.Module):
     def __init__(self, branch_config, trunk_config, output_strategy, training_strategy, n_outputs, n_basis_functions, **kwargs):

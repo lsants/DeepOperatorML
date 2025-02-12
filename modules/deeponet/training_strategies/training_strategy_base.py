@@ -96,7 +96,7 @@ class TrainingStrategy(ABC):
                 scheduler.step()
 
     def forward(self, model, xb=None, xt=None):
-        return model.output_strategy.forward(model, xb, xt)
+        return model.output_strategy.forward(model, data_branch=xb, data_trunk=xt)
 
     def get_trunk_output(self, model, i, xt_i):
         return model.trunk_networks[i % len(model.trunk_networks)](xt_i)

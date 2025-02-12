@@ -1,17 +1,27 @@
 import time
 import torch
 import numpy as np
-from modules.utilities import dir_functions
-from modules.data_processing import preprocessing as ppr
+import logging
+import sys
+logging.basicConfig(
+    level=logging.INFO,
+    format="[%(asctime)s] [%(levelname)s] %(name)s: %(message)s",
+    datefmt="%d-%m-%Y %H:%M:%S",
+    stream=sys.stdout
+)
 from modules.pipe.saving import Saver
+from modules.utilities import dir_functions
 from modules.pipe.training import TrainingLoop
 from modules.pipe.model_factory import create_model
+from modules.data_processing import preprocessing as ppr
 from modules.data_processing.compose_transformations import Compose
 from modules.data_processing.greenfunc_dataset import GreenFuncDataset
 
+logger = logging.getLogger(__name__)
+
 # --------------------------- Load params file ------------------------
 p = dir_functions.load_params('params_model.yaml')
-print(f"Training data from: {p['DATAFILE']}")
+logger.info(f"Training data from:\n{p['DATAFILE']}")
 
 torch.manual_seed(p['SEED'])
 
@@ -95,7 +105,7 @@ p['MODELNAME'] = model_name
 data_out_folder = p['OUTPUT_LOG_FOLDER'] + p['TRAINING_STRATEGY'] + '/' + p['OUTPUT_HANDLING'] +  '/' + model_name + "/"
 fig_folder = p['IMAGES_FOLDER'] + p['TRAINING_STRATEGY'] + '/' + p['OUTPUT_HANDLING'] + '/' + model_name + "/"
 
-print(data_out_folder, fig_folder)
+logger.info(f"Data will be saved at:\n{data_out_folder}\nFigure will be saved at:\n{fig_folder}")
 
 # ---------------------------------- Initializing classes for training  -------------------
 
@@ -138,4 +148,4 @@ training_loop.train(train_batch, val_batch)
 
 end_time = time.time()
 training_time = end_time - start_time
-print(f"Training concluded in: {training_time:.2f} seconds")
+logger.info(f"Training concluded in: {training_time:.2f} seconds")

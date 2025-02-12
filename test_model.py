@@ -2,6 +2,14 @@ import time
 import torch
 import numpy as np
 from tqdm.auto import tqdm
+import logging
+import sys
+logging.basicConfig(
+    level=logging.INFO,
+    format="[%(asctime)s] [%(levelname)s] %(name)s: %(message)s",
+    datefmt="%d-%m-%Y %H:%M:%S",
+    stream=sys.stdout
+)
 from modules.utilities import dir_functions
 from modules.data_processing import preprocessing as ppr
 from modules.pipe.saving import Saver
@@ -11,6 +19,7 @@ from modules.plotting.plot_comparison import plot_field_comparison, plot_axis_co
 from modules.plotting.plot_basis import plot_basis_function
 from modules.data_processing.greenfunc_dataset import GreenFuncDataset
 
+logger = logging.getLogger(__name__)
 class TestEvaluator:
     def __init__(self, model, error_norm):
         self.model = model
@@ -23,7 +32,7 @@ class TestEvaluator:
                         / torch.linalg.vector_norm(g_u, ord=self.error_norm)
         return test_error.detach().numpy()
 
-# ----------------------------- Load params file ------------------------
+# ----------------------------- Load params file ------------------------------- 
 
 p = dir_functions.load_params('params_test.yaml')
 path_to_data = p['DATAFILE']
@@ -33,8 +42,8 @@ model_name = p['MODELNAME']
 model_folder = p['MODEL_FOLDER']
 model_location = model_folder + f"model_state_{model_name}.pth"
 
-print(f"Model from: {model_location}")
-print(f"Data from: {path_to_data}\n")
+logger.info(f"Model loaded from: {model_location}")
+logger.info(f"Data loaded from: {path_to_data}\n")
 
 # ----------------------------- Initialize model -----------------------------
 
@@ -143,14 +152,14 @@ errors = {
     'imag_physical': test_error_imag,
 }
 
-print(f"Test error for real part (physical): {test_error_real:.2%}")
-print(f"Test error for imaginary part (physical): {test_error_imag:.2%}")
+logger.info(f"Test error for real part (physical): {test_error_real:.2%}")
+logger.info(f"Test error for imaginary part (physical): {test_error_imag:.2%}")
 
 if config['OUTPUT_NORMALIZATION']:
     errors['real_normalized'] = test_error_real_normalized
     errors['imag_normalized'] = test_error_imag_normalized
-    print(f"Test error for real part (normalized): {test_error_real_normalized:.2%}")
-    print(f"Test error for imaginary part (normalized): {test_error_imag_normalized:.2%}")
+    logger.info(f"Test error for real part (normalized): {test_error_real_normalized:.2%}")
+    logger.info(f"Test error for imaginary part (normalized): {test_error_imag_normalized:.2%}")
 
 xt_plot = xt
 if config['TRUNK_FEATURE_EXPANSION']:
@@ -178,10 +187,10 @@ else:
 basis_modes = ppr.reshape_outputs_to_plot_format(basis_modes, xt)
 
 if basis_modes.ndim < 4:
-    print("Expanded dims for plot")
+    logger.info("Expanded dims for plot")
     basis_modes = np.expand_dims(basis_modes, axis=1)
 
-print("Basis set shape: ", basis_modes.shape)
+logger.info(f"Basis set shape: {basis_modes.shape}")
 
 
 if p['SAMPLES_TO_PLOT'] == 'all':
@@ -212,14 +221,16 @@ if p['PLOT_BASIS']:
                                        index=i, 
                                        basis_config=config['BASIS_CONFIG'], 
                                        strategy=config['TRAINING_STRATEGY'] if config['TRAINING_STRATEGY'] == 'pod' else "NN")
-        if i == 1:
-            saver(figure=fig_mode, figure_prefix=f"{i}st_mode")
-        elif i == 2:
-            saver(figure=fig_mode, figure_prefix=f"{i}nd_mode")
-        elif i == 3:
-            saver(figure=fig_mode, figure_prefix=f"{i}rd_mode")
-        else:
-            saver(figure=fig_mode, figure_prefix=f"{i}th_mode")
+        import matplotlib.pyplot as plt
+        plt.show()
+        # if i == 1:
+        #     saver(figure=fig_mode, figure_prefix=f"{i}st_mode")
+        # elif i == 2:
+        #     saver(figure=fig_mode, figure_prefix=f"{i}nd_mode")
+        # elif i == 3:
+        #     saver(figure=fig_mode, figure_prefix=f"{i}rd_mode")
+        # else:
+        #     saver(figure=fig_mode, figure_prefix=f"{i}th_mode")
 
 # g_u, preds = ppr.mirror(g_u), ppr.mirror(preds)
 
@@ -227,5 +238,5 @@ if p['PLOT_BASIS']:
 
 # animate_wave(g_u.real, g_u_pred=preds.real, save_name='./video')
 
-saver(errors=errors)
-saver(time=inference_time, time_prefix="inference")
+# saver(errors=errors)
+# saver(time=inference_time, time_prefix="inference")

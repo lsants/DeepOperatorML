@@ -1,6 +1,8 @@
 import time
 import torch
+import logging
 from tqdm.auto import tqdm
+logger = logging.getLogger(__name__)
 from .store_ouptuts import HistoryStorer
 from ..data_processing import preprocessing as ppr
 from ..plotting.plot_training import plot_training, align_epochs
@@ -9,6 +11,7 @@ from ..deeponet.training_strategies import (
     TwoStepTrainingStrategy,
     PODTrainingStrategy
 )
+
 
 class TrainingLoop:
     def __init__(self, model, training_strategy, saver, params):
@@ -98,9 +101,10 @@ class TrainingLoop:
             self.training_strategy.prepare_for_phase(self.model, 
                                                     model_params=self.p, 
                                                     train_batch=train_batch_processed['xt'])
- 
+            
 
-            print(f"Starting phase: {current_phase}, Epochs: {phase_epochs}")
+
+            logger.info(f"Starting phase: {current_phase}, Epochs: {phase_epochs}")
 
             for epoch in tqdm(range(phase_epochs), desc=f"Phase {current_phase}", colour=self.p['PROGRESS_BAR_COLOR']):
 
@@ -112,7 +116,8 @@ class TrainingLoop:
                 self.training_strategy.zero_grad(self.optimizers)
                 loss.backward()
 
-                print(f"Loss: {loss.item()}")
+                if epoch % 500 == 0:
+                    logger.info(f"Loss: {loss.item()}")
 
                 self.training_strategy.step(self.optimizers)
 
@@ -123,12 +128,13 @@ class TrainingLoop:
                 self.storer.store_learning_rate(current_phase, self.optimizers[self.training_strategy.current_phase].param_groups[-1]['lr'])
 
                 if self.training_strategy.can_validate() and val_batch:
+                    
                     val_metrics = self._validate(val_batch)
                     val_loss = val_metrics['val_loss']
                     self.storer.store_epoch_val_loss(current_phase, val_metrics['val_loss'])
                     self.storer.store_epoch_val_errors(current_phase, {
-                        'real': val_metrics.get('val_error_real', None),
-                        'imag': val_metrics.get('val_error_imag', None),
+                        'g_u_real': val_metrics.get('val_error_real', None),
+                        'g_u_imag': val_metrics.get('val_error_imag', None),
                     })
                     if val_loss < best_val_loss:
                         best_val_loss = val_loss
@@ -181,7 +187,7 @@ class TrainingLoop:
         log_msg = f"Epoch {epoch}: Train Loss: {train_loss:.3E}, Train Error Real: {train_errors['g_u_real']:.3E}, Train Error Imag: {train_errors['g_u_imag']:.3E}"
         if val_metrics:
             log_msg += f", Val Loss: {val_metrics['val_loss']:.3E}, Val Error Real: {val_metrics['val_error_real']:.3E}"
-        print(log_msg)
+        logger.info(log_msg)
 
     def _finalize_training(self, best_model_checkpoint, training_time):
         """
@@ -192,7 +198,7 @@ class TrainingLoop:
         valid_history = {phase: metrics for phase, metrics in history.items() if metrics.get('train_loss')}
 
         if not valid_history:
-            print("No valid phases to save. Skipping finalization.")
+            logger.info("No valid phases to save. Skipping finalization.")
             return
 
         aligned_history = align_epochs(valid_history)  # Align data before plotting
