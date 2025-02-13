@@ -101,12 +101,16 @@ class TrainingLoop:
             self.training_strategy.prepare_for_phase(self.model, 
                                                     model_params=self.p, 
                                                     train_batch=train_batch_processed['xt'])
-            
-
 
             logger.info(f"Starting phase: {current_phase}, Epochs: {phase_epochs}")
 
-            for epoch in tqdm(range(phase_epochs), desc=f"Phase {current_phase}", colour=self.p['PROGRESS_BAR_COLOR']):
+            progress_bar_color = self.p[current_phase.upper() + '_' + 'PROGRESS_BAR_COLOR'] if self.p['TRAINING_STRATEGY'] == 'two_step' else \
+                              self.p[self.p['TRAINING_STRATEGY'].upper() + '_' + 'PROGRESS_BAR_COLOR']
+
+
+            for epoch in tqdm(range(phase_epochs), 
+                              desc=f"Phase {current_phase}", 
+                              colour=progress_bar_color):
 
                 train_batch_processed = self.prepare_batch(train_batch)
 
@@ -117,7 +121,7 @@ class TrainingLoop:
                 loss.backward()
 
                 if epoch % 500 == 0:
-                    logger.info(f"Loss: {loss.item()}")
+                    logger.info(f"Loss: {loss.item():.3E}")
 
                 self.training_strategy.step(self.optimizers)
 
