@@ -189,22 +189,22 @@ def meshgrid_to_trunk(r_values, z_values):
     xt = np.column_stack((R_mesh.flatten(), Z_mesh.flatten()))
     return xt
 
-def reshape_outputs_to_plot_format(displacements, z_axis_values):
+def reshape_outputs_to_plot_format(output, z_axis_values):
     if z_axis_values.ndim == 2:
         n_z = len(np.unique(z_axis_values[ : , 1]))
     else:
         n_z = len(z_axis_values)
 
-    if isinstance(displacements, torch.Tensor):
-        displacements = displacements.detach().numpy()
+    if isinstance(output, torch.Tensor):
+        output = output.detach().numpy()
 
-    if displacements.ndim == 3:
-        displacements = (displacements).reshape(- 1, len(displacements), int(z_axis_values.shape[0] / n_z), n_z)
+    if output.ndim == 3:
+        output = (output).reshape(- 1, len(output), int(z_axis_values.shape[0] / n_z), n_z)
 
-    if displacements.ndim == 2:
-        displacements = (displacements).reshape(- 1, int(z_axis_values.shape[0] / n_z), n_z)
+    if output.ndim == 2:
+        output = (output).reshape(- 1, int(z_axis_values.shape[0] / n_z), n_z)
     
-    return displacements
+    return output
 
 def trunk_feature_expansion(xt, p):
     expansion_features = [xt]
