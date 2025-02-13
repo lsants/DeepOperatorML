@@ -4,6 +4,7 @@ import numpy as np
 from tqdm.auto import tqdm
 import logging
 import sys
+import matplotlib.pyplot as plt
 logging.basicConfig(
     level=logging.INFO,
     format="[%(asctime)s] [%(levelname)s] %(name)s: %(message)s",
@@ -20,6 +21,7 @@ from modules.plotting.plot_basis import plot_basis_function
 from modules.data_processing.greenfunc_dataset import GreenFuncDataset
 
 logger = logging.getLogger(__name__)
+
 class TestEvaluator:
     def __init__(self, model, error_norm):
         self.model = model
@@ -54,8 +56,8 @@ if config['TRAINING_STRATEGY']:
 
 # ---------------------------- Outputs folder --------------------------------
 
-data_out_folder = p['OUTPUT_LOG_FOLDER'] + '/' + config['TRAINING_STRATEGY'] + '/' + config['OUTPUT_HANDLING'] +  '/' + model_name + "/"
-fig_folder = p['IMAGES_FOLDER'] + '/' + config['TRAINING_STRATEGY'] + '/' + config['OUTPUT_HANDLING'] + '/' + model_name + "/"
+data_out_folder = p['OUTPUT_LOG_FOLDER'] + config['TRAINING_STRATEGY'] + '/' + config['OUTPUT_HANDLING'] +  '/' + model_name + "/"
+fig_folder = p['IMAGES_FOLDER'] + config['TRAINING_STRATEGY'] + '/' + config['OUTPUT_HANDLING'] + '/' + model_name + "/"
 
 
 # ------------------------- Initializing classes for test  -------------------
@@ -169,6 +171,21 @@ if config['INPUT_NORMALIZATION']:
 
 r, z = ppr.trunk_to_meshgrid(xt_plot)
 
+
+# trunk = model.get_trunk_output(0, xt).detach().numpy()
+# branch = model.get_branch_output(0, xb).detach().numpy()
+# print("trunk", trunk.shape)
+# print("branch", branch.shape)
+
+# aaa = (trunk[ :, 0:1] @ branch[0:1, :1]).T
+# print("output", aaa.shape)
+# aaa = aaa.reshape(40, 40)
+# label = g_u_real
+# # plt.contourf(r, z, trunk[:, 1:2].reshape(40, 40))
+# plt.contourf(r, z, trunk.T.reshape(-1, 40, 40)[1])
+
+# plt.show()
+
 preds = preds_real + preds_imag * 1j
 preds = ppr.reshape_outputs_to_plot_format(preds, xt_plot)
 
@@ -177,12 +194,12 @@ g_u = ppr.reshape_outputs_to_plot_format(g_u, xt_plot)
 
 if config['TRAINING_STRATEGY'] == 'two_step':
     trunks = [net for net in model.training_strategy.trained_trunk_list]
-    basis_modes = torch.stack(tuple(net for net, _ in zip(trunks, range(len(trunks)))), dim=0)
+    basis_modes = torch.stack(tuple(net.T for net, _ in zip(trunks, range(len(trunks)))), dim=0)
 elif config['TRAINING_STRATEGY'] == 'pod':
     basis_modes = torch.transpose(model.training_strategy.pod_basis, 1, 2)
 else:
     trunks = [net(xt) for net, _ in zip(model.trunk_networks, range(len(model.trunk_networks)))]
-    basis_modes = torch.stack(tuple(net for net, _ in zip(trunks, range(len(trunks)))), dim=0)
+    basis_modes = torch.stack(tuple(net.T for net, _ in zip(trunks, range(len(trunks)))), dim=0)
 
 basis_modes = ppr.reshape_outputs_to_plot_format(basis_modes, xt)
 
@@ -191,7 +208,13 @@ if basis_modes.ndim < 4:
     basis_modes = np.expand_dims(basis_modes, axis=1)
 
 logger.info(f"Basis set shape: {basis_modes.shape}")
+if len(basis_modes) > model.n_basis_functions:
+    real, imag = np.split(basis_modes, model.n_outputs, axis=0)
+    basis_modes = np.concatenate((real, imag), axis=1)
+#     basis_modes = basis_modes.transpose(1, 0, 2, 3)
+    # basis_modes = basis_modes.reshape(20, 2, 40, 40)
 
+logger.info(f"Basis set shape: {basis_modes.shape}")
 
 if p['SAMPLES_TO_PLOT'] == 'all':
     s = len(indices_for_inference)
@@ -214,23 +237,26 @@ for sample in tqdm(range(s), colour='MAGENTA'):
 
 if p['PLOT_BASIS']:
     for i in tqdm(range(1, modes_to_plot + 1), colour='CYAN'):
-        print(f"Mode #{i}: ", basis_modes[i].shape)
+        print(f"Mode #{i}: ", basis_modes[i - 1].shape)
         fig_mode = plot_basis_function(r, 
                                        z, 
-                                       basis_modes[i], 
+                                       basis_modes[i - 1], 
                                        index=i, 
                                        basis_config=config['BASIS_CONFIG'], 
-                                       strategy=config['TRAINING_STRATEGY'] if config['TRAINING_STRATEGY'] == 'pod' else "NN")
-        import matplotlib.pyplot as plt
-        plt.show()
-        # if i == 1:
-        #     saver(figure=fig_mode, figure_prefix=f"{i}st_mode")
-        # elif i == 2:
-        #     saver(figure=fig_mode, figure_prefix=f"{i}nd_mode")
-        # elif i == 3:
-        #     saver(figure=fig_mode, figure_prefix=f"{i}rd_mode")
-        # else:
-        #     saver(figure=fig_mode, figure_prefix=f"{i}th_mode")
+                                       strategy=config['TRAINING_STRATEGY'] if config['TRAINING_STRATEGY'] == 'pod'\
+                                        else "2-Step NN" if config['TRAINING_STRATEGY'] == 'two_step' \
+                                        else "NN")
+        # import matplotlib.pyplot as plt
+        # plt.show()
+
+        if i == 1:
+            saver(figure=fig_mode, figure_prefix=f"{i}st_mode")
+        elif i == 2:
+            saver(figure=fig_mode, figure_prefix=f"{i}nd_mode")
+        elif i == 3:
+            saver(figure=fig_mode, figure_prefix=f"{i}rd_mode")
+        else:
+            saver(figure=fig_mode, figure_prefix=f"{i}th_mode")
 
 # g_u, preds = ppr.mirror(g_u), ppr.mirror(preds)
 
@@ -238,5 +264,5 @@ if p['PLOT_BASIS']:
 
 # animate_wave(g_u.real, g_u_pred=preds.real, save_name='./video')
 
-# saver(errors=errors)
-# saver(time=inference_time, time_prefix="inference")
+saver(errors=errors)
+saver(time=inference_time, time_prefix="inference")
