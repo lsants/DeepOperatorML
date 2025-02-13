@@ -1,7 +1,7 @@
 import torch
+import logging
 from .training_strategy_base import TrainingStrategy
 from ..optimization.loss_complex import loss_complex
-
 
 class PODTrainingStrategy(TrainingStrategy):
     def __init__(self, data=None, var_share=None, inference=False):
