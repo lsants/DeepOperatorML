@@ -1,5 +1,5 @@
 # Parameters for training DeepONets.
-MODELNAME: 20250213_deeponet_two_step_in_norm_trunk_expansion_multiple_basis
+MODELNAME: 20250213_deeponet_pod_in_norm_trunk_expansion_single_basis
 
 # Location of test file info
 DATAFILE: ./data/raw/displacements.npz
