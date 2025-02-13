@@ -1,12 +1,14 @@
 import torch
+import logging
 from .training_strategy_base import TrainingStrategy
 from ..optimization.loss_complex import loss_complex
 
+logger = logging.getLogger(__name__)
 class TwoStepTrainingStrategy(TrainingStrategy):
     def __init__(self, train_dataset_length=None):
         self.train_dataset_length = train_dataset_length
         if not self.train_dataset_length:
-            print("Initializing the model without A matrix. Only do this if you're doing inference.")
+            logger.warning("Initializing the model without A matrix. Only do this if you're doing inference.")
         self.A_list = None
         self.Q_list = []
         self.R_list = []
@@ -21,16 +23,19 @@ class TwoStepTrainingStrategy(TrainingStrategy):
 
     def update_training_phase(self, phase, **kwargs):
         self.current_phase = phase
-        print(f'Current phase: {self.current_phase}')
+        logger.info(f'Current phase: {self.current_phase}')
 
     def prepare_training(self, model, **kwargs):
         branch_output_size = getattr(model.output_strategy, 'branch_output_dim')
-        if self.train_dataset_length:
+        if self.train_dataset_length and not self.A_list:
             A_dim = (branch_output_size, self.train_dataset_length)
+
+            logger.debug(f"A matrix's dimensions: {branch_output_size, self.train_dataset_length}")
+            logger.debug(f"Creating {model.output_strategy.num_branches} trainable matrices")
 
             self.A_list = torch.nn.ParameterList([
                 torch.nn.Parameter(torch.randn(A_dim))
-                for _ in range(len(model.branch_networks))
+                for _ in range(model.output_strategy.num_branches)
             ])
             for A in self.A_list:
                 torch.nn.init.kaiming_uniform_(A)
@@ -39,7 +44,7 @@ class TwoStepTrainingStrategy(TrainingStrategy):
         params = kwargs.get('model_params')
         xt = kwargs.get('train_batch')
         self._set_phase_params(model, self.current_phase)
-        if self.current_phase == 'branch':
+        if self.current_phase == 'branch' and not self.trained_trunk_list:
             self.update_q_r_t_matrices(model, params, xt)
             with torch.no_grad():
                 self.branch_matrices = {
@@ -134,9 +139,10 @@ class TwoStepTrainingStrategy(TrainingStrategy):
 
     def after_epoch(self, epoch, model, params, **kwargs):
         if self.current_phase == 'trunk' and epoch + 1 == params['TRUNK_TRAIN_EPOCHS']:
+            logger.debug(f"THIS RAN BECAUSE PHASE ({self.current_phase}) SHOULD BE TRUNK AND NEXT EPOCH ({epoch + 1}) IS {params['TRUNK_TRAIN_EPOCHS']}")
             train_batch = kwargs.get('train_batch')
             self.update_q_r_t_matrices(model, params, train_batch)
-            print(f"Trunk matrices updated and phase transition triggered at epoch {epoch + 1}")
+            logger.info(f"Trunk matrices updated and phase transition triggered at epoch {epoch + 1}")
 
     def get_optimizers(self, model, params):
         optimizers = {}
@@ -228,11 +234,13 @@ class TwoStepTrainingStrategy(TrainingStrategy):
             for trunk in trunks:
                 phi = trunk(xt)
                 if decomposition.lower() == 'qr':
+                    logger.info(f"Decomposition using QR factorization...")
                     Q, R = torch.linalg.qr(phi)
                     self.Q_list.append(Q)
                     self.R_list.append(R)
 
                 if decomposition.lower() == 'svd':
+                    logger.info(f"Decomposition using SVD...")
                     Q, Sd, Vd = torch.linalg.svd(phi, full_matrices=False)
                     R = torch.diag(Sd) @ Vd
                     self.Q_list.append(Q)
@@ -243,16 +251,16 @@ class TwoStepTrainingStrategy(TrainingStrategy):
 
                 self.trained_trunk_list.append(Q @ R @ T)
 
-                print(f"Q shape: {Q.shape}, R shape: {R.shape}, T shape: {T.shape}")
-                print(f"Reconstructed Phi shape: {(Q @ R @ T).shape}")
-                print(f"Q @ R == Phi check: {torch.allclose(Q @ R, phi, atol=1e-6)}")
-
+                logger.info(f"Q shape: {Q.shape}, R shape: {R.shape}, T shape: {T.shape}")
+                logger.info(f"Reconstructed Phi shape: {(Q @ R @ T).shape}")
+                logger.info(f"Q @ R == Phi check: {torch.allclose(Q @ R, phi, atol=1e-6)}")
+                logger.info(f"Q matrices: {len(self.Q_list)}\nR matrices: {len(self.R_list)}\nT matrices: {len(self.T_list)}")
 
             if not self.Q_list or not self.R_list or not self.T_list:
                 raise ValueError(
                     f"Trunk decomposition failed. At least one of the matrices wasn't stored.")
             else:
-                print(f"Trunk decomposed successfully. \nMoving on to second step...")
+                logger.info(f"Trunk decomposed successfully. \nMoving on to second step...")
 
     def set_matrices(self, **kwargs):
         self.Q_list = kwargs.get('Q_list')
@@ -267,6 +275,7 @@ class TwoStepTrainingStrategy(TrainingStrategy):
             raise ValueError("ERROR: T matrices couldn't be assigned.")
         self.trained_trunk_list = [Q @ R @ T for Q, R, T in 
                                     zip(self.Q_list, self.R_list, self.T_list)]
+        logger.info(f"Set {len(self.trained_trunk_list)} trained trunk(s) (shaped {(self.trained_trunk_list[0].shape[0], self.trained_trunk_list[0].shape[1])}) for inference.")
 
     def inference_mode(self):
         self.current_phase = 'final'
