@@ -53,7 +53,6 @@ def align_epochs(history):
     return aligned_data
 
 
-
 def plot_training(history):
     """
     Plots training and validation metrics over epochs.
