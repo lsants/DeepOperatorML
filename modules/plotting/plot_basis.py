@@ -7,7 +7,7 @@ def plot_basis_function(r, z, basis, **kwargs):
     non_dim_plot = kwargs.get('non_dim_plot', True)
     basis_config = kwargs.get('basis_config', 'single')
 
-    mode_computed_with = kwargs.get('strategy', "NN").upper()
+    mode_computed_with = kwargs.get('strategy').upper()
 
     if full:
         r_full = np.concatenate((-np.flip(r[1 : ]), r))
@@ -20,9 +20,7 @@ def plot_basis_function(r, z, basis, **kwargs):
         basis_full = basis.T
 
     if non_dim_plot:
-        if not index:
-            title = f"Mode ({mode_computed_with})"
-        elif index == 1:
+        if index == 1:
             title = f'{index}st mode ({mode_computed_with})'
         elif index == 2:
             title = f'{index}nd mode ({mode_computed_with})'
