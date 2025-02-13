@@ -1,7 +1,10 @@
 # modules/model/output_strategies/single_trunk_split_branch.py
 
+import logging
 import torch
 from .output_handling_base import OutputHandlingStrategy
+
+logging.getLogger(__name__)
 
 class SingleTrunkSplitBranchStrategy(OutputHandlingStrategy):
     """Use a single set of basis functions and one single input function mapping
@@ -10,6 +13,8 @@ class SingleTrunkSplitBranchStrategy(OutputHandlingStrategy):
     def __init__(self):
         self.branch_output_dim = None
         self.trunk_output_dim = None
+        self.num_trunks = None
+        self.num_branches = None
         
     def get_basis_config(self):
         """
@@ -51,6 +56,7 @@ class SingleTrunkSplitBranchStrategy(OutputHandlingStrategy):
         trunk_networks = torch.nn.ModuleList([trunk])
 
         self.trunk_output_dim = trunk_output_size
+        self.num_trunks = trunk_output_size // n_basis_functions
 
         branch_config = branch_config.copy()
         branch_output_size = n_basis_functions * model.n_outputs
@@ -60,6 +66,7 @@ class SingleTrunkSplitBranchStrategy(OutputHandlingStrategy):
         branch_networks = torch.nn.ModuleList([branch])
 
         self.branch_output_dim = branch_output_size
+        self.num_branches = branch_output_size // n_basis_functions
 
         return branch_networks, trunk_networks
     

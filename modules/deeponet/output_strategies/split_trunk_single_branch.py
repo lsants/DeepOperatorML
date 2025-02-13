@@ -1,7 +1,10 @@
 # modules/model/output_strategies/split_trunk_single_branch.py
 
 import torch
+import logging
 from .output_handling_base import OutputHandlingStrategy
+
+logger = logging.getLogger(__name__)
 
 class SplitTrunkSingleBranchStrategy(OutputHandlingStrategy):
     """Use a single set of basis functions and one single input function mapping
@@ -10,6 +13,8 @@ class SplitTrunkSingleBranchStrategy(OutputHandlingStrategy):
     def __init__(self):
         self.branch_output_dim = None
         self.trunk_output_dim = None
+        self.num_trunks = None
+        self.num_branches = None
         
     def get_basis_config(self):
         """
@@ -50,6 +55,7 @@ class SplitTrunkSingleBranchStrategy(OutputHandlingStrategy):
         trunk_networks = torch.nn.ModuleList([trunk])
 
         self.trunk_output_dim = trunk_output_size
+        self.num_trunks = trunk_output_size // n_basis_functions
 
         branch_config = branch_config.copy()
         branch_output_size = n_basis_functions
@@ -59,12 +65,15 @@ class SplitTrunkSingleBranchStrategy(OutputHandlingStrategy):
         branch_networks = torch.nn.ModuleList([branch])
 
         self.branch_output_dim = branch_output_size
+        self.num_branches = branch_output_size // n_basis_functions
+
+        logger.info(f"\nBranch: {len(branch_networks)} network(s) of size {branch_output_size}\nTrunk: {len(trunk_networks)} network(s) of size {trunk_output_size}\n")
 
         return branch_networks, trunk_networks
     
     def forward(self, model, data_branch, data_trunk, matrices_branch=None, matrices_trunk=None):
         mask_matrix = torch.cat(tuple(i for i in matrices_trunk), axis=1) if matrices_trunk is not None else None
-        mask_data = torch.cat(tuple(model.get_trunk_output(i, data_trunk) for i in range(model.n_outputs)), axis=1)
+        mask_data = torch.cat(tuple(model.get_trunk_output(i, data_trunk) for i in range(model.n_outputs)), axis=1) if mask_matrix is None else None
         
         trunk_out = (
             mask_matrix
