@@ -96,6 +96,9 @@ class Scaling:
         mu = torch.as_tensor(self.mean, dtype=values.dtype, device=values.device)
         sigma = torch.as_tensor(self.std, dtype=values.dtype, device=values.device)
         return values * sigma + mu
+ 
+def prepare_data_for_dataset(data): # FINISH THIS FUNCTION SO THAT DIMENSIONS ARE CORRECT FOR DATASET
+    xb = data['']
 
 
 def get_minmax_norm_params(dataset, keys=None):
@@ -138,73 +141,102 @@ def get_minmax_norm_params(dataset, keys=None):
 
     return min_max_params
 
-
-
-def get_gaussian_norm_params(loader):
-    samples_sum_xb = torch.zeros(1)
-    samples_square_sum_xb = torch.zeros(1)
+def don_to_meshgrid(arr):
+    """
+    Recovers the original coordinate arrays from a trunk (or branch) array.
     
-    samples_sum_g_u_real = torch.zeros(1)
-    samples_square_sum_g_u_real = torch.zeros(1)
+    Assumes that the trunk array was created via a meshgrid operation (with 'ij' indexing)
+    from one or more 1D coordinate arrays. The trunk is a 2D array of shape (N, d) where d is
+    the number of coordinate dimensions and N is the product of the lengths of the coordinate arrays.
+    
+    Returns a tuple of d 1D arrays containing the unique coordinate values for each dimension.
+    For example, for a 2D case it returns (r, z); for a 3D case, (x, y, z).
+    
+    Args:
+        arr (numpy.ndarray): Trunk array of shape (N, d).
+    
+    Returns:
+        tuple: A tuple of d 1D numpy arrays corresponding to the coordinates.
+    """
+    d = arr.shape[1]
+    coords = tuple(np.unique(arr[:, i]) for i in range(d))
+    return coords
 
-    samples_sum_g_u_imag = torch.zeros(1)
-    samples_square_sum_g_u_imag = torch.zeros(1)
+def meshgrid_to_don(*coords):
+    """
+    Generates the trunk/branch matrix for DeepONet training from given coordinate arrays.
+    
+    This function accepts either multiple coordinate arrays as separate arguments,
+    or a single argument that is a list (or tuple) of coordinate arrays. It returns
+    a 2D array where each row corresponds to one point in the Cartesian product of the
+    input coordinate arrays.
+    
+    Examples:
+        For 2D coordinates:
+            xt = meshgrid_to_trunk(r_values, z_values)
+        For 3D coordinates:
+            xt = meshgrid_to_trunk(x_values, y_values, z_values)
+        Or:
+            xt = meshgrid_to_trunk([x_values, y_values, z_values])
+    
+    Args:
+        *coords: One or more 1D numpy arrays representing coordinate values.
+    
+    Returns:
+        numpy.ndarray: A 2D array of shape (N, d) where d is the number of coordinate arrays
+                       and N is the product of the lengths of these arrays.
+    """
 
-    for sample in loader:
-        xb = sample['xb']
-        g_u_real = sample['g_u_real']
-        g_u_imag = sample['g_u_imag']
+    if len(coords) == 1 and isinstance(coords[0], (list, tuple)):
+        coords = coords[0]
+    
+    meshes = np.meshgrid(*coords, indexing='ij')
 
-        samples_sum_xb += xb
-        samples_sum_g_u_real += g_u_real
-        samples_sum_g_u_imag += g_u_imag
+    data = np.column_stack([m.flatten() for m in meshes])
+    return data
 
-        samples_square_sum_xb += xb.pow(2)
-        samples_square_sum_g_u_real += g_u_real.pow(2)
-        samples_square_sum_g_u_imag += g_u_imag.pow(2)
 
-    samples_mean_xb = (samples_sum_xb / len(loader)).item()
-    samples_std_xb = ((samples_square_sum_xb / len(loader) - samples_mean_xb.pow(2)).sqrt()).item()
-
-    samples_mean_g_u_real = (samples_sum_g_u_real / len(loader)).item()
-    samples_std_g_u_real = ((samples_square_sum_g_u_real / len(loader) - samples_mean_g_u_real.pow(2)).sqrt()).item()
-
-    samples_mean_g_u_imag = (samples_sum_g_u_imag / len(loader)).item()
-    samples_std_g_u_imag = ((samples_square_sum_g_u_imag / len(loader) - samples_mean_g_u_imag.pow(2)).sqrt()).item()
-
-    gaussian_params = {'xb' : (samples_mean_xb, samples_std_xb),
-                      'g_u_real' : (samples_std_g_u_real, samples_std_g_u_real),
-                      'g_u_imag' :(samples_std_g_u_imag, samples_std_g_u_imag)}
-
-    return gaussian_params
-
-def trunk_to_meshgrid(arr):
-    z = np.unique(arr[ : , 1])
-    n_r = len(arr) / len(z)
-    r = np.array(arr[ : , 0 ][ : int(n_r)]).flatten()
-    return r, z
-
-def meshgrid_to_trunk(r_values, z_values):
-    R_mesh, Z_mesh = np.meshgrid(r_values, z_values)
-    xt = np.column_stack((R_mesh.flatten(), Z_mesh.flatten()))
-    return xt
-
-def reshape_outputs_to_plot_format(output, z_axis_values):
-    if z_axis_values.ndim == 2:
-        n_z = len(np.unique(z_axis_values[ : , 1]))
+def reshape_outputs_to_plot_format(output, coords):
+    """
+    Reshapes the output from DeepONet into a meshgrid format for plotting.
+    
+    Args:
+        output (Tensor or ndarray): The network output, with shape either
+            (branch_data.shape[0], trunk_size) or 
+            (branch_data.shape[0], trunk_size, n_basis).
+        coords (tuple or list or ndarray): The coordinate arrays that were
+            used to generate the trunk. If multiple coordinate arrays are provided,
+            they should be in a tuple/list (e.g. (x_values, y_values, z_values)).
+            If a single array is provided, it is assumed to be 1D.
+    
+    Returns:
+        ndarray: Reshaped output with shape 
+            (branch_data.shape[0], n_basis, len(coords[0]), len(coords[1]), ...).
+            For a 2D problem with a single basis, for example, the output shape
+            will be (N_branch, 1, len(coord1), len(coord2)).
+    """
+    if isinstance(coords, (list, tuple)):
+        grid_shape = tuple(len(c) for c in coords)
     else:
-        n_z = len(z_axis_values)
-
-    if isinstance(output, torch.Tensor):
-        output = output.detach().numpy()
-
-    if output.ndim == 3:
-        output = (output).reshape(- 1, len(output), int(z_axis_values.shape[0] / n_z), n_z)
-
-    if output.ndim == 2:
-        output = (output).reshape(- 1, int(z_axis_values.shape[0] / n_z), n_z)
+        grid_shape = (len(coords),)
     
-    return output
+    if isinstance(output, torch.Tensor):
+        output = output.detach().cpu().numpy()
+    
+    if output.ndim == 2:
+        N_branch, trunk_size = output.shape
+        if np.prod(grid_shape) != trunk_size:
+            raise ValueError("Mismatch between trunk size and product of coordinate lengths.")
+        reshaped = output.reshape(N_branch, 1, *grid_shape)
+    elif output.ndim == 3:
+        N_branch, trunk_size, n_basis = output.shape
+        if np.prod(grid_shape) != trunk_size:
+            raise ValueError("Mismatch between trunk size and product of coordinate lengths.")
+        reshaped = output.reshape(N_branch, n_basis, *grid_shape)
+    else:
+        raise ValueError("Output must be either 2D or 3D.")
+    
+    return reshaped
 
 def trunk_feature_expansion(xt, p):
     expansion_features = [xt]
@@ -221,12 +253,3 @@ def mirror(arr):
     arr_mirrored = np.concatenate((arr_flip, arr), axis=1)
     arr_mirrored = arr_mirrored.T
     return arr_mirrored
-
-def get_trunk_normalization_params(xt):
-    r, z = trunk_to_meshgrid(xt)
-    min_max_params = np.array([[r.min(), z.min()],
-                                [r.max(), z.max()]])
-
-    min_max_params = {'min' : [r.min(), z.min()],
-                        'max' : [r.max(), z.max()]}
-    return min_max_params
