@@ -21,7 +21,6 @@ class TrainingLoop:
         Args:
             model (torch.nn.Module): The model to train.
             training_strategy (TrainingStrategy): The training strategy to use.
-            storer (TrainEvaluator): The storer for metrics.
             saver (Saver): The saver for saving models and outputs.
             params (dict): Training parameters.
         """
@@ -57,14 +56,6 @@ class TrainingLoop:
             min_val=self.p['NORMALIZATION_PARAMETERS']['xt']['min'],
             max_val=self.p['NORMALIZATION_PARAMETERS']['xt']['max']
         )
-        g_u_real_scaler = ppr.Scaling(
-            min_val=self.p['NORMALIZATION_PARAMETERS']['g_u_real']['min'],
-            max_val=self.p['NORMALIZATION_PARAMETERS']['g_u_real']['max']
-        )
-        g_u_imag_scaler = ppr.Scaling(
-            min_val=self.p['NORMALIZATION_PARAMETERS']['g_u_imag']['min'],
-            max_val=self.p['NORMALIZATION_PARAMETERS']['g_u_imag']['max']
-        )
 
         if self.p['INPUT_NORMALIZATION']:
             processed_batch['xb'] = xb_scaler.normalize(batch['xb']).to(dtype=dtype, device=device)
@@ -73,12 +64,15 @@ class TrainingLoop:
             processed_batch['xb'] = batch['xb'].to(dtype=dtype, device=device)
             processed_batch['xt'] = batch['xt'].to(dtype=dtype, device=device)
 
-        if self.p['OUTPUT_NORMALIZATION']:
-            processed_batch['g_u_real'] = g_u_real_scaler.normalize(batch['g_u_real']).to(dtype=dtype, device=device)
-            processed_batch['g_u_imag'] = g_u_imag_scaler.normalize(batch['g_u_imag']).to(dtype=dtype, device=device)
-        else:
-            processed_batch['g_u_real'] = batch['g_u_real'].to(dtype=dtype, device=device)
-            processed_batch['g_u_imag'] = batch['g_u_imag'].to(dtype=dtype, device=device)
+        for key in self.p['OUTPUT_KEYS']:
+            scaler = ppr.Scaling(
+                min_val=self.p['NORMALIZATION_PARAMETERS'][key]['min'],
+                max_val=self.p['NORMALIZATION_PARAMETERS'][key]['max']
+            )
+            if self.p['OUTPUT_NORMALIZATION']:
+                processed_batch[key] = scaler.normalize(batch[key]).to(dtype=dtype, device=device)
+            else:
+                processed_batch[key] = batch[key].to(dtype=dtype, device=device)
 
         if self.p['TRUNK_FEATURE_EXPANSION']:
             processed_batch['xt'] = ppr.trunk_feature_expansion(
@@ -136,10 +130,9 @@ class TrainingLoop:
                     val_metrics = self._validate(val_batch)
                     val_loss = val_metrics['val_loss']
                     self.storer.store_epoch_val_loss(current_phase, val_metrics['val_loss'])
-                    self.storer.store_epoch_val_errors(current_phase, {
-                        'g_u_real': val_metrics.get('val_error_real', None),
-                        'g_u_imag': val_metrics.get('val_error_imag', None),
-                    })
+                    val_errors = {f"val_error_{key}": val_metrics.get(f"val_error_{key}", None)
+                                  for key in self.p['OUTPUT_KEYS']}
+                    self.storer.store_epoch_val_errors(current_phase, val_errors)
                     if val_loss < best_val_loss:
                         best_val_loss = val_loss
                         best_model_checkpoint = {
@@ -181,16 +174,19 @@ class TrainingLoop:
             val_loss = self.training_strategy.compute_loss(val_outputs, val_batch_processed, self.model, self.p)
             val_errors = self.training_strategy.compute_errors(val_outputs, val_batch_processed, self.model, self.p)
 
-        return {
-            'val_loss': val_loss.item(),
-            'val_error_real': val_errors.get('g_u_real', None),
-            'val_error_imag': val_errors.get('g_u_imag', None),
-        }
+        val_metrics = {'val_loss': val_loss.item()}
+        for key in self.p['OUTPUT_KEYS']:
+            val_metrics[f"val_error_{key}"] = val_errors.get(key, None)
+        return val_metrics
 
     def _log_epoch_metrics(self, epoch, train_loss, train_errors, val_metrics):
-        log_msg = f"Epoch {epoch}: Train Loss: {train_loss:.3E}, Train Error Real: {train_errors['g_u_real']:.3E}, Train Error Imag: {train_errors['g_u_imag']:.3E}"
+        output_errors_str = ", ".join([f"{key}: {train_errors.get(key, 0):.3E}" for key in self.p['OUTPUT_KEYS']])
+        log_msg = f"Epoch {epoch}: Train Loss: {train_loss:.3E}, Train Errors: {output_errors_str}"
         if val_metrics:
-            log_msg += f", Val Loss: {val_metrics['val_loss']:.3E}, Val Error Real: {val_metrics['val_error_real']:.3E}"
+            val_output_errors_str = ", ".join(
+                [f"{key}: {val_metrics.get('val_error_' + key, 0):.3E}" for key in self.p['OUTPUT_KEYS']]
+            )
+            log_msg += f", Val Loss: {val_metrics['val_loss']:.3E}, Val Errors: {val_output_errors_str}"
         logger.info(log_msg)
 
     def _finalize_training(self, best_model_checkpoint, training_time):
@@ -205,8 +201,8 @@ class TrainingLoop:
             logger.info("No valid phases to save. Skipping finalization.")
             return
 
-        aligned_history = align_epochs(valid_history)  # Align data before plotting
-        fig = plot_training(aligned_history)  # Pass aligned data
+        aligned_history = align_epochs(valid_history)
+        fig = plot_training(aligned_history)
 
         self.saver(
             phase=self.training_strategy.current_phase,
