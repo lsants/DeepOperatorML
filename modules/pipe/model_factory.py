@@ -2,6 +2,7 @@ import os
 import yaml
 import torch
 
+from ..utilities.config_utils import process_config
 from ..deeponet.deeponet import DeepONet
 from ..deeponet.training_strategies import (
     StandardTrainingStrategy,
@@ -57,7 +58,11 @@ def create_model(model_params, **kwargs):
             raise ValueError(f"Unsupported activation function: '{name}'. Supported functions are: {list(activation_map.keys())}")
         return activation_map[name]
     
-    model_name = model_params.get('MODELNAME', 'DeepONet')
+    model_params = process_config(model_params)
+
+    if 'MODELNAME' not in model_params or not model_params['MODELNAME']:
+        raise ValueError("MODELNAME is missing in the configuration.")
+    model_name = model_params['MODELNAME']
     var_share = model_params.get('VAR_SHARE')
     data = kwargs.get('train_data')
 
@@ -66,7 +71,6 @@ def create_model(model_params, **kwargs):
         trunk_input_size += (
             2 * model_params['TRUNK_INPUT_SIZE'] * model_params['TRUNK_EXPANSION_FEATURES_NUMBER']
         )
-
 
     branch_architecture = model_params['BRANCH_ARCHITECTURE']
     trunk_architecture = model_params['TRUNK_ARCHITECTURE']
@@ -147,27 +151,6 @@ def create_model(model_params, **kwargs):
         n_outputs=model_params['N_OUTPUTS'],
         n_basis_functions=model_params['BASIS_FUNCTIONS']
     ).to(model_params['DEVICE'], dtype=getattr(torch, model_params['PRECISION']))
-    
-    if model_params.get('TRAINING_STRATEGY', False):
-        model_name += '_' + model_params.get('TRAINING_STRATEGY')
-    if model_params.get('INPUT_NORMALIZATION', False):
-        model_name += '_in'
-    if model_params.get('OUTPUT_NORMALIZATION', False):
-        model_name += '_out'
-    if model_params.get('INPUT_NORMALIZATION', False) or model_params['OUTPUT_NORMALIZATION']:
-        model_name += '_norm'
-    if model_params.get('TRUNK_FEATURE_EXPANSION', False):
-        model_name += '_trunk_expansion'
-    if model_params.get('OUTPUT_HANDLING', False):
-        if 'single_trunk' in model_params.get('OUTPUT_HANDLING').lower():
-            model_name += '_' + 'single' + '_'
-            model_name += 'basis'
-        elif 'multiple_trunks' in model_params.get('OUTPUT_HANDLING').lower():
-            model_name += '_' + 'multiple' + '_'
-            model_name += 'trunks'
-        elif 'split_trunk' in model_params.get('OUTPUT_HANDLING').lower():
-            model_name += '_' + 'multiple' + '_'
-            model_name += 'basis'
 
     return model, model_name
 
