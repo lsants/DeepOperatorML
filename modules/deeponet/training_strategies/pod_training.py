@@ -55,7 +55,6 @@ class PODTrainingStrategy(TrainingStrategy):
         pod_basis_list = []
         mean_functions_list = []
 
-        # Data is a dict with cols 'xb', 'xt', 'g_u_real', 'g_u_imag', 'index'
         output_hashes = [k for k in self.data.keys() if k not in [
             'xb', 'xt', 'index']]
 
