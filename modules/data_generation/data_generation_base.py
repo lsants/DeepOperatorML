@@ -11,11 +11,11 @@ class Datagen(ABC):
         self.problem_setup = problem_setup
 
     @abstractmethod
-    def _gen_branch_data(self):
+    def _get_input_functions(self):
         pass
 
     @abstractmethod
-    def _gen_trunk_data(self):
+    def _get_coordinates(self):
         pass
 
     @abstractmethod
