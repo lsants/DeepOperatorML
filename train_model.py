@@ -15,7 +15,7 @@ from modules.pipe.training import TrainingLoop
 from modules.pipe.model_factory import create_model
 from modules.data_processing import preprocessing as ppr
 from modules.data_processing.compose_transformations import Compose
-from modules.data_processing.greenfunc_dataset import GreenFuncDataset
+from modules.data_processing.deeponet_dataset import DeepONetDataset
 
 logger = logging.getLogger(__name__)
 
@@ -33,8 +33,12 @@ transformations = Compose([
 ])
 
 data = np.load(p['DATAFILE'], allow_pickle=True)
-output_keys = ['g_u_real', 'g_u_imag']
-dataset = GreenFuncDataset(data, transformations, output_keys=output_keys)
+input_keys = p['INPUT_KEYS']
+output_keys = p['OUTPUT_KEYS']
+dataset = DeepONetDataset(data, 
+                           transformations, 
+                           input_keys=input_keys, 
+                           output_keys=output_keys)
 
 n_outputs = dataset.n_outputs
 
@@ -47,7 +51,6 @@ dataset_indices = {'train': train_dataset.indices,
 p['TRAIN_INDICES'] = train_dataset.indices
 p['VAL_INDICES'] = val_dataset.indices
 p['TEST_INDICES'] = test_dataset.indices
-p['OUTPUT_KEYS'] = output_keys
 
 p['A_DIM'] = (p['BASIS_FUNCTIONS'], len(p['TRAIN_INDICES']))
 
@@ -57,15 +60,11 @@ norm_params = ppr.get_minmax_norm_params(train_dataset)
 
 xb_min, xb_max = norm_params['xb']['min'], norm_params['xb']['max']
 xt_min, xt_max = norm_params['xt']['min'], norm_params['xt']['max']
-g_u_real_min, g_u_real_max = norm_params['g_u_real']['min'], norm_params['g_u_real']['max']
-g_u_imag_min, g_u_imag_max = norm_params['g_u_imag']['min'], norm_params['g_u_imag']['max']
 
 normalize_branch = ppr.Scaling(min_val=xb_min, max_val=xb_max)
 normalize_trunk = ppr.Scaling(min_val=xt_min, max_val=xt_max)
-normalize_g_u_real = ppr.Scaling(min_val=g_u_real_min, max_val=g_u_real_max)
-normalize_g_u_imag = ppr.Scaling(min_val=g_u_imag_min, max_val=g_u_imag_max)
 
-p["NORMALIZATION_PARAMETERS"] = {
+normalization_parameters = {
     "xb": {
         "min": xb_min,
         "max": xb_max,
@@ -77,20 +76,20 @@ p["NORMALIZATION_PARAMETERS"] = {
         "max": xt_max,
         "normalize": normalize_trunk.normalize,
         "denormalize": normalize_trunk.denormalize
-    },
-    "g_u_real": {
-        "min": g_u_real_min,
-        "max": g_u_real_max,
-        "normalize": normalize_g_u_real.normalize,
-        "denormalize": normalize_g_u_real.denormalize
-    },
-    "g_u_imag": {
-        "min": g_u_imag_min,
-        "max": g_u_imag_max,
-        "normalize": normalize_g_u_imag.normalize,
-        "denormalize": normalize_g_u_imag.denormalize
     }
 }
+
+for key in output_keys:
+    key_min, key_max = norm_params[key]['min'], norm_params[key]['max']
+    scaling = ppr.Scaling(min_val=key_min, max_val=key_max)
+    normalization_parameters[key] = {
+        "min": key_min,
+        "max": key_max,
+        "normalize": scaling.normalize,
+        "denormalize": scaling.denormalize
+    }
+
+p["NORMALIZATION_PARAMETERS"] = normalization_parameters
 # ------------------------------------ Initialize model -----------------------------
 
 model, model_name = create_model(
@@ -102,21 +101,16 @@ model, model_name = create_model(
 
 p['MODELNAME'] = model_name
 
-data_out_folder = p['OUTPUT_LOG_FOLDER'] + p['TRAINING_STRATEGY'] + '/' + p['OUTPUT_HANDLING'] +  '/' + model_name + "/"
-fig_folder = p['IMAGES_FOLDER'] + p['TRAINING_STRATEGY'] + '/' + p['OUTPUT_HANDLING'] + '/' + model_name + "/"
-
-logger.info(f"Data will be saved at:\n{data_out_folder}\nFigure will be saved at:\n{fig_folder}")
+logger.info(f"Data will be saved at:\n{p['OUTPUT_LOG_FOLDER']}\nFigure will be saved at:\n{p['IMAGES_FOLDER']}")
 
 # ---------------------------------- Initializing classes for training  -------------------
 
 saver = Saver(
     model_name=p['MODELNAME'], 
     model_folder=p['MODEL_FOLDER'], 
-    data_output_folder=data_out_folder, 
-    figures_folder=fig_folder
+    data_output_folder=p["OUTPUT_LOG_FOLDER"], 
+    figures_folder=p["IMAGES_FOLDER"]
 )
-
-best_model_checkpoint = None
 
 training_strategy = model.training_strategy
 
@@ -127,6 +121,8 @@ training_loop = TrainingLoop(
     params=p
 )
 
+# ---------------------------------- Batching data -------------------------------------
+
 def get_single_batch(dataset, indices):
     dtype = getattr(torch, p['PRECISION'])
     device = p['DEVICE']
@@ -134,8 +130,8 @@ def get_single_batch(dataset, indices):
     batch = {}
     batch['xb'] = torch.stack([dataset[idx]['xb'] for idx in indices], dim=0).to(dtype=dtype, device=device)
     batch['xt'] = dataset.get_trunk()
-    batch['g_u_real'] = torch.stack([dataset[idx]['g_u_real'] for idx in indices], dim=0).to(dtype=dtype, device=device)
-    batch['g_u_imag'] = torch.stack([dataset[idx]['g_u_imag'] for idx in indices], dim=0).to(dtype=dtype, device=device)
+    for key in output_keys:
+        batch[key] = torch.stack([dataset[idx][key] for idx in indices], dim=0).to(dtype=dtype, device=device)
     return batch
 
 train_batch = get_single_batch(dataset, train_dataset.indices)
