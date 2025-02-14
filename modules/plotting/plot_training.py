@@ -13,41 +13,44 @@ def align_epochs(history):
     aligned_data = {}
 
     for phase, metrics in history.items():
-        # Align epochs within the phase
         train_loss = metrics.get('train_loss', [])
         val_loss = metrics.get('val_loss', [])
         train_errors = metrics.get('train_errors', [])
         val_errors = metrics.get('val_errors', [])
         learning_rate = metrics.get('learning_rate', [])
 
-        # Extract real and imaginary errors if present
-        train_errors_real = [e.get('g_u_real') for e in train_errors if isinstance(e, dict)]
-        train_errors_imag = [e.get('g_u_imag') for e in train_errors if isinstance(e, dict)]
-        val_errors_real = [e.get('g_u_real') for e in val_errors if isinstance(e, dict)]
-        val_errors_imag = [e.get('g_u_imag') for e in val_errors if isinstance(e, dict)]
+        if train_errors and isinstance(train_errors[0], dict):
+            output_keys = list(train_errors[0].keys())
+        else:
+            output_keys = []
 
-        # Ensure epochs are aligned properly
-        num_epochs = max(len(train_loss), len(val_loss), len(train_errors_real), len(train_errors_imag))
+        aligned_train_errors = {}
+        aligned_val_errors = {}
+        for key in output_keys:
+            aligned_train_errors[key] = [e.get(key) for e in train_errors if isinstance(e, dict)]
+            aligned_val_errors[key] = [e.get(key) for e in val_errors if isinstance(e, dict)]
+
+        num_epochs = max(len(train_loss), len(val_loss))
         epochs = list(range(num_epochs))
 
-        # Adjust lengths to ensure alignment
-        train_loss = train_loss + [None] * (num_epochs - len(train_loss))
-        val_loss = val_loss + [None] * (num_epochs - len(val_loss))
-        train_errors_real = train_errors_real + [None] * (num_epochs - len(train_errors_real))
-        train_errors_imag = train_errors_imag + [None] * (num_epochs - len(train_errors_imag))
-        val_errors_real = val_errors_real + [None] * (num_epochs - len(val_errors_real))
-        val_errors_imag = val_errors_imag + [None] * (num_epochs - len(val_errors_imag))
-        learning_rate = learning_rate + [None] * (num_epochs - len(learning_rate))
+        def extend_list(lst):
+            return lst + [None] * (num_epochs - len(lst))
+
+        train_loss = extend_list(train_loss)
+        val_loss = extend_list(val_loss)
+        for key in output_keys:
+            aligned_train_errors[key] = extend_list(aligned_train_errors[key])
+            aligned_val_errors[key] = extend_list(aligned_val_errors[key])
+        learning_rate = extend_list(learning_rate)
 
         aligned_data[phase] = {
             'epochs': epochs,
             'train_loss': train_loss,
             'val_loss': val_loss,
-            'train_errors_real': train_errors_real,
-            'train_errors_imag': train_errors_imag,
-            'val_errors_real': val_errors_real,
-            'val_errors_imag': val_errors_imag,
             'learning_rate': learning_rate,
+            'train_errors': aligned_train_errors,
+            'val_errors': aligned_val_errors,
+            'output_keys': output_keys
         }
 
     return aligned_data
@@ -56,61 +59,69 @@ def align_epochs(history):
 def plot_training(history):
     """
     Plots training and validation metrics over epochs.
-
+    
+    For each phase, the first column shows the loss, and each subsequent column shows
+    the error for one output (e.g. real, imaginary, or any other target as defined).
+    
     Args:
-        history (dict): Training and validation history, phase-specific.
+        history (dict): Training and validation history, as output from align_epochs.
+        
+    Returns:
+        matplotlib.figure.Figure: The resulting figure.
     """
     n_phases = len(history)
-    fig, ax = plt.subplots(nrows=n_phases, ncols=3, figsize=(15, 5 * n_phases))
+    max_outputs = 0
+    for phase, metrics in history.items():
+        max_outputs = max(max_outputs, len(metrics.get('output_keys', [])))
+
+    n_cols = 1 + max_outputs
+
+    fig, axes = plt.subplots(nrows=n_phases, ncols=n_cols, figsize=(5 * n_cols, 5 * n_phases))
+
 
     if n_phases == 1:
-        ax = [ax]
+        axes = [axes]
 
     for i, (phase, metrics) in enumerate(history.items()):
         epochs = metrics['epochs']
         train_loss = metrics['train_loss']
         val_loss = metrics['val_loss']
-        train_errors_real = metrics['train_errors_real']
-        train_errors_imag = metrics['train_errors_imag']
-        val_errors_real = metrics['val_errors_real']
-        val_errors_imag = metrics['val_errors_imag']
         learning_rate = metrics['learning_rate']
+        output_keys = metrics.get('output_keys', [])
 
-        ax[i][0].plot(epochs[:len(train_loss)], train_loss, label='Train Loss', color='blue')
-        if val_loss:
-            ax[i][0].plot(epochs[:len(val_loss)], val_loss, label='Validation Loss', color='orange')
-        ax[i][0].set_title(f"Phase: {phase} - Loss")
-        ax[i][0].set_yscale('log')
-        ax[i][0].legend()
-        ax_i_0 = ax[i][0].twinx()
-        ax_i_0.plot(epochs[:len(train_loss)], learning_rate, label='Train Loss', color='black', linewidth=0.5)
-        ax_i_0.set_ylabel(r"learning_rate")
-        ax_i_0.set_yscale(r"log")
+        # ----- Column 0: Loss plot -----
+        ax_loss = axes[i][0] if n_cols > 1 else axes[i]
+        ax_loss.plot(epochs, train_loss, label='Train Loss', color='blue')
 
-        if train_errors_real:
-            ax[i][1].plot(epochs[:len(train_errors_real)], train_errors_real, label='Train Error (Real)', color='blue')
-        if val_errors_real:
-            ax[i][1].plot(epochs[:len(val_errors_real)], val_errors_real, label='Validation Error (Real)', color='orange')
-        ax[i][1].set_title(f"Phase: {phase} - $L_2$ Error (Real)")
-        ax[i][1].set_yscale('log')
-        ax[i][1].legend()
-        ax_i_1 = ax[i][1].twinx()
-        ax_i_1.plot(epochs[:len(train_loss)], learning_rate, label='Train Loss', color='black', linewidth=0.5)
-        ax_i_1.set_ylabel(r"learning_rate")
-        ax_i_1.set_yscale(r"log")
+        if any(v is not None for v in val_loss):
+            ax_loss.plot(epochs, val_loss, label='Val Loss', color='orange')
+        ax_loss.set_title(f"Phase: {phase} - Loss")
+        ax_loss.set_yscale('log')
+        ax_loss.legend()
 
-        if train_errors_imag:
-            ax[i][2].plot(epochs[:len(train_errors_imag)], train_errors_imag, label='Train Error (Imag)', color='blue')
-        if val_errors_imag:
-            ax[i][2].plot(epochs[:len(val_errors_imag)], val_errors_imag, label='Validation Error (Imag)', color='orange')
-        ax[i][2].set_title(f"Phase: {phase} - $L_2$ Error (Imag)")
-        ax[i][2].set_yscale('log')
-        ax_i_2 = ax[i][2].twinx()
-        ax[i][2].legend()
-        ax_i_2 = ax[i][2].twinx()
-        ax_i_2.plot(epochs[:len(train_loss)], learning_rate, label='Train Loss', color='black', linewidth=0.5)
-        ax_i_2.set_ylabel(r"learning_rate")
-        ax_i_2.set_yscale(r"log")
+        ax_loss_lr = ax_loss.twinx()
+        ax_loss_lr.plot(epochs, learning_rate, label='Learning Rate', color='black', linewidth=0.5)
+        ax_loss_lr.set_ylabel("Learning Rate")
+        ax_loss_lr.set_yscale('log')
+
+        # ----- Columns 1 and onward: Error plots per output key -----
+        for col, key in enumerate(output_keys, start=1):
+            ax = axes[i][col] if n_cols > 1 else axes[i]
+            train_err = metrics['train_errors'][key]
+            val_err = metrics['val_errors'][key]
+            if any(e is not None for e in train_err):
+                ax.plot(epochs, train_err, label=f"Train Error ({key})", color='blue')
+            if any(e is not None for e in val_err):
+                ax.plot(epochs, val_err, label=f"Val Error ({key})", color='orange')
+            ax.set_title(f"Phase: {phase} - Error ({key})")
+            ax.set_yscale('log')
+            ax.legend()
+
+            ax_lr = ax.twinx()
+            ax_lr.plot(epochs, learning_rate, label='Learning Rate', color='black', linewidth=0.5)
+            ax_lr.set_ylabel("Learning Rate")
+            ax_lr.set_yscale('log')
+
 
     fig.tight_layout()
     return fig
