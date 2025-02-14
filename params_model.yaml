@@ -1,8 +1,8 @@
 # Model name (actually prefix)
-MODELNAME: 20250213_deeponet
+PROBLEM: kelvin
 
 # Location of .npz data file
-DATAFILE: ./data/raw/displacements.npz
+DATAFILE: ./data/raw/kelvin_displacements.npz
 PRECISION: float32
 DEVICE: cpu
 SEED: 42
@@ -20,12 +20,10 @@ INPUT_KEYS:
   - xb
   - xt
 OUTPUT_KEYS:
-  - g_u_real
-  - g_u_imag
-
+  - g_u
 
 # ------------------- Model architecture ------------------
-TRAINING_STRATEGY: pod
+TRAINING_STRATEGY: standard
 OUTPUT_HANDLING: single_trunk_split_branch
 N_OUTPUTS: 2
 BRANCH_INPUT_SIZE: 1
