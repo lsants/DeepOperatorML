@@ -88,7 +88,6 @@ class DeepONet(torch.nn.Module):
         Returns:
             tuple: Outputs as determined by the output handling strategy.
         """
-        
         return self.training_strategy.forward(self, xb, xt)
     
     def get_trunk_output(self, i, xt_i):
