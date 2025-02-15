@@ -11,7 +11,7 @@ logging.basicConfig(
     stream=sys.stdout
 )
 from modules.data_generation.data_generation_dynamic_fixed_material import DynamicFixedMaterialProblem
-from modules.data_generation.data_generation_kelvin import KelvinsProblem
+from modules.data_generation.data_generation_kelvin import KelvinsProblemDeterministic
 
 logger = logging.getLogger(__name__)
 
@@ -62,7 +62,7 @@ elif problem == "kelvin":
     mesh_params = ((p["X_MIN_KELVIN"], p["X_MAX_KELVIN"], p["Y_MIN_KELVIN"], p["Y_MAX_KELVIN"], p["Z_MIN_KELVIN"], p["Z_MAX_KELVIN"]))
     problem_setup = p["LOAD_DIRECTION_KELVIN"]
 
-    influence_functions = KelvinsProblem(
+    influence_functions = KelvinsProblemDeterministic(
         data_size,
         material_params,
         load_params,
