@@ -66,10 +66,10 @@ def create_model(model_params, **kwargs):
     var_share = model_params.get('VAR_SHARE')
     data = kwargs.get('train_data')
 
-    trunk_input_size = model_params['TRUNK_INPUT_SIZE']
+    trunk_input_size = len(model_params['COORDINATE_KEYS'])
     if model_params.get('TRUNK_FEATURE_EXPANSION', False):
         trunk_input_size += (
-            2 * model_params['TRUNK_INPUT_SIZE'] * model_params['TRUNK_EXPANSION_FEATURES_NUMBER']
+            2 * len(model_params['COORDINATE_KEYS']) * model_params['TRUNK_EXPANSION_FEATURES_NUMBER']
         )
 
     branch_architecture = model_params['BRANCH_ARCHITECTURE']
@@ -78,7 +78,7 @@ def create_model(model_params, **kwargs):
     branch_config = {
         'architecture': branch_architecture,
         'layers': (
-            [model_params['BRANCH_INPUT_SIZE']]
+            [len(model_params['INPUT_FUNCTION_KEYS'])]
             + model_params['BRANCH_HIDDEN_LAYERS']
         ),
     }
