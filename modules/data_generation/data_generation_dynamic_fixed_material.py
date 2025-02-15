@@ -99,5 +99,5 @@ class DynamicFixedMaterialProblem(Datagen):
         logger.info(f"\na0_min:\t\t\t{delta.min()} \na0_max:\t\t\t{delta.max()}")
         logger.info(f"\nr_min:\t\t\t{r.min()} \nr_max:\t\t\t{r.max()} \nz_min:\t\t\t{z.min()} \nz_max:\t\t\t{z.max()}")
 
-        np.savez(filename, xb=input_functions, r=r, z=z, g_u=displacements)
+        np.savez(filename, delta=delta, r=r, z=z, g_u=displacements)
         logger.info(f"Saved at {filename}")
