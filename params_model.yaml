@@ -1,12 +1,7 @@
-# Model name (actually prefix)
-PROBLEM: kelvin
-
-# Location of .npz data file
+#  ----------------------Location of .npz data file ----------------
 DATAFILE: ./data/raw/kelvin_displacements.npz
-PRECISION: float32
-DEVICE: cpu
-SEED: 42
 
+# ------------------------------ Paths ------------------------
 # Model location
 MODEL_FOLDER: ./models/
 
@@ -16,13 +11,29 @@ OUTPUT_LOG_FOLDER: ./data/output/
 # Plots location
 IMAGES_FOLDER: ./images/
 
-INPUT_KEYS:
-  - xb
-  - xt
+# ------------------------- Dataset parameters ---------------
+PROBLEM: kelvin
+
+INPUT_FUNCTION_KEYS:
+- F
+- mu
+- nu
+
+COORDINATE_KEYS:
+- x
+- y
+- z
+
 OUTPUT_KEYS:
-  - g_u
+- g_u
+
+DIRECTION: 2
 
 # ------------------- Model architecture ------------------
+PRECISION: float32
+DEVICE: cpu
+SEED: 42
+
 TRAINING_STRATEGY: standard
 OUTPUT_HANDLING: single_trunk_split_branch
 N_OUTPUTS: 2

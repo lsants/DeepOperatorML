@@ -52,14 +52,16 @@ BVPTYPE: 2              # loadinfullspace :   1
 
 # -------------------------- Static Problem (Kelvin) -----------------------
 
-N_KELVIN: 200
-MU_KELVIN: 1
+N_KELVIN: 20
+MU_KELVIN: 0.5
+MU_KELVIN: 2
+NU_KELVIN: 0.1
 NU_KELVIN: 0.4
 F_MIN_KELVIN: 1
 F_MAX_KELVIN: 100
-N_X_KELVIN: 40
-N_Y_KELVIN: 40
-N_Z_KELVIN: 50
+N_X_KELVIN: 10
+N_Y_KELVIN: 10
+N_Z_KELVIN: 15
 X_MIN_KELVIN: 0.1
 X_MAX_KELVIN: 10
 Y_MIN_KELVIN: 0.1
