@@ -3,8 +3,10 @@ import logging
 import numpy as np
 from .preprocessing import meshgrid_to_don
 
+logger = logging.getLogger(__name__)
+
 class DeepONetDataset(torch.utils.data.Dataset):
-    def __init__(self, data, transform=None, input_keys=None, output_keys=None):
+    def __init__(self, data, transform=None, output_keys=None):
         """
         Args:
             data (dict): Dictionary containing the data.
@@ -21,48 +23,28 @@ class DeepONetDataset(torch.utils.data.Dataset):
             ValueError: If any required key is missing or if the outputs in data do not match the provided output_keys.
         """
 
-        self.input_keys = input_keys if input_keys is not None else ['input_functions', 'coordinates']
+        self.branch = data['xb']
+        self.trunk = data['xt']
+        self.output_keys = output_keys
 
-        if self.input_keys[0] not in data:
-            raise ValueError(f"Branch input key '{self.input_keys[0]}' not found in data.")
-        if self.input_keys[1] not in data:
-            raise ValueError(f"Trunk input key '{self.input_keys[1]}' not found in data.")
-        
-        # ------------- Branch setting ---------------
-        branch_candidate = data[self.input_keys[0]]
-        if not isinstance(branch_candidate, np.ndarray):
-            self.branch = meshgrid_to_don(*branch_candidate)
-        else:
-            self.branch = branch_candidate
-            if self.branch.ndim == 1:
-                self.branch = self.branch.reshape(len(self.branch), -1)
-        
-        # ------------- Trunk setting ---------------
-        trunk_candidate = data[self.input_keys[1]]
-        print("AAAAAAAAAAAAAAAA", (trunk_candidate))
-        if not isinstance(trunk_candidate, np.ndarray):
-            print("BBBBBBBBBBBBBBBBBBBBB", meshgrid_to_don(*trunk_candidate).shape)
-            self.trunk = meshgrid_to_don(*trunk_candidate)
-        else:
-            print("CCCCCCCCCCCCCCCCC", meshgrid_to_don(*trunk_candidate).shape)
-            self.trunk = trunk_candidate
-        print("AAAAAAAAAAAAAAAA", self.trunk.shape)
-        
+        logger.info(f"\nShape of xb: {self.branch.shape}")
+        logger.info(f"\nShape of xt: {self.trunk.shape}")
         
         # ----------- Output setting ---------------
-        if output_keys is None:
+        if self.output_keys is None:
             raise ValueError("output_keys must be provided and match keys in data.")
         else:
-            for key in output_keys:
+            for key in self.output_keys:
                 if key not in data:
                     raise ValueError(f"Output key '{key}' not found in data.")
-            self.output_keys = output_keys
 
         num_samples = self.branch.shape[0]
-        self.displacement_fields = {}
+        self.outputs = {}
         for key in self.output_keys:
             field = data[key]
-            self.displacement_fields[key] = field.reshape(num_samples, -1)
+            logger.info(f"Shape of {key}: {field.shape}")
+            self.outputs[key] = field.reshape(num_samples, -1)
+            logger.info(f"Shape of {key}: {self.outputs[key].shape}")
         
         self.transform = transform
         self.n_outputs = len(self.output_keys)
@@ -76,7 +58,7 @@ class DeepONetDataset(torch.utils.data.Dataset):
 
         branch_input = self.branch[idx]
         trunk_input = self.trunk
-        outputs = {key: self.displacement_fields[key][idx] for key in self.output_keys}
+        outputs = {key: self.outputs[key][idx] for key in self.output_keys}
 
         if self.transform:
             branch_input = self.transform(branch_input)
