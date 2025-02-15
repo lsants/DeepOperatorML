@@ -33,12 +33,13 @@ transformations = Compose([
 ])
 
 data = np.load(p['DATAFILE'], allow_pickle=True)
-input_keys = p['INPUT_KEYS']
-output_keys = p['OUTPUT_KEYS']
-dataset = DeepONetDataset(data, 
+processed_data = ppr.preprocess_npz_data(p['DATAFILE'], 
+                                         p["INPUT_FUNCTION_KEYS"], 
+                                         p["COORDINATE_KEYS"],
+                                         direction=p["DIRECTION"] if p["PROBLEM"] == 'kelvin' else None)
+dataset = DeepONetDataset(processed_data, 
                            transformations, 
-                           input_keys=input_keys, 
-                           output_keys=output_keys)
+                           output_keys=p['OUTPUT_KEYS'])
 
 n_outputs = dataset.n_outputs
 
@@ -79,7 +80,7 @@ normalization_parameters = {
     }
 }
 
-for key in output_keys:
+for key in p['OUTPUT_KEYS']:
     key_min, key_max = norm_params[key]['min'], norm_params[key]['max']
     scaling = ppr.Scaling(min_val=key_min, max_val=key_max)
     normalization_parameters[key] = {
@@ -130,7 +131,7 @@ def get_single_batch(dataset, indices):
     batch = {}
     batch['xb'] = torch.stack([dataset[idx]['xb'] for idx in indices], dim=0).to(dtype=dtype, device=device)
     batch['xt'] = dataset.get_trunk()
-    for key in output_keys:
+    for key in p['OUTPUT_KEYS']:
         batch[key] = torch.stack([dataset[idx][key] for idx in indices], dim=0).to(dtype=dtype, device=device)
     return batch
 
