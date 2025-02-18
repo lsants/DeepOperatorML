@@ -1,7 +1,5 @@
 import torch
 import logging
-import numpy as np
-from .preprocessing import meshgrid_to_don
 
 logger = logging.getLogger(__name__)
 
@@ -11,14 +9,11 @@ class DeepONetDataset(torch.utils.data.Dataset):
         Args:
             data (dict): Dictionary containing the data.
                 It must include:
-                  - Branch inputs under the key specified by input_keys[0].
-                  - Trunk inputs under the key specified by input_keys[1] OR raw coordinate arrays 
-                    under the key "trunk_coords". If the provided trunk data is not in the correct format, 
-                    the raw coordinate arrays will be used to generate the trunk using meshgrid_to_don.
-                  - Target outputs under keys specified in output_keys.
+                  - Branch inputs under the 'xb' key.
+                  - Trunk inputs under the 'xt' key. Must be in meshgrid format: (n_coordinate_points, n_dimensions).
+                  - Target outputs under keys specified in output_keys. Each output will be in a (N_input_functions, N_coordinate_points) format.
             transform (callable, optional): Transformation applied to all fields.
-            input_keys (list of str): List of keys for input fields. For example: ['xb', 'xt'].
-            output_keys (list of str): List of keys for output fields. These keys must exist in data.
+            output_keys (list of str): List of keys for output fields. These keys must exist in data (e.g 'g_u').
         Raises:
             ValueError: If any required key is missing or if the outputs in data do not match the provided output_keys.
         """
@@ -30,7 +25,6 @@ class DeepONetDataset(torch.utils.data.Dataset):
         logger.info(f"\nShape of xb: {self.branch.shape}")
         logger.info(f"\nShape of xt: {self.trunk.shape}")
         
-        # ----------- Output setting ---------------
         if self.output_keys is None:
             raise ValueError("output_keys must be provided and match keys in data.")
         else:
@@ -40,9 +34,9 @@ class DeepONetDataset(torch.utils.data.Dataset):
 
         num_samples = self.branch.shape[0]
         self.outputs = {}
+
         for key in self.output_keys:
             field = data[key]
-            logger.info(f"Shape of {key}: {field.shape}")
             self.outputs[key] = field.reshape(num_samples, -1)
             logger.info(f"Shape of {key}: {self.outputs[key].shape}")
         
