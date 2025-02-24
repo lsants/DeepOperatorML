@@ -108,7 +108,7 @@ def create_model(model_params, **kwargs):
     if trunk_architecture.lower() == 'kan':
         trunk_config['degree'] = model_params.get('TRUNK_DEGREE')
 
-    output_handling = model_params.get('OUTPUT_HANDLING', 'single_trunk_single_branch').lower()
+    output_handling = model_params['OUTPUT_HANDLING'].lower()
     output_strategy_mapping = {
         'single_trunk_split_branch': SingleTrunkSplitBranchStrategy,
         'split_trunk_single_branch': SplitTrunkSingleBranchStrategy,
@@ -148,7 +148,7 @@ def create_model(model_params, **kwargs):
         trunk_config=trunk_config,
         output_strategy=output_strategy,
         training_strategy=training_strategy,
-        n_outputs=model_params['N_OUTPUTS'],
+        n_outputs=len(model_params['OUTPUT_KEYS']),
         n_basis_functions=model_params['BASIS_FUNCTIONS']
     ).to(model_params['DEVICE'], dtype=getattr(torch, model_params['PRECISION']))
 
@@ -171,7 +171,6 @@ def initialize_model(model_folder, model_name, device, precision):
     model_path = os.path.join(model_folder, f"model_state_{model_name}.pth")
     config_path = os.path.join(model_folder, f"model_info_{model_name}.yaml")
 
-    
     with open(config_path, 'r') as file:
         model_params = yaml.safe_load(file)
 
