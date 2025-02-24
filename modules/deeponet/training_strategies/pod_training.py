@@ -135,7 +135,7 @@ class PODTrainingStrategy(TrainingStrategy):
         model.register_buffer(f'pod_basis', self.pod_basis)
         model.register_buffer(f'mean_functions', self.mean_functions)
 
-    def get_basis_functions(self):
+    def get_basis_functions(self, **kwargs):
         return self.pod_basis
 
     def set_basis(self, pod_basis, mean_functions):
