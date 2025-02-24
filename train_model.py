@@ -1,3 +1,4 @@
+import os
 import time
 import torch
 import numpy as np
@@ -109,8 +110,8 @@ logger.info(f"Data will be saved at:\n{p['OUTPUT_LOG_FOLDER']}\nFigure will be s
 saver = Saver(
     model_name=p['MODELNAME'], 
     model_folder=p['MODEL_FOLDER'], 
-    data_output_folder=p["OUTPUT_LOG_FOLDER"], 
-    figures_folder=p["IMAGES_FOLDER"]
+    data_output_folder=p['MODEL_FOLDER'], 
+    figures_folder=os.path.join(p["IMAGES_FOLDER"])
 )
 
 training_strategy = model.training_strategy
