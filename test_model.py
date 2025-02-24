@@ -1,13 +1,16 @@
-import time
-import torch
-import numpy as np
 import logging
 import sys
+import numpy as np
 import matplotlib.pyplot as plt
-
-from modules.inference.run_inference import run_inference
-from modules.plotting import kelvin_plots, dynamic_plots
+from tqdm.auto import tqdm
+from modules.pipe.inference import inference
+from modules.pipe.saving import Saver
+from modules.plotting.plot_field import plot_2D_field
+from modules.plotting.plot_axis import plot_axis
+from modules.plotting.plot_basis import plot_basis_function
 from modules.utilities import dir_functions
+from modules.utilities import log_functions
+from modules.data_processing import preprocessing as ppr
 
 logging.basicConfig(
     level=logging.INFO,
@@ -17,35 +20,79 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# ---------------- Load configuration (params_test.yaml) -----------------------
+# Load configuration.
 config = dir_functions.load_params('params_test.yaml')
 
-# --------- Run inference (returns predictions, ground truth, ...) -----------
-preds, ground_truth, trunk_features, config_model = run_inference(config)
+# Run inference.
+model, preds, ground_truth, trunk_features, branch_features, config_model = inference(config)
 
-# ------------ Choose plotting function (based on problem type) ---------------
-problem_type = config.get("PROBLEM_TYPE", "kelvin").lower()
-freq = config.get("FREQ", 1e-3)
+# Initialize the saver.
+saver = Saver(
+    model_name=config_model["MODELNAME"],
+    model_folder=config_model["MODEL_FOLDER"],
+    data_output_folder=config_model["MODEL_FOLDER"],
+    figures_folder=config_model["MODEL_FOLDER"]
+)
 
-if problem_type == "kelvin":
-    # Assume we have coordinates stored or computed from trunk features.
-    # For example, you might have x, y, z arrays in your config.
-    coords = {
-        'x': config["x_array"],
-        'y': config["y_array"],
-        'z': config["z_array"]
-    }
-    # Assume the first output key in the list is the one to plot.
-    output_key = config["OUTPUT_KEYS"][0]
-    fig = kelvin_plots.plot_field_comparison_kelvin(coords, ground_truth[output_key], preds[output_key], freq)
+saver(errors=config_model.get('ERRORS_PHYSICAL', {}))
+saver(time=config_model.get('INFERENCE_TIME', 0), time_prefix="inference")
 
-elif problem_type == "dynamic_fixed_material":
-    coords = (config["r_array"], config["z_array"])
-    output_key = config["OUTPUT_KEYS"][0]
-    fig = dynamic_plots.plot_field_comparison_dynamic(coords, ground_truth[output_key], freq)
-else:
-    logger.error("Unknown problem type for plotting.")
-    sys.exit(1)
+logger.info(f"Inference succesfully completed.")
 
-fig.savefig("comparison_plot.png")
-plt.show()
+saver.set_logging(False) # Don't print saved paths for plots
+
+data_for_2D_plotting = ppr.postprocess_for_2D_plot(model=model, 
+                                                   plot_config=config, 
+                                                   model_config=config_model, 
+                                                   branch_features=branch_features, 
+                                                   trunk_features=trunk_features,
+                                                   ground_truth=ground_truth,
+                                                   preds=preds)
+
+N, d = data_for_2D_plotting["branch_features"].shape
+
+percentiles = np.linspace(0, 100, 100 // config["PLOT_PERCENTILES"] + 1)
+selected_indices = {}
+for dim in range(d):
+    indices = []
+    for perc in percentiles:
+        target = np.percentile(data_for_2D_plotting["branch_features"][:, dim], perc)
+        idx = np.argmin(np.abs(data_for_2D_plotting["branch_features"][:, dim] - target))
+        indices.append(idx)
+    selected_indices[dim] = indices
+    logger.info(f"Selected indices for branch input dimension {dim}: {indices}")
+
+for dim, indices in tqdm(selected_indices.items(), colour='blue'):
+    for idx in tqdm(indices, colour='green'):
+        param_val = tuple(data_for_2D_plotting["branch_features"][idx])
+        fig_field = plot_2D_field(
+            coords=data_for_2D_plotting["coords_2D"],
+            truth_field=data_for_2D_plotting["truth_field_2D"][idx],
+            pred_field=data_for_2D_plotting["pred_field_2D"][idx],
+            param_value=param_val,
+            param_labels=config_model.get("INPUT_FUNCTION_KEYS")
+        )
+        saver(figure=fig_field, figure_prefix=f"{config['PLOT_PERCENTILES']}_th_perc_field_for_param_{dim}={param_val}")
+        
+        # fig_axis = plot_axis(
+        #     coords=data_for_2D_plotting["trunk_features"],
+        #     truth_field=data_for_2D_plotting["truth_field"][idx],
+        #     pred_field=data_for_2D_plotting["pred_field"][idx],
+        #     param_value=param_val,
+        #     coord_labels=config_model.get("COORD_LABELS")
+        # )
+        # saver(figure=fig_axis, figure_prefix=f"axis_dim{dim}_for_param_{param_val}")
+
+# Plot basis functions if configured.
+if config.get('PLOT_BASIS', False):
+    for i in tqdm(range(1, config_model.get('BASIS_FUNCTIONS') + 1), colour='blue'):
+        fig_mode = plot_basis_function(data_for_2D_plotting["coords_2D"], 
+                                      data_for_2D_plotting["basis_functions_2D"][i - 1],
+                                      index=i,
+                                      basis_config=config_model['BASIS_CONFIG'],
+                                      strategy=config_model['TRAINING_STRATEGY'],
+                                      param_val=None,
+                                      output_keys=data_for_2D_plotting['output_keys'])
+        saver(figure=fig_mode, figure_prefix=f"mode_{i}")
+
+logger.info("Plotting succesfully completed.")
