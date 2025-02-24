@@ -6,7 +6,7 @@ import numpy as np
 
 logger = logging.getLogger(__name__)
 class Saver:
-    def __init__(self, model_name, model_folder=None, data_output_folder=None, figures_folder=None):
+    def __init__(self, model_name, model_folder=None, data_output_folder=None, figures_folder=None, full_logging=True):
         """
         Initializes the Saver with designated folders for models, data, and figures.
 
@@ -31,6 +31,7 @@ class Saver:
             'errors': self.save_errors,
             'time': self.save_time,
         }
+        self.full_logging = full_logging
 
     def __call__(self, phase=None, **kwargs):
         """
@@ -55,6 +56,9 @@ class Saver:
                                            phase=phase)
                 else:
                     self.save_methods[key](value, phase=phase)
+
+    def set_logging(self, logging):
+        self.full_logging = logging
 
     def make_serializable(self, obj):
         """Recursively converts non-serializable objects to serializable ones."""
@@ -90,7 +94,7 @@ class Saver:
 
     def save_model_info(self, model_info_dict, phase=None):
         filename = f'model_info_{self.name}.yaml'
-        model_info_path = self.make_output_dir(self.model_folder, filename)
+        model_info_path = self.make_output_dir(self.data_output_folder, filename)
         serializable_model_info = self.make_serializable(model_info_dict)
         with open(model_info_path, 'w') as f:
             yaml.dump(serializable_model_info, f)
@@ -124,7 +128,8 @@ class Saver:
         filename = f'{prefix}plot_{self.name}.png'
         fig_path = self.make_output_dir(self.figures_folder, filename)
         figure.savefig(fig_path)
-        logger.info(f"Figure saved to:\n{fig_path}\n")
+        if self.full_logging:
+            logger.info(f"Figure saved to:\n{fig_path}\n")
 
     def save_errors(self, errors_dict, phase=None):
         filename = f"{phase or 'default'}_errors_{self.name}.yaml"
