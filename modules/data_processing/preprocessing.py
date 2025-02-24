@@ -1,6 +1,8 @@
+import logging
 import torch
 import numpy as np
 
+logger = logging.getLogger(__name__)
 class ToTensor:
     def __init__(self, dtype, device):
         self.dtype = dtype
@@ -96,8 +98,6 @@ class Scaling:
         mu = torch.as_tensor(self.mean, dtype=values.dtype, device=values.device)
         sigma = torch.as_tensor(self.std, dtype=values.dtype, device=values.device)
         return values * sigma + mu
- 
-import numpy as np
 
 def preprocess_npz_data(npz_filename, input_function_keys, coordinate_keys, **kwargs):
     """
@@ -152,7 +152,6 @@ def preprocess_npz_data(npz_filename, input_function_keys, coordinate_keys, **kw
         raise ValueError("Operator target must be named 'g_u'")
     
     return result
-
 
 def get_minmax_norm_params(dataset, keys=None):
     """
@@ -248,8 +247,7 @@ def meshgrid_to_don(*coords):
     data = np.column_stack([m.flatten() for m in meshes])
     return data
 
-
-def reshape_outputs_to_plot_format(output, coords):
+def reshape_outputs_to_plot_format(output, coords, basis=False):
     """
     Reshapes the output from DeepONet into a meshgrid format for plotting.
     
@@ -275,17 +273,22 @@ def reshape_outputs_to_plot_format(output, coords):
     
     if isinstance(output, torch.Tensor):
         output = output.detach().cpu().numpy()
-    
+
     if output.ndim == 2:
         N_branch, trunk_size = output.shape
-        if np.prod(grid_shape) != trunk_size:
+        if np.prod(grid_shape) != trunk_size and not basis:
             raise ValueError("Mismatch between trunk size and product of coordinate lengths.")
         reshaped = output.reshape(N_branch, 1, *grid_shape)
     elif output.ndim == 3:
-        N_branch, trunk_size, n_basis = output.shape
-        if np.prod(grid_shape) != trunk_size:
-            raise ValueError("Mismatch between trunk size and product of coordinate lengths.")
-        reshaped = output.reshape(N_branch, n_basis, *grid_shape)
+        if not basis:
+            N_branch, trunk_size, n_basis = output.shape
+            if np.prod(grid_shape) != trunk_size:
+                    raise ValueError("Mismatch between trunk size and product of coordinate lengths.")
+            reshaped = output.reshape(N_branch, n_basis, *grid_shape)
+        else:
+            N_branch, n_basis, trunk_size = output.shape
+            reshaped = output.reshape(N_branch, n_basis, *grid_shape)
+
     else:
         raise ValueError("Output must be either 2D or 3D.")
     
@@ -306,3 +309,130 @@ def mirror(arr):
     arr_mirrored = np.concatenate((arr_flip, arr), axis=1)
     arr_mirrored = arr_mirrored.T
     return arr_mirrored
+
+def format_param(param, param_keys=None):
+    """
+    Format a parameter value for display in the plot title.
+    
+    - If 'param' is a dict, it returns a string of the form:
+          (key1=value1, key2=value2, ...)
+    - If 'param' is an iterable (but not a string) and param_keys is provided and its length
+      matches the length of 'param', it returns a string of the form:
+          (key1=value1, key2=value2, ...)
+      where the keys are taken from param_keys.
+    - Otherwise, it returns the string representation of param.
+    
+    Args:
+        param: The parameter value, which can be a dict, tuple, list, etc.
+        param_keys (list or tuple, optional): List of keys to use if 'param' is an iterable.
+    
+    Returns:
+        str: The formatted parameter string.
+    """
+    if isinstance(param, dict):
+        items = [f"{k}={f'{v:.2f}'}" for k, v in param.items()]
+        return "(" + ", ".join(items) + ")"
+    elif hasattr(param, '__iter__') and not isinstance(param, str):
+        if param_keys is not None and len(param_keys) == len(param):
+            items = [f"{k}={f'{v:.2f}'}" for k, v in zip(param_keys, param)]
+            return "(" + ", ".join(items) + ")"
+        else:
+            items = [f"{v:.2f}" for v in param]
+            return "(" + ", ".join(items) + ")"
+    else:
+        return str(param)
+    
+def postprocess_for_2D_plot(model, plot_config, model_config, branch_features, trunk_features, ground_truth, preds):
+    processed_data = {}
+
+    # -------------- Prepare branch data --------------
+
+    xb_keys = model_config["INPUT_FUNCTION_KEYS"]
+
+    branch_tuple = don_to_meshgrid(branch_features)
+    branch_map = {k:v for k, v in zip(xb_keys, branch_tuple)}
+    processed_data["branch_features"] = np.array(branch_features)
+    processed_data["branch_map"] = branch_map
+
+    # implement function to create operator input labels here!
+
+    # -------------- Prepare trunk data --------------
+
+    xt_scaler = Scaling(
+        min_val=model_config['NORMALIZATION_PARAMETERS']['xt']['min'],
+        max_val=model_config['NORMALIZATION_PARAMETERS']['xt']['max']
+    )
+    xt_plot = trunk_features
+    if model_config['TRUNK_FEATURE_EXPANSION']:
+        xt_plot = xt_plot[:, : xt_plot.shape[-1] // (1 + 2 * model_config['TRUNK_EXPANSION_FEATURES_NUMBER'])]
+    if model_config['INPUT_NORMALIZATION']:
+        xt_plot = xt_scaler.denormalize(xt_plot)
+
+    if "COORDINATE_KEYS" not in model_config:
+        raise ValueError("COORDINATE_KEYS must be provided in the configuration.")
+    coordinate_keys = model_config["COORDINATE_KEYS"]  # e.g., ["x", "y", "z"]
+    coords_tuple = don_to_meshgrid(xt_plot)
+    if len(coords_tuple) != len(coordinate_keys):
+        raise ValueError("Mismatch between number of coordinates in trunk data and COORDINATE_KEYS.")
+    
+    coordinates_map = {k: v for k, v in zip(coordinate_keys, coords_tuple)}
+    coord_index_map = {coord: index for index, coord in enumerate(coordinates_map)}
+    coords_2D_index_map = {k: v for k, v in coord_index_map.items() if k in plot_config["AXES_TO_PLOT"]}
+    index_to_remove_coords = [coord_index_map[coord] for coord in coord_index_map if coord not in coords_2D_index_map][0]
+    col_indices = [index for index in coord_index_map.values() if index != index_to_remove_coords]
+    coords_2D_map = {k : v for k, v in coordinates_map.items() if k in plot_config["AXES_TO_PLOT"]}
+
+    processed_data["coords_2D"] = coords_2D_map
+    processed_data["trunk_features"] = xt_plot
+    processed_data["trunk_features_2D"] = processed_data["trunk_features"][ : , col_indices]
+
+    # ------------------ Prepare outputs ---------------------
+
+    output_keys = model_config["OUTPUT_KEYS"]
+    if len(output_keys) == 2:
+        # Combine real and imaginary parts.
+        truth_field = ground_truth[output_keys[0]] + ground_truth[output_keys[1]] * 1j
+        pred_field = preds[output_keys[0]] + preds[output_keys[1]] * 1j
+    else:
+        truth_field = ground_truth[output_keys[0]]
+        pred_field = preds[output_keys[0]]
+
+    truth_field = reshape_outputs_to_plot_format(truth_field, coords_tuple)
+    pred_field = reshape_outputs_to_plot_format(pred_field, coords_tuple)
+
+    trunk_output = model.training_strategy.get_basis_functions(xt=trunk_features, model=model)
+    # branch_output = model.training_strategy.get_coefficients(xb=branch_features, model=model)
+    basis_modes = reshape_outputs_to_plot_format(trunk_output, coords_tuple, basis=True)
+    # coeff_modes = reshape_outputs_to_plot_format(branch_output, branch_tuple, basis=True) # Need to implement a 'plot coeffs' function for the future
+    
+    if basis_modes.ndim < 4:
+        basis_modes = np.expand_dims(basis_modes, axis=1)
+
+    if basis_modes.shape[0] > model_config.get('BASIS_FUNCTIONS'):
+        basis_modes = basis_modes[ : model_config.get('BASIS_FUNCTIONS')]
+    print(basis_modes.shape)
+    basis_modes = basis_modes.transpose(1, 2, 3, 4, 0) # not sure if correct must check
+
+    truth_slicer = [slice(None)] * truth_field.ndim  # Create a list of slice(None) for all dimensions
+    truth_slicer[index_to_remove_coords + 2] = 0  # Set the dimension to remove to index 0 (or any fixed index)
+    pred_slicer = [slice(None)] * pred_field.ndim  # Create a list of slice(None) for all dimensions
+    pred_slicer[index_to_remove_coords + 2] = 0  # Set the dimension to remove to index 0 (or any fixed index)
+    basis_slicer = [slice(None)] * basis_modes.ndim  # Create a list of slice(None) for all dimensions
+    basis_slicer[index_to_remove_coords + 1] = 0  # Set the dimension to remove to index 0 (or any fixed index)
+    basis_modes_sliced = basis_modes[tuple(basis_slicer)]  # Apply the slicing
+    
+
+    processed_data["output_keys"] = output_keys
+    processed_data["index_to_remove_coords"] = index_to_remove_coords
+    processed_data["truth_field"] = truth_field
+    processed_data["pred_field"] = pred_field
+    processed_data["truth_field_2D"] = truth_field[tuple(truth_slicer)]
+    processed_data["pred_field_2D"] = pred_field[tuple(pred_slicer)]
+    processed_data["basis_functions_2D"] = basis_modes_sliced
+    
+    logger.info(f"\nOutputs shape: {pred_field.shape}\n")
+    logger.info(f"\n2D Outputs shape: {processed_data['pred_field_2D'].shape}\n")
+    logger.info(f"\n2D Truths shape: {processed_data['truth_field_2D'].shape}\n")
+    logger.info(f"\n2D Basis functions shape: {processed_data['basis_functions_2D'].shape}\n")
+
+    return processed_data
