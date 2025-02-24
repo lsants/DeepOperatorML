@@ -22,8 +22,8 @@ class DeepONetDataset(torch.utils.data.Dataset):
         self.trunk = data['xt']
         self.output_keys = output_keys
 
-        logger.info(f"\nShape of xb: {self.branch.shape}")
-        logger.info(f"\nShape of xt: {self.trunk.shape}")
+        logger.info(f"\nShape of xb:\t{self.branch.shape}")
+        logger.info(f"\nShape of xt:\t{self.trunk.shape}")
         
         if self.output_keys is None:
             raise ValueError("output_keys must be provided and match keys in data.")
@@ -38,7 +38,7 @@ class DeepONetDataset(torch.utils.data.Dataset):
         for key in self.output_keys:
             field = data[key]
             self.outputs[key] = field.reshape(num_samples, -1)
-            logger.info(f"Shape of {key}: {self.outputs[key].shape}")
+            logger.info(f"Shape of {key}:\t{self.outputs[key].shape}")
         
         self.transform = transform
         self.n_outputs = len(self.output_keys)
