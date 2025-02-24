@@ -124,3 +124,17 @@ class TrainingStrategy(ABC):
         for branch in model.branch_networks:
             for param in branch.parameters():
                 param.requires_grad = True
+
+    def get_basis_functions(self, **kwargs):
+        xt = kwargs.get('xt')
+        model = kwargs.get('model')
+        trunks = [net(xt) for net, _ in zip(model.trunk_networks, range(len(model.trunk_networks)))]
+        basis_functions = torch.stack([net.T for net, _ in zip(trunks, range(len(trunks)))], dim=0)
+        return basis_functions
+
+    def get_coefficients(self, **kwargs):
+        xb = kwargs.get('xb')
+        model = kwargs.get('model')
+        branches = [net(xb) for net, _ in zip(model.branch_networks, range(len(model.branch_networks)))]
+        coefficients = torch.stack([net.T for net, _ in zip(branches, range(len(branches)))], dim=0)
+        return coefficients

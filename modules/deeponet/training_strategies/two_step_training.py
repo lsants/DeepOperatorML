@@ -220,12 +220,15 @@ class TwoStepTrainingStrategy(TrainingStrategy):
                                                  matrices_trunk=input_trunk)
         else:
             input_branch = xb
-            input_trunk = self.trained_trunk_list
+            input_trunk = self.get_basis_functions()
             return model.output_strategy.forward(model, 
                                                  data_branch=input_branch, 
                                                  data_trunk=None, 
                                                  matrices_branch=None, 
                                                  matrices_trunk=input_trunk)
+        
+    def get_basis_functions(self, **kwargs):
+        return self.trained_trunk_list
 
     def update_q_r_t_matrices(self, model, params,  xt):
         with torch.no_grad():
