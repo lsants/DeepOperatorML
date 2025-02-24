@@ -1,85 +1,111 @@
 import numpy as np
 import matplotlib.pyplot as plt
+import matplotlib.colors as colors
+from ..data_processing.preprocessing import format_param
 
-def plot_basis_function(r, z, basis, **kwargs):
-    index = kwargs.get('index')
-    full = kwargs.get('full', True)
-    non_dim_plot = kwargs.get('non_dim_plot', True)
-    basis_config = kwargs.get('basis_config', 'single')
-
-    mode_computed_with = kwargs.get('strategy').upper()
-
-    if full:
-        r_full = np.concatenate((-np.flip(r[1 : ]), r))
-        R, Z = np.meshgrid(r_full, z)
-        basis_flip = np.flip(basis[: , 1 : , : ], axis=1)
-        basis_full = np.concatenate((basis_flip, basis), axis=1)
-        basis_full = basis_full.transpose(0, 2, 1)
-    else:
-        R, Z = np.meshgrid(r,z)
-        basis_full = basis.T
-
-    if non_dim_plot:
-        if index == 1:
-            title = f'{index}st mode ({mode_computed_with})'
-        elif index == 2:
-            title = f'{index}nd mode ({mode_computed_with})'
-        elif index == 3:
-            title = f'{index}rd mode ({mode_computed_with})'
-        else:
-            title = f'{index}th mode ({mode_computed_with})'
-            
-        x_label = r'$\frac{r}{a}$'
-        y_label = r'$\frac{z}{a}$'
+def plot_basis_function(coords, basis, strategy, **kwargs):
+    """
+    Plots a single basis function on a 2D plane using the provided coordinate system.
     
+    The function assumes that the input `basis` is already in the correct shape:
+       (n_coord1, n_coord2, ..., n_channels)
+    where the first two dimensions correspond to the two plotting dimensions and the last 
+    dimension contains the channel(s) (e.g. for real and/or imaginary parts).
+    
+    If there is more than one channel, they are plotted side-by-side in one row.
+    
+    Additional keyword arguments:
+      - full (bool, optional): Whether to mirror the horizontal axis if all its values are positive.
+                                 Default is True.
+      - coord_labels (dict, optional): Dictionary with optional keys:
+             * 'plot_dims': tuple of two strings indicating which coordinate keys to plot,
+               e.g. ('x','z'). If not provided, the first two keys in `coords` are used.
+             * For each coordinate key, a label string (e.g. {'x': 'x (m)', 'z': 'z (m)'}).
+      - param_value: A parameter value to include in the title.
+    
+    Args:
+      coords (dict): Dictionary where keys are coordinate names (e.g. 'x', 'y', 'z')
+                     and values are 1D numpy arrays.
+      basis (ndarray): A single basis function array of shape (n_coord1, n_coord2, n_channels).
+      strategy (str): A string describing the method used to compute the basis.
+      **kwargs: See above.
+    
+    Returns:
+      fig: A matplotlib Figure object.
+    """
+
+    full = kwargs.get('full', True)
+    coord_labels = kwargs.get('coord_labels')
+    output_keys = kwargs.get('output_keys')
+    index = kwargs.get('index')
+    if coord_labels is not None and 'plot_dims' in coord_labels:
+        plot_dim1, plot_dim2 = coord_labels['plot_dims']
     else:
-        x_label = r'$r$'
-        y_label = r'$z$'
+        dims = list(coords.keys())
+        if len(dims) < 2:
+            raise ValueError("At least two coordinate arrays are required for plotting 2D basis functions.")
+        plot_dim1, plot_dim2 = dims[:2]
+    
+    horiz = coords[plot_dim1]
+    vert = coords[plot_dim2]
+    
+    if full and np.all(horiz > 0):
+        horiz_full = np.concatenate((-np.flip(horiz[1:]), horiz))
+    else:
+        horiz_full = horiz
+    n_h_full = len(horiz_full)
+    
+    n1, n2, n_channels = basis.shape
+    if n1 != len(horiz) or n2 != len(vert):
+        raise ValueError(f"Basis grid shape ({n1}, {n2}) does not match coordinate lengths "
+                         f"({len(horiz)}, {len(vert)})")
+    
+    if full and np.all(horiz > 0):
+        basis = np.concatenate((np.flip(basis[1:], axis=0), basis), axis=0)
+    
+    X, Y = np.meshgrid(horiz_full, vert, indexing='ij')
+    # After mirroring, X should have shape (n_h_full, len(vert)).
+    if X.shape != (n_h_full, len(vert)):
+        raise ValueError(f"Meshgrid shape mismatch: X.shape={X.shape}, expected {(n_h_full, len(vert))}")
+    
+    
+    # Set axis labels.
+    if coord_labels is not None:
+        x_label = coord_labels.get(plot_dim1, plot_dim1)
+        y_label = coord_labels.get(plot_dim2, plot_dim2)
+    else:
+        x_label, y_label = plot_dim1, plot_dim2
+    
+    # Build the title.
+    title = f"Basis Functions ({strategy})"
+    
+    # Plot each channel in the basis function on the same row.
+    ncols = n_channels
+    fig, axs = plt.subplots(1, ncols, figsize=(4 * ncols, 4), squeeze=False)
+    axs = axs.flatten()
+    if output_keys:
+        output_map = {ch : key for ch, key in zip(range(n_channels), output_keys)}
+    for ch in range(n_channels):
+        # Extract channel ch.
+        field_ch = basis[:, :, ch]
+        # Check shape: should be (n_h_full, len(vert))
+        if field_ch.shape != X.shape:
+            if field_ch.T.shape == X.shape:
+                field_ch = field_ch.T
+            else:
+                raise ValueError(f"Shape mismatch in channel {output_map[ch]}: field shape {field_ch.shape} vs X shape {X.shape}")
+        contour = axs[ch].contourf(X, Y, field_ch, cmap="viridis")
+        axs[ch].invert_yaxis()
+        axs[ch].set_xlabel(x_label, fontsize=12)
+        axs[ch].set_ylabel(y_label, fontsize=12)
+        if not output_map:
+            axs[ch].set_title(f"Channel {ch+1}, vector {index}", fontsize=12)
+        else:
+            axs[ch].set_title(f"Channel {output_map[ch]}, vector {index}", fontsize=12)
 
-    if basis_config == 'single':
-        phi = basis_full[0]
-        l = r'$\Phi(r,z)$'
-        fig, ax = plt.subplots(nrows=1,
-                        ncols=1,
-                        figsize=(4, 4))
-        
-        contour = ax.contourf(R, Z, phi, cmap="viridis")
-        ax.invert_yaxis()
-        ax.set_xlabel(x_label, fontsize=14)
-        ax.set_ylabel(y_label, fontsize=14)
-        ax.set_title(title)
-
-        cbar = fig.colorbar(contour, label=l, ax=ax)
-        cbar.ax.set_ylabel(l, rotation=270, labelpad=15)
-
-    elif basis_config == 'multiple':
-        phi_real = basis_full[0]
-        phi_imag = basis_full[1]
-        
-        l_real = r'$\Phi_{real}(r,z)$'
-        l_imag = r'$\Phi_{imag}(r,z)$'
-
-        fig, ax = plt.subplots(nrows=1,
-                        ncols=2,
-                        figsize=(8, 4))
-        
-        contour_real = ax[0].contourf(R, Z, phi_real, cmap="viridis")
-        ax[0].invert_yaxis()
-        ax[0].set_xlabel(x_label, fontsize=14)
-        ax[0].set_ylabel(y_label, fontsize=14)
-        ax[0].set_title(title + ' for real part')
-
-        cbar_real = fig.colorbar(contour_real, label=l_real, ax=ax[0])
-        cbar_real.ax.set_ylabel(l_real, rotation=270, labelpad=15)
-        
-        contour_imag = ax[1].contourf(R, Z, phi_imag, cmap="viridis")
-        ax[1].invert_yaxis()
-        ax[1].set_xlabel(x_label, fontsize=14)
-        ax[1].set_ylabel(y_label, fontsize=14)
-        ax[1].set_title(title + ' for imaginary part')
-
-        cbar_imag = fig.colorbar(contour_imag, label=l_imag, ax=ax[1])
-        cbar_imag.ax.set_ylabel(l_imag, rotation=270, labelpad=15)
-
-    fig.tight_layout()
+        fig.colorbar(contour, ax=axs[ch])
+    
+    fig.suptitle(title, fontsize=14)
+    fig.tight_layout(rect=[0, 0, 1, 0.95])
+    
     return fig
