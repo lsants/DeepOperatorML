@@ -1,17 +1,11 @@
 # Parameters for training DeepONets.
-MODELNAME: 20250213_deeponet_pod_in_norm_trunk_expansion_single_basis
+MODELNAME: 20250216_DeepONet_kelvin_standard_in_norm_trunkexp_singlebasis
 
 # Location of test file info
-DATAFILE: ./data/raw/displacements.npz
+DATAFILE: ./data/raw/kelvin_displacements.npz
 
-# Model location
-MODEL_FOLDER: ./models/
-
-# History location
-OUTPUT_LOG_FOLDER: ./data/output/
-
-# Plots location
-IMAGES_FOLDER: ./images/
+# Model & outputs location
+MODEL_FOLDER: ./models/old
 
 # Data type, device, and error norm
 PRECISION: float32
@@ -20,6 +14,13 @@ DEVICE: cpu
 PLOT_FIELD: true
 PLOT_AXIS: true
 PLOT_BASIS: true
+
+AXES_TO_PLOT:
+- x
+- z
+
+# Plot every X percentile (e.g every 10th percentile of the input functions)
+PLOT_PERCENTILES: 20
 
 INFERENCE_ON: test
 SAMPLES_TO_PLOT: 5

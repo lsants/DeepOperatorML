@@ -5,12 +5,6 @@ DATAFILE: ./data/raw/kelvin_displacements.npz
 # Model location
 MODEL_FOLDER: ./models/
 
-# History location
-OUTPUT_LOG_FOLDER: ./data/output/
-
-# Plots location
-IMAGES_FOLDER: ./images/
-
 # ------------------------- Dataset parameters ---------------
 PROBLEM: kelvin
 
@@ -69,7 +63,7 @@ TRUNK_EXPANSION_FEATURES_NUMBER: 10
 
 # ------------------- Parameters for vanilla training ------------------
 LEARNING_RATE: 0.001
-EPOCHS: 10000
+EPOCHS: 1000
 BATCH_SIZE: 50
 TRAIN_PERC: 0.8
 VAL_PERC: 0.1
