@@ -24,7 +24,7 @@ def process_config(config):
     config['MODELNAME'] = datetime.now().strftime("%Y%m%d") + "_" + "DeepONet"
 
     required_keys = ["MODELNAME", "PROBLEM", "TRAINING_STRATEGY", "OUTPUT_HANDLING",
-                     "DATAFILE", "OUTPUT_LOG_FOLDER", "IMAGES_FOLDER"]
+                     "DATAFILE", "MODEL_FOLDER"]
     for key in required_keys:
         if key not in config or config[key] is None:
             raise ValueError(f"Missing required configuration key: {key}")
@@ -56,14 +56,14 @@ def process_config(config):
     config["MODELNAME"] = model_name
 
     datafile = config["DATAFILE"]
+
     if not os.path.isabs(datafile) and problem:
         config["DATAFILE"] = os.path.join(os.path.dirname(datafile), problem, os.path.basename(datafile))
     
-    output_log_folder = config["OUTPUT_LOG_FOLDER"]
-    images_folder = config["IMAGES_FOLDER"]
+    model_folder = config["MODEL_FOLDER"]
     training_strategy_str = config["TRAINING_STRATEGY"]
     output_handling_str = config["OUTPUT_HANDLING"]
-    config["OUTPUT_LOG_FOLDER"] = os.path.join(output_log_folder, problem, training_strategy_str, output_handling_str, model_name) + os.sep
-    config["IMAGES_FOLDER"] = os.path.join(images_folder, problem, training_strategy_str, output_handling_str, model_name) + os.sep
+    config["MODEL_FOLDER"] = os.path.join(model_folder, problem, training_strategy_str, output_handling_str, model_name) + os.sep
+    config["IMAGES_FOLDER"] = os.path.join(config["MODEL_FOLDER"], 'images') + os.sep
 
     return config
