@@ -8,7 +8,7 @@ MODEL_FOLDER: ./models/
 # ------------------------- Dataset parameters ---------------
 PROBLEM: kelvin
 
-INPUT_FUNCTION_KEYS: # F, mu, nu if Kelvin ; delta if dynamic
+INPUT_FUNCTION_KEYS: # F, mu, nu if Kelvin ; delta if dynamic (xb for now)
 - F
 - mu
 - nu
@@ -76,7 +76,7 @@ DEFAULT_CHANGE_AT_EPOCH: 5000
 STANDARD_PROGRESS_BAR_COLOR: 'blue'
 
 # ------------------- Parameters for POD training ----------------------
-VAR_SHARE: 1
+VAR_SHARE: 0.999
 POD_PROGRESS_BAR_COLOR: 'yellow'
 
 # ------------------- Parameters for two step training ------------------

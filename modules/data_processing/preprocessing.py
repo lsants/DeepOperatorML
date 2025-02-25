@@ -360,8 +360,6 @@ def postprocess_for_2D_plot(model, plot_config, model_config, branch_features, t
     processed_data["branch_features"] = np.array(branch_features)
     processed_data["branch_map"] = branch_map
 
-    # implement function to create operator input labels here!
-
     # -------------- Prepare trunk data --------------
 
     xt_scaler = Scaling(
@@ -394,16 +392,17 @@ def postprocess_for_2D_plot(model, plot_config, model_config, branch_features, t
 
     processed_data["coords_2D"] = coords_2D_map
     processed_data["trunk_features"] = xt_plot
+
+
     if len(coord_index_map) > 2:
         processed_data["trunk_features_2D"] = processed_data["trunk_features"][ : , col_indices]
     else:
-        processed_data["trunk_features_2D"] = processed_data["trunk_features"][ : , col_indices]
+        processed_data["trunk_features_2D"] = processed_data["trunk_features"]
     
     # ------------------ Prepare outputs ---------------------
 
     output_keys = model_config["OUTPUT_KEYS"]
     if len(output_keys) == 2:
-        # Combine real and imaginary parts.
         truth_field = ground_truth[output_keys[0]] + ground_truth[output_keys[1]] * 1j
         pred_field = preds[output_keys[0]] + preds[output_keys[1]] * 1j
     else:
@@ -422,25 +421,25 @@ def postprocess_for_2D_plot(model, plot_config, model_config, branch_features, t
         basis_modes = np.expand_dims(basis_modes, axis=1)
 
     if basis_modes.ndim == 4:
-        basis_modes = basis_modes.transpose(1, 2, 3, 0) # not sure if correct must check
+        basis_modes = basis_modes.transpose(1, 2, 3, 0)
     elif basis_modes.ndim == 5:
-        basis_modes = basis_modes.transpose(1, 2, 3, 4, 0) # not sure if correct must check
+        basis_modes = basis_modes.transpose(1, 2, 3, 4, 0)
     
     if basis_modes.shape[0] > model_config.get('BASIS_FUNCTIONS'):
         split_1 = basis_modes[ : model_config.get('BASIS_FUNCTIONS')]
         split_2 = basis_modes[model_config.get('BASIS_FUNCTIONS') : ]
         basis_modes = np.concatenate([split_1, split_2], axis=-1)
 
-    truth_slicer = [slice(None)] * truth_field.ndim  # Create a list of slice(None) for all dimensions
-    pred_slicer = [slice(None)] * pred_field.ndim  # Create a list of slice(None) for all dimensions
-    basis_slicer = [slice(None)] * basis_modes.ndim  # Create a list of slice(None) for all dimensions
+    truth_slicer = [slice(None)] * truth_field.ndim
+    pred_slicer = [slice(None)] * pred_field.ndim
+    basis_slicer = [slice(None)] * basis_modes.ndim
     if index_to_remove_coords:
         processed_data["index_to_remove_coords"] = index_to_remove_coords
-        truth_slicer[index_to_remove_coords + 2] = 0  # Set the dimension to remove to index 0 (or any fixed index)
-        pred_slicer[index_to_remove_coords + 2] = 0  # Set the dimension to remove to index 0 (or any fixed index)
-        basis_slicer[index_to_remove_coords + 1] = 0  # Set the dimension to remove to index 0 (or any fixed index)
+        truth_slicer[index_to_remove_coords + 2] = 0
+        pred_slicer[index_to_remove_coords + 2] = 0
+        basis_slicer[index_to_remove_coords + 1] = 0
     
-    basis_modes_sliced = basis_modes[tuple(basis_slicer)]  # Apply the slicing
+    basis_modes_sliced = basis_modes[tuple(basis_slicer)]
     
     processed_data["output_keys"] = output_keys
     processed_data["truth_field"] = truth_field

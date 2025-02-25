@@ -1,7 +1,5 @@
 import numpy as np
 import matplotlib.pyplot as plt
-import matplotlib.colors as colors
-from ..data_processing.preprocessing import format_param
 
 def plot_basis_function(coords, basis, strategy, **kwargs):
     """

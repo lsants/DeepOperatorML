@@ -3,6 +3,8 @@ import logging
 from .training_strategy_base import TrainingStrategy
 from ..optimization.loss_complex import loss_complex
 
+logger = logging.getLogger(__name__)
+
 class PODTrainingStrategy(TrainingStrategy):
     def __init__(self, data=None, var_share=None, inference=False):
         super().__init__()
@@ -81,7 +83,7 @@ class PODTrainingStrategy(TrainingStrategy):
         num_modes = most_significant_modes
         basis = U[:, : num_modes]
         pod_basis_list.append(basis)
-
+        
         self.pod_basis = torch.stack(pod_basis_list, dim=0)
 
         self.mean_functions = torch.stack(mean_functions_list, dim=0)
@@ -108,6 +110,7 @@ class PODTrainingStrategy(TrainingStrategy):
         pod_basis_list = []
         mean_functions_list = []
 
+        modes_for_each_output = []
         for output_name in outputs_names:
             output = self.data[output_name]
 
@@ -126,7 +129,19 @@ class PODTrainingStrategy(TrainingStrategy):
                     "Variance share was not given. There's no way to know how many modes should be used.")
 
             num_modes = most_significant_modes
-            basis = U[:, : num_modes]
+            modes_for_each_output.append(num_modes)
+
+        num_modes = max(modes_for_each_output)
+        for output_name in outputs_names:
+            output = self.data[output_name]
+
+            mean = torch.mean(output, dim=0)
+            mean_functions_list.append(mean)
+            centered = (output - mean).T
+
+            U, S, _ = torch.linalg.svd(centered)
+            basis = U[ : , : num_modes]
+            logger.info(f"BASIS SHAPE, {basis.shape}")
             pod_basis_list.append(basis)
 
         self.pod_basis = torch.stack(pod_basis_list, dim=0)

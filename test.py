@@ -33,8 +33,6 @@ def test_model(config_path: str, trained_model_config=None):
 
     model, preds, ground_truth, trunk_features, branch_features, config_model = inference(config)
     
-    logger.info(f"\n---------------------- Inference succesfully completed ---------------------------\n")
-    
     if trained_model_config:
         config_model['MODELNAME'] = trained_model_name
         config_model['MODEL_FOLDER'] = trained_model_folder
@@ -87,8 +85,8 @@ def test_model(config_path: str, trained_model_config=None):
                 )
                 
                 val_str = ",".join([f"{i:.2f}" for i in param_val])
-
                 saver(figure=fig_field, figure_prefix=f"{count * 10}_th_perc_field_for_param_{config_model['INPUT_FUNCTION_KEYS'][dim]}=({val_str})")
+                plt.close()
                 
                 # fig_axis = plot_axis(
                 #     coords=data_for_2D_plotting["trunk_features"],
@@ -110,6 +108,7 @@ def test_model(config_path: str, trained_model_config=None):
                                         param_val=None,
                                         output_keys=data_for_2D_plotting['output_keys'])
             saver(figure=fig_mode, figure_prefix=f"mode_{i}")
+            plt.close()
 
     logger.info("\n----------------------- Plotting succesfully completed ------------------\n")
 

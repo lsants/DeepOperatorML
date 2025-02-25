@@ -113,8 +113,8 @@ class TrainingLoop:
                 self.training_strategy.zero_grad(self.optimizers)
                 loss.backward()
 
-                if epoch % 500 == 0:
-                    logger.info(f"\nLoss: {loss.item():.3E}\n")
+                # if epoch % 500 == 0:
+                #     logger.info(f"\nLoss: {loss.item():.3E}\n")
 
                 self.training_strategy.step(self.optimizers)
 
