@@ -2,19 +2,21 @@
 
 ### Description
 
-This project aims to develop a fast and high-performance method for integrating influence functions. The set of functions explored by this method frequently appear in various physical and engineering problems. Problems of this nature with unbounded domains are usually solved with the Boundary Element Method (BEM), which requires computing influence functions through integration at a significant number of points.
+This project aims to develop a framework for solving structural mechanics problems using Deep Learning. Problems of this nature with unbounded domains are usually solved with the Boundary Element Method (BEM), which requires computing influence functions through integration at a significant number of points.
 
-Traditional numerical integration techniques often struggle with these functions due to their complex nature, including singularities and improper integrals extending to infinity. By leveraging the field of operator learning and utilizing Deep Operator Networks (DeepONets), this project seeks to learn the underlying mathematical operators governing these problems, providing a more efficient and accurate integration approach that should reduce the overall cost of methods such as BEM.
+Traditional numerical integration techniques often struggle with these functions due to their complex nature, including singularities and improper integrals extending to infinity. By leveraging the field of operator learning and utilizing Deep Operator Networks (DeepONets), this project seeks to bypass the use of BEM and solve the differential equations directly using data.
 
 ### Project Overview
 
-- **Goal**: To create a high-performance integration method for complex functions common in physical and engineering contexts, particularly those involving improper integrals with singularities and infinite upper limits.
+- **Goal**: To create a PDE solver that is capable of efficiently solving soil-structure interaction problems.
 
-- **Approach**: Utilize operator learning through DeepONets to model and learn the underlying mathematical operators that define the problem, enabling faster and more efficient computation.
+- **Approach**: Employment of DeepONets with multiple training strategies.
 
-- **Problem Statement**: Compute influence functions that describe the response of an isotropic half-space to a line load applied at a plane at the origin. These influence functions are computationally expensive to calculate due to the nature of the integrals involved.
+- **Problems**: The following problems have been implemented so far:
+  - Kelvin's problem (static response of an isotropic elastic 3D space to a point load)
+  - Homogeneous Green functions (harmonic response of an isotropic elastic 3D space to a point load)
   
-- **Implementation**: The model is developed in Python using PyTorch's deep learning API.
+- **Implementation**: The model is developed in Python using PyTorch.
 
 ---
 
@@ -25,46 +27,84 @@ The repository is organized as follows:
 📦 
 ├─ .gitignore
 ├─ README.md
-├─ comparison_plot.py
-├─ data_generation
-│  ├─ axsgrsce.dll
-│  ├─ axsgrsce.dylib
-│  ├─ axsgrsce.so
-│  ├─ data_generation_base.py
-│  ├─ data_generation_dimless_green.py
-│  └─ influence.py
-├─ data_generation_params.yaml
+├─ configs
+│  ├─ config_data_generation.yaml
+│  ├─ config_test.yaml
+│  └─ config_train.yaml
 ├─ get_data.py
+├─ main.py
 ├─ modules
-│  ├─ compose_transformations.py
-│  ├─ dataset_preprocessing.py
-│  ├─ evaluate_params.py
-│  ├─ greenfunc_dataset.py
-│  ├─ loss_complex.py
-│  ├─ mlp.py
-│  ├─ model_evaluator.py
-│  ├─ plotting.py
-│  ├─ preprocessing.py
-│  ├─ saving.py
-│  ├─ training.py
-│  └─ vanilla_deeponet.py
-├─ params_model.yaml
-├─ plot_labels.py
-├─ plot_preds.py
+│  ├─ __init__.py
+│  ├─ data_generation
+│  │  ├─ axsgrsce.dll
+│  │  ├─ axsgrsce.dylib
+│  │  ├─ axsgrsce.so
+│  │  ├─ data_generation_base.py
+│  │  ├─ data_generation_dynamic_fixed_material.py
+│  │  ├─ data_generation_kelvin.py
+│  │  └─ influence.py
+│  ├─ data_processing
+│  │  ├─ compose_transformations.py
+│  │  ├─ deeponet_dataset.py
+│  │  └─ preprocessing.py
+│  ├─ deeponet
+│  │  ├─ __init__.py
+│  │  ├─ deeponet.py
+│  │  ├─ nn
+│  │  │  ├─ __init__.py
+│  │  │  ├─ kan.py
+│  │  │  ├─ mlp.py
+│  │  │  ├─ net.py
+│  │  │  └─ resnet.py
+│  │  ├─ optimization
+│  │  │  ├─ __init__.py
+│  │  │  ├─ error.py
+│  │  │  └─ loss_complex.py
+│  │  ├─ output_strategies
+│  │  │  ├─ __init__.py
+│  │  │  ├─ multiple_trunks_multiple_branches.py
+│  │  │  ├─ multiple_trunks_single_branch.py
+│  │  │  ├─ output_handling_base.py
+│  │  │  ├─ single_trunk_multiple_branches.py
+│  │  │  ├─ single_trunk_split_branch.py
+│  │  │  └─ split_trunk_single_branch.py
+│  │  └─ training_strategies
+│  │     ├─ __init__.py
+│  │     ├─ pod_training.py
+│  │     ├─ standard_training.py
+│  │     ├─ training_strategy_base.py
+│  │     └─ two_step_training.py
+│  ├─ pipe
+│  │  ├─ __init__.py
+│  │  ├─ inference.py
+│  │  ├─ model_factory.py
+│  │  ├─ saving.py
+│  │  ├─ store_ouptuts.py
+│  │  └─ training.py
+│  ├─ plotting
+│  │  ├─ __init__.py
+│  │  ├─ animation.py
+│  │  ├─ plot_axis.py
+│  │  ├─ plot_basis.py
+│  │  ├─ plot_field.py
+│  │  ├─ plot_frequencies.py
+│  │  └─ plot_training.py
+│  └─ utilities
+│     ├─ __init__.py
+│     ├─ config_utils.py
+│     ├─ dir_functions.py
+│     └─ log_functions.py
 ├─ requirements.txt
-├─ test_model.py
-└─ train_model.py
+├─ run_experiments.py
+├─ test.py
+└─ train.py
 ```
+©generated by [Project Tree Generator](https://woochanleee.github.io/project-tree-generator)
 
 ## Data generation
 
-The data for training the DeepOnet can be generated by defining the boundary value problem's parameters in the ```data_generation_params.yaml``` file and running the ```get_data.py``` script.
-
+The data for training the DeepOnet can be generated by defining the boundary value problem's parameters in the ```data_generation_params.yaml``` file and running the ```get_data.py``` script with the ```--problem``` flag with the desired problem.
 
 ## DeepONet trainning
 
-To train the deep learning model, define the model and training parameters in the ```params_model.yaml``` file and run the ```train_model.py``` script.
-
-## Comparing displacement fields
-
-Run the ```comparison_plot.py``` to visualize the prediction of the test dataset and compare it with the generated data.
+To train or test a model, define the model and training/testing parameters in the ```/configs/config_train.yaml```/```/configs/config_test.yaml``` file and run ```main.py```.
