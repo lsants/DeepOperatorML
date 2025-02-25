@@ -1,4 +1,7 @@
 import matplotlib.pyplot as plt
+import logging
+
+logger = logging.getLogger(__name__)
 
 def align_epochs(history):
     """
@@ -18,7 +21,7 @@ def align_epochs(history):
         train_errors = metrics.get('train_errors', [])
         val_errors = metrics.get('val_errors', [])
         learning_rate = metrics.get('learning_rate', [])
-
+        
         if train_errors and isinstance(train_errors[0], dict):
             output_keys = list(train_errors[0].keys())
         else:

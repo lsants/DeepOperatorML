@@ -25,7 +25,6 @@ def main():
         test_cfg["MODEL_FOLDER"] = train_cfg["MODEL_FOLDER"]
         test_cfg["MODELNAME"] = model_info["MODELNAME"]
 
-    logger.info(f"This is the path that goes to the test? {model_info['DATAFILE']}")
 
     if not args.skip_test:
         if not args.skip_train:
