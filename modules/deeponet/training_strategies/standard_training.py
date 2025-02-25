@@ -1,6 +1,5 @@
 import torch
 from .training_strategy_base import TrainingStrategy
-from ..optimization.loss_complex import loss_complex
 
 class StandardTrainingStrategy(TrainingStrategy):
     def __init__(self):

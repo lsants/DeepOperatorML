@@ -1,6 +1,5 @@
 import numpy as np
 import matplotlib.pyplot as plt
-import matplotlib.colors as colors
 from ..data_processing.preprocessing import format_param
 
 def plot_axis(coords, truth_field, pred_field, param_value, axis=None,
