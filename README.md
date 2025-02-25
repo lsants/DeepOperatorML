@@ -13,8 +13,8 @@ Traditional numerical integration techniques often struggle with these functions
 - **Approach**: Employment of DeepONets with multiple training strategies.
 
 - **Problems**: The following problems have been implemented so far:
-  - Kelvin's problem (static response of an isotropic elastic 3D space to a point load)
-  - Homogeneous Green functions (harmonic response of an isotropic elastic 3D space to a point load)
+  - Kelvin's problem (static response of an isotropic elastic 3D space to a point load).
+  - Homogeneous Green functions (harmonic response of an isotropic elastic 3D space to a point load).
   
 - **Implementation**: The model is developed in Python using PyTorch.
 
