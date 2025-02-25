@@ -98,7 +98,7 @@ def train_model(config_path: str):
 
     p['MODELNAME'] = model_name
 
-    logger.info(f"\nData will be saved at:\n{p['MODEL_FOLDER']}\nFigure will be saved at:\n{p['IMAGES_FOLDER']}\n")
+    logger.info(f"\nData will be saved at:\n{p['MODEL_FOLDER']}\n\nFigure will be saved at:\n{p['IMAGES_FOLDER']}\n")
 
     # ---------------------------------- Initializing classes for training  -------------------
 
