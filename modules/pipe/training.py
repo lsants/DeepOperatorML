@@ -12,7 +12,6 @@ from ..deeponet.training_strategies import (
     PODTrainingStrategy
 )
 
-
 class TrainingLoop:
     def __init__(self, model, training_strategy, saver, params):
         """
@@ -115,7 +114,7 @@ class TrainingLoop:
                 loss.backward()
 
                 if epoch % 500 == 0:
-                    logger.info(f"Loss: {loss.item():.3E}")
+                    logger.info(f"\nLoss: {loss.item():.3E}\n")
 
                 self.training_strategy.step(self.optimizers)
 
@@ -126,19 +125,20 @@ class TrainingLoop:
                 self.storer.store_learning_rate(current_phase, self.optimizers[self.training_strategy.current_phase].param_groups[-1]['lr'])
 
                 if self.training_strategy.can_validate() and val_batch:
-                    
                     val_metrics = self._validate(val_batch)
                     val_loss = val_metrics['val_loss']
                     self.storer.store_epoch_val_loss(current_phase, val_metrics['val_loss'])
-                    val_errors = {f"val_error_{key}": val_metrics.get(f"val_error_{key}", None)
+                    val_errors = {f"{key}": val_metrics.get(f"{key}", None)
                                   for key in self.p['OUTPUT_KEYS']}
+
                     self.storer.store_epoch_val_errors(current_phase, val_errors)
                     if val_loss < best_val_loss:
                         best_val_loss = val_loss
                         best_model_checkpoint = {
                             'model_state_dict': self.model.state_dict(),
                             'optimizer_state_dict': self.optimizers['optimizer'].state_dict() if self.optimizers.get('optimizer') else None,
-                            'val_loss': val_loss
+                            'val_loss': val_loss,
+                            'val_errors': val_errors
                         }
 
                 if not self.training_strategy.can_validate():
@@ -159,12 +159,12 @@ class TrainingLoop:
                 if epoch < self.p[self.training_strategy.current_phase.upper() + '_CHANGE_AT_EPOCH']:
                     self.training_strategy.step_schedulers(self.schedulers)
                 self.training_strategy.after_epoch(epoch, self.model, self.p, train_batch=train_batch_processed['xt'])
-            
 
             phase_end_time = time.time()
             phase_duration = phase_end_time - phase_start_time
 
-            self._finalize_training(best_model_checkpoint, training_time=phase_duration)
+            trained_model_info = self._finalize_training(best_model_checkpoint, training_time=phase_duration)
+        return trained_model_info
 
     def _validate(self, val_batch):
         self.model.eval()
@@ -176,7 +176,7 @@ class TrainingLoop:
 
         val_metrics = {'val_loss': val_loss.item()}
         for key in self.p['OUTPUT_KEYS']:
-            val_metrics[f"val_error_{key}"] = val_errors.get(key, None)
+            val_metrics[f"{key}"] = val_errors.get(key, None)
         return val_metrics
 
     def _log_epoch_metrics(self, epoch, train_loss, train_errors, val_metrics):
@@ -217,6 +217,8 @@ class TrainingLoop:
             history_prefix=f"phase_{self.training_strategy.current_phase}",
             time_prefix=f"phase_{self.training_strategy.current_phase}",
         )
+
+        return self.p
 
 
 
