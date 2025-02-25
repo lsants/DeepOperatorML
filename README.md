@@ -1,4 +1,4 @@
-# High Performance Numeric Integration
+# DeepONet For Soil-Structure Interaction
 
 ### Description
 
