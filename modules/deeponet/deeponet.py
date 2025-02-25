@@ -1,5 +1,4 @@
 # modules/model/deeponet.py
-
 import torch
 import logging
 from .nn.mlp import MLP

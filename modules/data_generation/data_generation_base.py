@@ -1,5 +1,3 @@
-import json
-import numpy as np
 from abc import ABC, abstractmethod
 
 class Datagen(ABC):

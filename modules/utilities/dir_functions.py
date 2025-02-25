@@ -1,8 +1,5 @@
-import os
-from datetime import datetime
 import yaml
 import json
-import numpy as np
 
 def load_params(file):
     with open(file, 'r') as file:

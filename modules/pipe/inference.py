@@ -1,7 +1,6 @@
 import time
 import torch
 import logging
-from modules.utilities import dir_functions
 from modules.data_processing import preprocessing as ppr
 from modules.pipe.model_factory import initialize_model
 from modules.data_processing.deeponet_dataset import DeepONetDataset

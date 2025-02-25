@@ -1,7 +1,6 @@
 import torch
 import logging
 from .training_strategy_base import TrainingStrategy
-from ..optimization.loss_complex import loss_complex
 
 logger = logging.getLogger(__name__)
 
