@@ -9,8 +9,6 @@ def process_config(config):
     
     The function modifies:
       - MODELNAME: Appends the problem name and additional tags.
-      - DATAFILE: If the provided path is relative and a PROBLEM is given, it inserts a subdirectory
-                  (named after the problem) before the file name.
       - OUTPUT_LOG_FOLDER and IMAGES_FOLDER: Adjusts these by including the problem, training strategy,
         and output handling information.
     
@@ -24,7 +22,7 @@ def process_config(config):
     config['MODELNAME'] = datetime.now().strftime("%Y%m%d") + "_" + "DeepONet"
 
     required_keys = ["MODELNAME", "PROBLEM", "TRAINING_STRATEGY", "OUTPUT_HANDLING",
-                     "DATAFILE", "MODEL_FOLDER"]
+                     "MODEL_FOLDER"]
     for key in required_keys:
         if key not in config or config[key] is None:
             raise ValueError(f"Missing required configuration key: {key}")
@@ -55,11 +53,6 @@ def process_config(config):
 
     config["MODELNAME"] = model_name
 
-    datafile = config["DATAFILE"]
-
-    if not os.path.isabs(datafile) and problem:
-        config["DATAFILE"] = os.path.join(os.path.dirname(datafile), problem, os.path.basename(datafile))
-    
     model_folder = config["MODEL_FOLDER"]
     training_strategy_str = config["TRAINING_STRATEGY"]
     output_handling_str = config["OUTPUT_HANDLING"]
