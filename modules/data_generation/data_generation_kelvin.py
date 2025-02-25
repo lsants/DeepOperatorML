@@ -15,15 +15,15 @@ class KelvinsProblemDeterministic(Datagen):
         and then attaching the fixed material parameters mu and nu.
 
         Returns:
-            array: Shape (N, 3) with columns [F, mu, nu].
+            array: Shape (N_F * N_mu * N_nu, 3) with columns [F, mu, nu].
         """
-        N = self.data_size[0]
-        mu, nu = self.material_params
+        N_F, N_mu, N_nu, _, _, _ = self.data_size
+        mu_min, mu_max, nu_min, nu_max = self.material_params
         F_min, F_max = self.load_params
-        F_samples = F_min + np.random.rand(N) * (F_max - F_min)
-        mu = np.full(N, mu)
-        nu = np.full(N, nu)
-        return F_samples, mu, nu
+        F_samples = F_min + np.random.rand(N_F) * (F_max - F_min)
+        mu_samples = mu_min + np.random.rand(N_mu) * (mu_max - mu_min)
+        nu_samples = nu_min + np.random.rand(N_nu) * (nu_max - nu_min)
+        return F_samples, mu_samples, nu_samples
     
     def _get_coordinates(self):
         """Generate the trunk data by defining a 3d grid in cartesian coordinates.
@@ -32,7 +32,7 @@ class KelvinsProblemDeterministic(Datagen):
         Returns:
             tuple: [x, y, z]
         """
-        _, n_x, n_y, n_z = self.data_size
+        _, _, _, n_x, n_y, n_z = self.data_size
         x_min, x_max, y_min, y_max, z_min, z_max = self.mesh_params
         x_field = np.linspace(x_min, x_max, n_x)
         y_field = np.linspace(y_min, y_max, n_y)
@@ -105,24 +105,20 @@ class KelvinsProblemDeterministic(Datagen):
         u = const[..., None] * (term1 + term2)
         
         end = time.perf_counter_ns()
-        duration = (end - start) / 1e9
+        duration = (end - start) / 1e6
         return u, duration
-
-
     
     def produce_samples(self, filename):
-        
         input_functions = self._get_input_functions()
         F, mu, nu = input_functions
         coordinates = self._get_coordinates()
         x_field, y_field, z_field = coordinates
         sensors = np.meshgrid(*input_functions, indexing="ij")
         input_functions_meshgrid = np.column_stack([i.flatten() for i in sensors])
-        print(input_functions_meshgrid.shape)
+
         displacements, duration = self._influencefunc(input_functions_meshgrid, x_field, y_field, z_field)
 
-
-        logger.info(f"Runtime for computing Kelvin solution: {duration:.2f} s")
+        logger.info(f"Runtime for computing Kelvin solution: {duration:.3f} ms")
         logger.info(f"\nData shapes:")
         logger.info(f"   Input functions meshgrid (F, mu, nu): {input_functions_meshgrid.shape}")
         logger.info(f"   Displacements u: {displacements.shape}")
