@@ -22,7 +22,6 @@ class TestEvaluator:
 
 def inference(p: dict):
     # Load configuration from YAML.
-    p = dir_functions.load_params('params_test.yaml')
     path_to_data = p['DATAFILE']
     precision = p['PRECISION']
     device = p['DEVICE']
@@ -30,19 +29,20 @@ def inference(p: dict):
     model_folder = p['MODEL_FOLDER']
     model_location = model_folder + f"model_state_{model_name}.pth"
     
-    logger.info(f"Model loaded from: {model_location}")
-    logger.info(f"Data loaded from: {path_to_data}\n")
+    logger.info(f"\nModel name: \n\n{model_name}\n\n")
+    logger.info(f"\nModel loaded from: \n\n{model_location}\n\n")
+    logger.info(f"\nData loaded from: \n\n{path_to_data}\n\n")
 
     model, config_model = initialize_model(p['MODEL_FOLDER'], p['MODELNAME'], p['DEVICE'], p['PRECISION'])
+    
     if config_model['TRAINING_STRATEGY']:
         model.training_phase = 'both'
-    
-    print("inside", config_model["OUTPUT_LOG_FOLDER".upper()])
 
     evaluator = TestEvaluator(model, config_model['ERROR_NORM'])
     
     to_tensor_transform = ppr.ToTensor(dtype=getattr(torch, precision), device=device)
     output_keys = config_model["OUTPUT_KEYS"]
+
     processed_data = ppr.preprocess_npz_data(path_to_data, 
                                              config_model["INPUT_FUNCTION_KEYS"], 
                                              config_model["COORDINATE_KEYS"], 
@@ -95,6 +95,7 @@ def inference(p: dict):
         xt = ppr.trunk_feature_expansion(xt, config_model['TRUNK_EXPANSION_FEATURES_NUMBER'])
     
     # Evaluation.
+    logger.info("\n\n----------------- Starting inference... --------------\n\n")
     start_time = time.time()
     if config_model['TRAINING_STRATEGY'].lower() == 'two_step':
         if p["PHASE"] == 'trunk':
@@ -113,6 +114,9 @@ def inference(p: dict):
     
     if len(output_keys) == 1 and not isinstance(preds, dict):
         preds = {output_keys[0]: preds[0]}
+    elif len(output_keys) == 2 and not isinstance(preds, dict):
+        preds = {k:v for k, v in zip(output_keys, preds)}
+
     
     if config_model['OUTPUT_NORMALIZATION']:
         preds_norm = {}
@@ -128,6 +132,7 @@ def inference(p: dict):
         errors_norm = {}
     
     errors = {}
+
     for key in output_keys:
         errors[key] = evaluator(ground_truth[key], preds[key])
         logger.info(f"Test error for {key} (physical): {errors[key]:.2%}")
