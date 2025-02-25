@@ -3,13 +3,7 @@ import time
 import torch
 import numpy as np
 import logging
-import sys
-logging.basicConfig(
-    level=logging.INFO,
-    format="[%(asctime)s] [%(levelname)s] %(name)s: %(message)s",
-    datefmt="%d-%m-%Y %H:%M:%S",
-    stream=sys.stdout
-)
+
 from modules.pipe.saving import Saver
 from modules.utilities import dir_functions
 from modules.pipe.training import TrainingLoop
