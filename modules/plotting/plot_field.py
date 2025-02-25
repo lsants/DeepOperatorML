@@ -45,7 +45,7 @@ def plot_2D_field(coords, truth_field=None, pred_field=None, param_value=None, p
     coord2 = coords[dim2]
     
     # Mirror the horizontal axis (assumed to be coord1) if all values are positive.
-    if np.all(coord1 > 0):
+    if np.all(coord1 >= 0):
         # Mirror by concatenating the negative of coord1 (flipped, excluding the first element) with coord1.
         coord1_full = np.concatenate((-np.flip(coord1[1:]), coord1))
     else:
@@ -73,7 +73,7 @@ def plot_2D_field(coords, truth_field=None, pred_field=None, param_value=None, p
             pred_mesh = pred_field.reshape(n1, n2)
     
     # If mirroring is applied, mirror the field along the horizontal axis.
-    if np.all(coord1 > 0):
+    if np.all(coord1 >= 0):
         if truth_field is not None:
             truth_mesh = np.concatenate((np.flip(truth_mesh[1:], axis=0), truth_mesh), axis=0)
         if pred_field is not None:
@@ -126,13 +126,19 @@ def plot_2D_field(coords, truth_field=None, pred_field=None, param_value=None, p
             c2 = ax[0, 2].contourf(X, Y, np.abs(truth_real - pred_real), cmap='viridis')
             ax[0, 2].set_title(f"Real Abs Error {param_str}")
             ax[0, 2].set_xlabel(x_label)
+            ax[0 , 2].invert_yaxis()
+
+            fig.colorbar(c0, ax=ax[0, 0])
+            fig.colorbar(c1, ax=ax[0, 1])
+            fig.colorbar(c2, ax=ax[0, 2])
         else:
             field = pred_real if pred_field is not None else truth_real
             c0 = ax[0, 0].contourf(X, Y, field, cmap='viridis')
             ax[0, 0].set_title(f"Real Field {param_str}")
             ax[0, 0].set_xlabel(x_label)
             ax[0, 0].set_ylabel(y_label)
-        
+            fig.colorbar(c0, ax=ax[0, 0])
+
         # Row 1: Imaginary parts.
         if ncols == 3:
             norm_imag = colors.Normalize(vmin=min(np.min(pred_imag), np.min(truth_imag)),
@@ -140,25 +146,36 @@ def plot_2D_field(coords, truth_field=None, pred_field=None, param_value=None, p
             c3 = ax[1, 0].contourf(X, Y, pred_imag, cmap='viridis', norm=norm_imag)
             ax[1, 0].set_title(f"Imag Pred {param_str}")
             ax[1, 0].set_xlabel(x_label)
+            ax[1 , 0].invert_yaxis()
             ax[1, 0].set_ylabel(y_label)
             
             c4 = ax[1, 1].contourf(X, Y, truth_imag, cmap='viridis', norm=norm_imag)
             ax[1, 1].set_title(f"Imag Label {param_str}")
             ax[1, 1].set_xlabel(x_label)
+            ax[1 , 1].invert_yaxis()
             
             c5 = ax[1, 2].contourf(X, Y, np.abs(truth_imag - pred_imag), cmap='viridis')
-            ax[1, 2].set_title(f"Imag Abs Error")
+            ax[1, 2].set_title(f"Imag Abs Error {param_str}")
             ax[1, 2].set_xlabel(x_label)
+            ax[1 , 2].invert_yaxis()
+
+            fig.colorbar(c3, ax=ax[1, 0])
+            fig.colorbar(c4, ax=ax[1, 1])
+            fig.colorbar(c5, ax=ax[1, 2])
         else:
             field = pred_imag if pred_field is not None else truth_imag
             c3 = ax[1, 0].contourf(X, Y, field, cmap='viridis')
             ax[1, 0].set_title(f"Imag Field {param_str}")
             ax[1, 0].set_xlabel(x_label)
+            ax[1 , 0].invert_yaxis()
             ax[1, 0].set_ylabel(y_label)
+
+            fig.colorbar(c3, ax=ax[1, 0])
         
         # Invert vertical axis for all subplots.
-        for a in np.concatenate((ax[0, :], ax[1, :])):
-            a.invert_yaxis()
+        # for a in np.concatenate((ax[0, :], ax[1, :])):
+        #     a.invert_yaxis()
+        ax[0, 0].invert_yaxis()
         fig.tight_layout()
     else:
         # For real fields.
