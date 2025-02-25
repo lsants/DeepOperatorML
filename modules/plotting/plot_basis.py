@@ -49,7 +49,7 @@ def plot_basis_function(coords, basis, strategy, **kwargs):
     horiz = coords[plot_dim1]
     vert = coords[plot_dim2]
     
-    if full and np.all(horiz > 0):
+    if full and np.all(horiz >= 0):
         horiz_full = np.concatenate((-np.flip(horiz[1:]), horiz))
     else:
         horiz_full = horiz
@@ -60,7 +60,7 @@ def plot_basis_function(coords, basis, strategy, **kwargs):
         raise ValueError(f"Basis grid shape ({n1}, {n2}) does not match coordinate lengths "
                          f"({len(horiz)}, {len(vert)})")
     
-    if full and np.all(horiz > 0):
+    if full and np.all(horiz >= 0):
         basis = np.concatenate((np.flip(basis[1:], axis=0), basis), axis=0)
     
     X, Y = np.meshgrid(horiz_full, vert, indexing='ij')
