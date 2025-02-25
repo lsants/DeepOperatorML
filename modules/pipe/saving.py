@@ -83,14 +83,14 @@ class Saver:
             'optimizer_state_dict': optimizer_state_dict,
             'epoch': epoch
         }, model_path)
-        logger.info(f"Checkpoint saved to:\n{model_path}\n")
+        logger.info(f"\nCheckpoint saved to:\n{model_path}\n")
 
     def save_model(self, model_state, phase=None):
         filename = f'model_state_{self.name}.pth'
         model_path = self.make_output_dir(self.model_folder, filename)
 
         torch.save(model_state, model_path)
-        logger.info(f"Model saved to:\n{model_path}\n")
+        logger.info(f"\nModel saved to:\n{model_path}\n")
 
     def save_model_info(self, model_info_dict, phase=None):
         filename = f'model_info_{self.name}.yaml'
@@ -98,14 +98,14 @@ class Saver:
         serializable_model_info = self.make_serializable(model_info_dict)
         with open(model_info_path, 'w') as f:
             yaml.dump(serializable_model_info, f)
-        logger.info(f"Model information saved to:\n{model_info_path}\n")
+        logger.info(f"\nModel information saved to:\n{model_info_path}\n")
 
     def save_indices(self, indices_dict, phase=None):
         filename = f'indices_{self.name}.yaml'
         indices_path = self.make_output_dir(self.data_output_folder, filename)
         with open(indices_path, 'w') as f:
             yaml.dump(indices_dict, f)
-        logger.info(f"Indices saved to:\n{indices_path}\n")
+        logger.info(f"\nIndices saved to:\n{indices_path}\n")
 
     def save_norm_params(self, norm_params_dict, phase=None):
         filename = f'norm_params_{self.name}.yaml'
@@ -113,7 +113,7 @@ class Saver:
         serializable_norm_params = self.make_serializable(norm_params_dict)
         with open(norm_params_path, 'w') as f:
             yaml.dump(serializable_norm_params, f, indent=4)
-        logger.info(f"Normalization parameters saved to:\n{norm_params_path}\n")
+        logger.info(f"\nNormalization parameters saved to:\n{norm_params_path}\n")
 
     def save_history(self, history_dict, phase=None, filename_prefix=None):
         filename = f'{filename_prefix or "history"}_{self.name}.yaml'
@@ -121,7 +121,7 @@ class Saver:
         serializable_history = self.make_serializable(history_dict)
         with open(history_path, 'w') as f:
             yaml.dump(serializable_history, f, indent=4)
-        logger.info(f"Training history saved to:\n{history_path}\n")
+        logger.info(f"\nTraining history saved to:\n{history_path}\n")
 
     def save_plots(self, figure, phase=None, filename_prefix=None):
         prefix = f"{filename_prefix}_" if filename_prefix else ""
@@ -129,7 +129,7 @@ class Saver:
         fig_path = self.make_output_dir(self.figures_folder, filename)
         figure.savefig(fig_path)
         if self.full_logging:
-            logger.info(f"Figure saved to:\n{fig_path}\n")
+            logger.info(f"\nFigure saved to:\n{fig_path}\n")
 
     def save_errors(self, errors_dict, phase=None):
         filename = f"{phase or 'default'}_errors_{self.name}.yaml"
@@ -137,7 +137,7 @@ class Saver:
         errors_serializable = self.make_serializable(errors_dict)
         with open(errors_path, "w") as f:
             yaml.dump(errors_serializable, f, indent=4)
-        logger.info(f"Errors saved to:\n{errors_path}\n")
+        logger.info(f"\nErrors saved to:\n{errors_path}\n")
 
     def save_time(self, time_dict, phase=None, filename_prefix=None):
         prefix = f"{filename_prefix}_" if filename_prefix else ""
@@ -146,7 +146,7 @@ class Saver:
         time_serializable = self.make_serializable(time_dict)
         with open(time_path, "w") as f:
             yaml.dump(time_serializable, f, indent=4)
-        logger.info(f"Time information saved to:\n{time_path}\n")
+        logger.info(f"\nTime information saved to:\n{time_path}\n")
 
     def make_output_dir(self, folder, filename):
         """Ensures that the output directory exists and returns the full file path."""
