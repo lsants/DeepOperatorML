@@ -3,6 +3,7 @@
 import torch
 import logging
 from .output_handling_base import OutputHandlingStrategy
+from ...utilities.log_functions import pprint_layer_dict
 
 logger = logging.getLogger(__name__)
 
@@ -66,6 +67,11 @@ class SplitTrunkSingleBranchStrategy(OutputHandlingStrategy):
 
         self.branch_output_dim = branch_output_size
         self.num_branches = branch_output_size // n_basis_functions
+
+        logger.info(f"\nNumber of Branch networks: {self.num_branches}\n")
+        logger.info(f"\nNumber of Trunk networks: {self.num_trunks}\n")
+        logger.info(f"\nBranch layer sizes: {pprint_layer_dict(branch_config['layers'])}\n")
+        logger.info(f"\nTrunk layer sizes: {pprint_layer_dict(trunk_config['layers'])}\n")
 
         logger.info(f"\nBranch: {len(branch_networks)} network(s) of size {branch_output_size}\nTrunk: {len(trunk_networks)} network(s) of size {trunk_output_size}\n")
 
