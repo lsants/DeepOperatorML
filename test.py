@@ -1,0 +1,117 @@
+import logging
+import sys
+import numpy as np
+import matplotlib.pyplot as plt
+from tqdm.auto import tqdm
+from modules.pipe.inference import inference
+from modules.pipe.saving import Saver
+from modules.plotting.plot_field import plot_2D_field
+from modules.plotting.plot_axis import plot_axis
+from modules.plotting.plot_basis import plot_basis_function
+from modules.utilities import dir_functions
+from modules.data_processing import preprocessing as ppr
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="[%(asctime)s] [%(levelname)s] %(name)s: %(message)s",
+    datefmt="%d-%m-%Y %H:%M:%S",
+    stream=sys.stdout
+)
+logger = logging.getLogger(__name__)
+
+def test_model(config_path: str, trained_model_config=None):
+    # Load configuration.
+    config = dir_functions.load_params(config_path)
+    
+    if trained_model_config:
+        trained_model_folder = trained_model_config["MODEL_FOLDER"]
+        trained_model_name = trained_model_config["MODELNAME"]
+        trained_model_datafile = trained_model_config["DATAFILE"]
+        config["MODEL_FOLDER"] = trained_model_folder
+        config["MODELNAME"] = trained_model_name
+        config["DATAFILE"] = trained_model_datafile
+
+    model, preds, ground_truth, trunk_features, branch_features, config_model = inference(config)
+    
+    logger.info(f"\n---------------------- Inference succesfully completed ---------------------------\n")
+    
+    if trained_model_config:
+        config_model['MODELNAME'] = trained_model_name
+        config_model['MODEL_FOLDER'] = trained_model_folder
+        config_model["IMAGES_FOLDER"] = trained_model_folder + '/images'
+
+    saver = Saver(
+        model_name=config_model['MODELNAME'],
+        model_folder=config_model['MODEL_FOLDER'],
+        data_output_folder=config_model['MODEL_FOLDER'],
+        figures_folder=config_model["IMAGES_FOLDER"]
+    )
+
+    saver(errors=config_model.get('ERRORS_PHYSICAL', {}))
+    saver(time=config_model.get('INFERENCE_TIME', 0), time_prefix="inference")
+
+    saver.set_logging(False) # Don't print saved paths for plots
+
+    data_for_2D_plotting = ppr.postprocess_for_2D_plot(model=model, 
+                                                    plot_config=config, 
+                                                    model_config=config_model, 
+                                                    branch_features=branch_features, 
+                                                    trunk_features=trunk_features,
+                                                    ground_truth=ground_truth,
+                                                    preds=preds)
+
+    N, d = data_for_2D_plotting["branch_features"].shape
+
+    percentiles = np.linspace(0, 100, 100 // config["PLOT_PERCENTILES"] + 1)
+    selected_indices = {}
+    for dim in range(d):
+        indices = []
+        for perc in percentiles:
+            target = np.percentile(data_for_2D_plotting["branch_features"][:, dim], perc)
+            idx = np.argmin(np.abs(data_for_2D_plotting["branch_features"][:, dim] - target))
+            indices.append(idx)
+        selected_indices[dim] = indices
+        logger.info(f"\nSelected indices for branch input dimension {dim}: {indices}\n")
+        logger.info(f"\nSelected values for branch input dimension {dim}: {data_for_2D_plotting['branch_features'][indices]}\n")
+
+    if config.get('PLOT_FIELD', False):
+        for dim, indices in tqdm(selected_indices.items(), colour='blue'):
+            for count, idx in tqdm(enumerate(indices), colour='green'):
+                param_val = tuple(data_for_2D_plotting["branch_features"][idx])
+                fig_field = plot_2D_field(
+                    coords=data_for_2D_plotting["coords_2D"],
+                    truth_field=data_for_2D_plotting["truth_field_2D"][idx],
+                    pred_field=data_for_2D_plotting["pred_field_2D"][idx],
+                    param_value=param_val,
+                    param_labels=config_model.get("INPUT_FUNCTION_KEYS")
+                )
+                
+                val_str = ",".join([f"{i:.2f}" for i in param_val])
+
+                saver(figure=fig_field, figure_prefix=f"{count * 10}_th_perc_field_for_param_{config_model['INPUT_FUNCTION_KEYS'][dim]}=({val_str})")
+                
+                # fig_axis = plot_axis(
+                #     coords=data_for_2D_plotting["trunk_features"],
+                #     truth_field=data_for_2D_plotting["truth_field"][idx],
+                #     pred_field=data_for_2D_plotting["pred_field"][idx],
+                #     param_value=param_val,
+                #     coord_labels=config_model.get("COORD_LABELS")
+                # )
+                # saver(figure=fig_axis, figure_prefix=f"axis_dim{dim}_for_param_{param_val}")
+
+    # Plot basis functions if configured.
+    if config.get('PLOT_BASIS', False):
+        for i in tqdm(range(1, config_model.get('BASIS_FUNCTIONS') + 1), colour='blue'):
+            fig_mode = plot_basis_function(data_for_2D_plotting["coords_2D"], 
+                                        data_for_2D_plotting["basis_functions_2D"][i - 1],
+                                        index=i,
+                                        basis_config=config_model['BASIS_CONFIG'],
+                                        strategy=config_model['TRAINING_STRATEGY'],
+                                        param_val=None,
+                                        output_keys=data_for_2D_plotting['output_keys'])
+            saver(figure=fig_mode, figure_prefix=f"mode_{i}")
+
+    logger.info("\n----------------------- Plotting succesfully completed ------------------\n")
+
+if __name__ == "__main__":
+    test_model("./configs/config_test.yaml")
