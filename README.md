@@ -2,9 +2,9 @@
 
 ### Description
 
-This project aims to develop a framework for solving structural mechanics problems using Deep Learning. Problems of this nature with unbounded domains are usually solved with the Boundary Element Method (BEM), which requires computing influence functions through integration at a significant number of points.
+This project aims to develop a framework for solving soil-structure interaction problems using Deep Learning. Problems of this nature usually have unbounded domains and are usually solved with the Boundary Element Method (BEM), which requires computing influence functions through costly numerical integration schemes at a significant number of points.
 
-Traditional numerical integration techniques often struggle with these functions due to their complex nature, including singularities and improper integrals extending to infinity. By leveraging the field of operator learning and utilizing Deep Operator Networks (DeepONets), this project seeks to bypass the use of BEM and solve the differential equations directly using data.
+Traditional numerical integration techniques often struggle with such functions due to their complex nature, including singularities and improper integrals extending to infinity. By leveraging the field of operator learning and utilizing Deep Operator Networks (DeepONets), this project seeks to bypass the use of BEM and solve the differential equations directly by using data.
 
 ### Project Overview
 
