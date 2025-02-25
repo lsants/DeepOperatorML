@@ -349,6 +349,12 @@ def postprocess_for_2D_plot(model, plot_config, model_config, branch_features, t
 
     xb_keys = model_config["INPUT_FUNCTION_KEYS"]
 
+    xb_scaler = Scaling(
+        min_val=model_config['NORMALIZATION_PARAMETERS']['xb']['min'],
+        max_val=model_config['NORMALIZATION_PARAMETERS']['xb']['max']
+    )
+    if model_config['INPUT_NORMALIZATION']:
+        branch_features = xb_scaler.denormalize(branch_features)
     branch_tuple = don_to_meshgrid(branch_features)
     branch_map = {k:v for k, v in zip(xb_keys, branch_tuple)}
     processed_data["branch_features"] = np.array(branch_features)
@@ -378,14 +384,21 @@ def postprocess_for_2D_plot(model, plot_config, model_config, branch_features, t
     coordinates_map = {k: v for k, v in zip(coordinate_keys, coords_tuple)}
     coord_index_map = {coord: index for index, coord in enumerate(coordinates_map)}
     coords_2D_index_map = {k: v for k, v in coord_index_map.items() if k in plot_config["AXES_TO_PLOT"]}
-    index_to_remove_coords = [coord_index_map[coord] for coord in coord_index_map if coord not in coords_2D_index_map][0]
+
+    if len(coord_index_map) > 2:
+        index_to_remove_coords = [coord_index_map[coord] for coord in coord_index_map if coord not in coords_2D_index_map][0]
+    else:
+        index_to_remove_coords = None
     col_indices = [index for index in coord_index_map.values() if index != index_to_remove_coords]
     coords_2D_map = {k : v for k, v in coordinates_map.items() if k in plot_config["AXES_TO_PLOT"]}
 
     processed_data["coords_2D"] = coords_2D_map
     processed_data["trunk_features"] = xt_plot
-    processed_data["trunk_features_2D"] = processed_data["trunk_features"][ : , col_indices]
-
+    if len(coord_index_map) > 2:
+        processed_data["trunk_features_2D"] = processed_data["trunk_features"][ : , col_indices]
+    else:
+        processed_data["trunk_features_2D"] = processed_data["trunk_features"][ : , col_indices]
+    
     # ------------------ Prepare outputs ---------------------
 
     output_keys = model_config["OUTPUT_KEYS"]
@@ -408,22 +421,28 @@ def postprocess_for_2D_plot(model, plot_config, model_config, branch_features, t
     if basis_modes.ndim < 4:
         basis_modes = np.expand_dims(basis_modes, axis=1)
 
+    if basis_modes.ndim == 4:
+        basis_modes = basis_modes.transpose(1, 2, 3, 0) # not sure if correct must check
+    elif basis_modes.ndim == 5:
+        basis_modes = basis_modes.transpose(1, 2, 3, 4, 0) # not sure if correct must check
+    
     if basis_modes.shape[0] > model_config.get('BASIS_FUNCTIONS'):
-        basis_modes = basis_modes[ : model_config.get('BASIS_FUNCTIONS')]
-    print(basis_modes.shape)
-    basis_modes = basis_modes.transpose(1, 2, 3, 4, 0) # not sure if correct must check
+        split_1 = basis_modes[ : model_config.get('BASIS_FUNCTIONS')]
+        split_2 = basis_modes[model_config.get('BASIS_FUNCTIONS') : ]
+        basis_modes = np.concatenate([split_1, split_2], axis=-1)
 
     truth_slicer = [slice(None)] * truth_field.ndim  # Create a list of slice(None) for all dimensions
-    truth_slicer[index_to_remove_coords + 2] = 0  # Set the dimension to remove to index 0 (or any fixed index)
     pred_slicer = [slice(None)] * pred_field.ndim  # Create a list of slice(None) for all dimensions
-    pred_slicer[index_to_remove_coords + 2] = 0  # Set the dimension to remove to index 0 (or any fixed index)
     basis_slicer = [slice(None)] * basis_modes.ndim  # Create a list of slice(None) for all dimensions
-    basis_slicer[index_to_remove_coords + 1] = 0  # Set the dimension to remove to index 0 (or any fixed index)
+    if index_to_remove_coords:
+        processed_data["index_to_remove_coords"] = index_to_remove_coords
+        truth_slicer[index_to_remove_coords + 2] = 0  # Set the dimension to remove to index 0 (or any fixed index)
+        pred_slicer[index_to_remove_coords + 2] = 0  # Set the dimension to remove to index 0 (or any fixed index)
+        basis_slicer[index_to_remove_coords + 1] = 0  # Set the dimension to remove to index 0 (or any fixed index)
+    
     basis_modes_sliced = basis_modes[tuple(basis_slicer)]  # Apply the slicing
     
-
     processed_data["output_keys"] = output_keys
-    processed_data["index_to_remove_coords"] = index_to_remove_coords
     processed_data["truth_field"] = truth_field
     processed_data["pred_field"] = pred_field
     processed_data["truth_field_2D"] = truth_field[tuple(truth_slicer)]
