@@ -164,16 +164,17 @@ class TwoStepTrainingStrategy(TrainingStrategy):
     
     def get_schedulers(self, optimizers, params):
         schedulers = {}
-        schedulers['trunk'] = torch.optim.lr_scheduler.StepLR(
-            optimizers['trunk'],
-            step_size=params['TRUNK_SCHEDULER_STEP_SIZE'],
-            gamma=params['TRUNK_SCHEDULER_GAMMA']
-        )
-        schedulers['branch'] = torch.optim.lr_scheduler.StepLR(
-            optimizers['branch'],
-            step_size=params['BRANCH_SCHEDULER_STEP_SIZE'],
-            gamma=params['BRANCH_SCHEDULER_GAMMA']
-        )
+        if params["LR_SCHEDULING"]:
+            schedulers['trunk'] = torch.optim.lr_scheduler.StepLR(
+                optimizers['trunk'],
+                step_size=params['TRUNK_SCHEDULER_STEP_SIZE'],
+                gamma=params['TRUNK_SCHEDULER_GAMMA']
+            )
+            schedulers['branch'] = torch.optim.lr_scheduler.StepLR(
+                optimizers['branch'],
+                step_size=params['BRANCH_SCHEDULER_STEP_SIZE'],
+                gamma=params['BRANCH_SCHEDULER_GAMMA']
+            )
         return schedulers
     
     def zero_grad(self, optimizers):
@@ -220,7 +221,7 @@ class TwoStepTrainingStrategy(TrainingStrategy):
                                                  matrices_trunk=input_trunk)
         else:
             input_branch = xb
-            input_trunk = self.get_basis_functions()
+            input_trunk = self.trained_trunk_list
             return model.output_strategy.forward(model, 
                                                  data_branch=input_branch, 
                                                  data_trunk=None, 
@@ -228,7 +229,9 @@ class TwoStepTrainingStrategy(TrainingStrategy):
                                                  matrices_trunk=input_trunk)
         
     def get_basis_functions(self, **kwargs):
-        return self.trained_trunk_list
+        trunks = self.trained_trunk_list
+        basis_functions = torch.stack([net.T for net, _ in zip(trunks, range(len(trunks)))], dim=0)
+        return basis_functions
 
     def update_q_r_t_matrices(self, model, params,  xt):
         with torch.no_grad():

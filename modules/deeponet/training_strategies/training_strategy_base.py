@@ -68,14 +68,16 @@ class TrainingStrategy(ABC):
         return {self.current_phase: optimizer}
 
     def get_schedulers(self, optimizers, params):
-        if 'optimizer' in optimizers and optimizers['optimizer']:
+        if params['LR_SCHEDULING']:
             scheduler = torch.optim.lr_scheduler.StepLR(
-                optimizers['optimizer'],
+                optimizers['default'],
                 step_size=params['SCHEDULER_STEP_SIZE'],
                 gamma=params['SCHEDULER_GAMMA']
             )
             return {'scheduler': scheduler}
-        return {}
+        else:
+            return {}
+
 
     def can_validate(self):
         return True

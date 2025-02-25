@@ -136,7 +136,10 @@ class PODTrainingStrategy(TrainingStrategy):
         model.register_buffer(f'mean_functions', self.mean_functions)
 
     def get_basis_functions(self, **kwargs):
-        return self.pod_basis
+        trunks = self.pod_basis
+        print(trunks.shape)
+        basis_functions = torch.transpose(trunks, 2, 1)
+        return basis_functions
 
     def set_basis(self, pod_basis, mean_functions):
         self.pod_basis = pod_basis
