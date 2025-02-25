@@ -3,9 +3,6 @@ __pycache__/
 *.py[cod]
 *$py.class
 
-# C extensions
-*.so
-
 # Distribution / packaging
 .Python
 build/
@@ -157,3 +154,6 @@ cython_debug/
 /images
 /models
 /axsgrscelib
+
+# macosx file that escaped into the repo
+.DS_Store
