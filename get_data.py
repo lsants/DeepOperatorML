@@ -4,6 +4,7 @@ import yaml
 import numpy as np
 import argparse
 import logging
+
 logging.basicConfig(
     level=logging.INFO,
     format="[%(asctime)s] [%(levelname)s] %(name)s: %(message)s",
@@ -19,7 +20,7 @@ logger = logging.getLogger(__name__)
 def gen_data(config_path: str):
     parser = argparse.ArgumentParser()
 
-    parser.add_argument("problem", type=str, help="Generate data for given problem")
+    parser.add_argument("--problem", type=str, help="Generate data for given problem")
     args = parser.parse_args()
 
     problem = args.problem.lower()
