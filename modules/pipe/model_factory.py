@@ -4,11 +4,14 @@ import torch
 
 from ..utilities.config_utils import process_config
 from ..deeponet.deeponet import DeepONet
+from modules.deeponet.optimization.loss_fns import LOSS_FUNCTIONS
+from modules.deeponet.nn.activation_fns import ACTIVATION_MAP
 from ..deeponet.training_strategies import (
     StandardTrainingStrategy,
     TwoStepTrainingStrategy,
     PODTrainingStrategy
 )
+
 from ..deeponet.output_strategies import (
     SingleTrunkSplitBranchStrategy,
     SplitTrunkSingleBranchStrategy,
@@ -44,19 +47,30 @@ def create_model(model_params, **kwargs):
         Raises:
             ValueError: If the activation function name is not recognized.
         """
-        activation_map = {
-            'relu': torch.nn.ReLU(),
-            'tanh': torch.nn.Tanh(),
-            'sigmoid': torch.nn.Sigmoid(),
-            'leaky_relu': torch.nn.LeakyReLU(),
-            'elu': torch.nn.ELU(),
-            'gelu': torch.nn.GELU(),
-            'softplus': torch.nn.Softplus(),
-            'identity': torch.nn.Identity()
-        }
-        if name not in activation_map:
-            raise ValueError(f"Unsupported activation function: '{name}'. Supported functions are: {list(activation_map.keys())}")
-        return activation_map[name]
+
+        if name not in ACTIVATION_MAP:
+            raise ValueError(f"Unsupported activation function: '{name}'. Supported functions are: {list(ACTIVATION_MAP.keys())}")
+        return ACTIVATION_MAP[name]
+    
+    def get_loss_function(name):
+        """
+        Maps a string name to the corresponding PyTorch loss function.
+
+        Args:
+            name (str): Name of the loss function (e.g., 'mse', 'mag-phase').
+
+        Returns:
+            function: Corresponding PyTorch loss function.
+
+        Raises:
+            ValueError: If the loss function name is not recognized.
+        """
+        if name not in LOSS_FUNCTIONS:
+            raise ValueError(f"Unsupported loss function: '{name}'. Supported functions are: {list(LOSS_FUNCTIONS.keys())}")
+        if name == "mag_phase":
+            if len(model_params["OUTPUT_KEYS"]) != 2:
+                raise ValueError(f"Invalid loss function '{name}' for non-complex targets.") 
+        return LOSS_FUNCTIONS[name]
     
     model_params = process_config(model_params)
 
@@ -126,19 +140,25 @@ def create_model(model_params, **kwargs):
 
     training_strategy_name = model_params.get('TRAINING_STRATEGY').lower()
 
+    loss_function = get_loss_function(model_params["LOSS_FUNCTION"])
+
     if training_strategy_name == 'pod':
         inference_mode = kwargs.get('inference', False)
-        training_strategy = PODTrainingStrategy(data=data, var_share=var_share, inference=inference_mode)
+        training_strategy = PODTrainingStrategy(loss_fn=loss_function, 
+                                                data=data, 
+                                                var_share=var_share, 
+                                                inference=inference_mode)
 
     elif training_strategy_name == 'two_step':
         train_dataset_length = len(data['xb']) if data else None
         if train_dataset_length is None:
-            training_strategy = TwoStepTrainingStrategy()
+            training_strategy = TwoStepTrainingStrategy(loss_fn=loss_function)
         else:
-            training_strategy = TwoStepTrainingStrategy(train_dataset_length=train_dataset_length)
+            training_strategy = TwoStepTrainingStrategy(loss_fn=loss_function, 
+                                                        train_dataset_length=train_dataset_length)
 
     elif training_strategy_name == 'standard':
-        training_strategy = StandardTrainingStrategy()
+        training_strategy = StandardTrainingStrategy(loss_function)
 
     else:
         raise ValueError(f"Unsupported TRAINING_STRATEGY: {training_strategy_name}")
