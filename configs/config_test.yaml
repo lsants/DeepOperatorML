@@ -2,10 +2,10 @@
 MODELNAME: 20250224_DeepONet_dynamic_standard_in_norm_trunkexp_splitbasis
 
 # Location of test file info
-DATAFILE: ./data/raw/displacements.npz
+DATAFILE: ./data/raw/kelvin_displacements.npz
 
 # Model & outputs location
-MODEL_FOLDER: ./models//dynamic/standard/split_trunk_single_branch/20250224_DeepONet_dynamic_standard_in_norm_trunkexp_splitbasis/
+MODEL_FOLDER: ./models/
 
 # Data type, device, and error norm
 PRECISION: float32
@@ -16,7 +16,7 @@ PLOT_AXIS: true
 PLOT_BASIS: true
 
 AXES_TO_PLOT:
-- r
+- x
 - z
 
 # Plot every X percentile (e.g every 10th percentile of the input functions)
@@ -24,7 +24,7 @@ PLOT_PERCENTILES: 10
 
 INFERENCE_ON: test
 SAMPLES_TO_PLOT: 5
-BASIS_TO_PLOT: all
+BASIS_TO_PLOT: 20
 
 # For two-step:
 PHASE: final
