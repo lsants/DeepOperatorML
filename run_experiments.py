@@ -8,53 +8,23 @@ logger = logging.getLogger(__name__)
 BASE_CONFIG = 'configs/config_train.yaml'
 
 overrides_list = [
-    {"PROBLEM": "kelvin", 
-     "DATAFILE" : "./data/raw/kelvin_displacements.npz", 
-     "INPUT_FUNCTION_KEYS" : ["F", "mu", "nu"],
-     "COORDINATE_KEYS" : ["x", "y", "z"],
-     "OUTPUT_KEYS" : ["g_u"],
-     "TRAINING_STRATEGY": "standard", 
-     "OUTPUT_HANDLING": "single_trunk_split_branch"},
-
-    {"PROBLEM": "kelvin", 
-     "DATAFILE" : "./data/raw/kelvin_displacements.npz", 
-     "INPUT_FUNCTION_KEYS" : ["F", "mu", "nu"],
-     "COORDINATE_KEYS" : ["x", "y", "z"],
-     "OUTPUT_KEYS" : ["g_u"],
-     "TRAINING_STRATEGY": "standard", 
-     "OUTPUT_HANDLING": "split_trunk_single_branch"},
-
-    {"PROBLEM": "kelvin", 
-     "DATAFILE" : "./data/raw/kelvin_displacements.npz", 
-     "INPUT_FUNCTION_KEYS" : ["F", "mu", "nu"],
-     "COORDINATE_KEYS" : ["x", "y", "z"],
-     "OUTPUT_KEYS" : ["g_u"],
+    {"PROBLEM": "dynamic", 
+     "DATAFILE" : "./data/raw/displacements.npz", 
+     "INPUT_FUNCTION_KEYS" : ["xb"],
+     "COORDINATE_KEYS" : ["r", "z"],
+     "OUTPUT_KEYS" : ["g_u_real", "g_u_imag"],
      "TRAINING_STRATEGY": "two_step", 
-     "OUTPUT_HANDLING": "single_trunk_split_branch"},
+     "OUTPUT_HANDLING": "single_trunk_split_branch",
+     "TRUNK_DECOMPOSITION" : "svd"},
 
-    {"PROBLEM": "kelvin", 
-     "DATAFILE" : "./data/raw/kelvin_displacements.npz", 
-     "INPUT_FUNCTION_KEYS" : ["F", "mu", "nu"],
-     "COORDINATE_KEYS" : ["x", "y", "z"],
-     "OUTPUT_KEYS" : ["g_u"],
+    {"PROBLEM": "dynamic", 
+     "DATAFILE" : "./data/raw/displacements.npz", 
+     "INPUT_FUNCTION_KEYS" : ["xb"],
+     "COORDINATE_KEYS" : ["r", "z"],
+     "OUTPUT_KEYS" : ["g_u_real", "g_u_imag"],
      "TRAINING_STRATEGY": "two_step", 
-     "OUTPUT_HANDLING": "split_trunk_single_branch"},
-
-    {"PROBLEM": "kelvin", 
-     "DATAFILE" : "./data/raw/kelvin_displacements.npz", 
-     "INPUT_FUNCTION_KEYS" : ["F", "mu", "nu"],
-     "COORDINATE_KEYS" : ["x", "y", "z"],
-     "OUTPUT_KEYS" : ["g_u"],
-     "TRAINING_STRATEGY": "pod", 
-     "OUTPUT_HANDLING": "single_trunk_split_branch"},
-
-    {"PROBLEM": "kelvin", 
-     "DATAFILE" : "./data/raw/kelvin_displacements.npz", 
-     "INPUT_FUNCTION_KEYS" : ["F", "mu", "nu"],
-     "COORDINATE_KEYS" : ["x", "y", "z"],
-     "OUTPUT_KEYS" : ["g_u"],
-     "TRAINING_STRATEGY": "pod", 
-     "OUTPUT_HANDLING": "split_trunk_single_branch"},
+     "OUTPUT_HANDLING": "single_trunk_split_branch",
+     "TRUNK_DECOMPOSITION" : "qr"}
 ]
 
 def run_experiments():

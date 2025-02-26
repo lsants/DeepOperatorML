@@ -1,25 +1,23 @@
 #  ----------------------Location of .npz data file ----------------
-DATAFILE: ./data/raw/kelvin_displacements.npz
+DATAFILE: ./data/raw/displacements.npz
 
 # ------------------------------ Paths ------------------------
 # Model location
 MODEL_FOLDER: ./models/
 
 # ------------------------- Dataset parameters ---------------
-PROBLEM: kelvin
+PROBLEM: dynamic
 
 INPUT_FUNCTION_KEYS: # F, mu, nu if Kelvin ; delta if dynamic (xb for now)
-- F
-- mu
-- nu
+-  xb
 
 COORDINATE_KEYS:
-- x
-- y
+- r
 - z
 
 OUTPUT_KEYS:
-- g_u
+- g_u_real
+- g_u_imag
 
 DIRECTION: 2
 
@@ -28,7 +26,8 @@ PRECISION: float32
 DEVICE: cpu
 SEED: 42
 
-TRAINING_STRATEGY: two_step
+LOSS_FUNCTION: mse
+TRAINING_STRATEGY: standard
 OUTPUT_HANDLING: split_trunk_single_branch
 BASIS_FUNCTIONS: 20
 BRANCH_ARCHITECTURE: resnet
@@ -66,14 +65,14 @@ TRAIN_PERC: 0.8
 VAL_PERC: 0.1
 TEST_PERC: 0.1
 ERROR_NORM: 2
-L2_REGULARIZATION: 0.00001
+L2_REGULARIZATION: 0.00001 #implement L1, L2 and penalty
 EARLY_STOPPING: false
 LR_SCHEDULING: true
 SCHEDULER_STEP_SIZE: 1000
 SCHEDULER_GAMMA: 0.5
 CHANGE_OPTIMIZER: false # Not implemented
 DEFAULT_CHANGE_AT_EPOCH: 5000
-STANDARD_PROGRESS_BAR_COLOR: 'blue'
+STANDARD_PROGRESS_BAR_COLOR: 'green'
 
 # ------------------- Parameters for POD training ----------------------
 VAR_SHARE: 0.999

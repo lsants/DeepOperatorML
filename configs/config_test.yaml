@@ -16,7 +16,7 @@ PLOT_AXIS: true
 PLOT_BASIS: true
 
 AXES_TO_PLOT:
-- x
+- r
 - z
 
 # Plot every X percentile (e.g every 10th percentile of the input functions)
