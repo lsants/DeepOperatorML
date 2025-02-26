@@ -124,11 +124,14 @@ class PODTrainingStrategy(TrainingStrategy):
                 most_significant_modes = (
                     explained_variance_ratio < variance_share).sum() + 1
             else:
-                raise ValueError(
-                    "Variance share was not given. There's no way to know how many modes should be used.")
+                raise ValueError("Variance share was not given. \nThere's no way to know how many modes should be used.")
 
             num_modes = most_significant_modes
             modes_for_each_output.append(num_modes)
+            logger.debug(f"OUTPUT SHAPE, {output.shape}")
+            logger.debug(f"U SHAPE, {U.shape}")
+            logger.debug(f"S SHAPE, {S.shape}")
+            logger.debug(f"NUM MODES, {num_modes}")
 
         num_modes = max(modes_for_each_output)
         for output_name in outputs_names:
@@ -140,8 +143,9 @@ class PODTrainingStrategy(TrainingStrategy):
 
             U, S, _ = torch.linalg.svd(centered)
             basis = U[ : , : num_modes]
-            logger.info(f"BASIS SHAPE, {basis.shape}")
             pod_basis_list.append(basis)
+
+            logger.debug(f"BASIS SHAPE, {basis.shape}")
 
         self.pod_basis = torch.stack(pod_basis_list, dim=0)
         self.mean_functions = torch.stack(mean_functions_list, dim=0)
