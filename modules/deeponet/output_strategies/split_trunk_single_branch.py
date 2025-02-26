@@ -43,8 +43,9 @@ class SplitTrunkSingleBranchStrategy(OutputHandlingStrategy):
         n_basis_functions = model.n_basis_functions
 
         if pod_basis is not None:
-            if pod_basis.shape[0] < 2:
-                raise ValueError("SplitTrunkSingleBranchStrategy expects a set of multiple basis functions for each output with shape (n_outputs, n_features, n_modes).")
+            if pod_basis.shape[0] < 2 and model.n_outputs > 1:
+                raise ValueError(f"SplitTrunkSingleBranchStrategy expects a set of multiple basis functions for each output with shape (n_outputs, n_features, n_modes).\n \
+                                 The basis set is of shape {pod_basis.shape}")
             n_basis_functions = pod_basis.shape[-1]
             model.n_basis_functions = n_basis_functions
 
