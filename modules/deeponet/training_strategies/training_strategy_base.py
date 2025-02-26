@@ -1,9 +1,9 @@
 from abc import ABC, abstractmethod
 import torch
-from ..optimization.loss_complex import loss_complex
 
 class TrainingStrategy(ABC):
-    def __init__(self):
+    def __init__(self, loss_fn):
+        self.loss_fn = loss_fn
         self.phases = ['default']
         self.current_phase = 'default'
         self.prepare_before_configure = False
@@ -46,7 +46,7 @@ class TrainingStrategy(ABC):
         return self._compute_loss_default(outputs, targets)
 
     def _compute_loss_default(self, outputs, targets):
-        return loss_complex(targets, outputs)
+        return self.loss_fn(targets, outputs)
 
     def compute_errors(self, outputs, batch, model, params, **kwargs):
         errors = {}
@@ -77,7 +77,6 @@ class TrainingStrategy(ABC):
             return {'scheduler': scheduler}
         else:
             return {}
-
 
     def can_validate(self):
         return True

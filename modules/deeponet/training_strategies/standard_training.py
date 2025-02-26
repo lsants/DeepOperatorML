@@ -2,8 +2,8 @@ import torch
 from .training_strategy_base import TrainingStrategy
 
 class StandardTrainingStrategy(TrainingStrategy):
-    def __init__(self):
-        super().__init__()
+    def __init__(self, loss_fn):
+        super().__init__(loss_fn)
         self.phases = ['default']
 
     def get_epochs(self, params):

@@ -5,8 +5,8 @@ from .training_strategy_base import TrainingStrategy
 logger = logging.getLogger(__name__)
 
 class PODTrainingStrategy(TrainingStrategy):
-    def __init__(self, data=None, var_share=None, inference=False):
-        super().__init__()
+    def __init__(self, loss_fn, data=None, var_share=None, inference=False):
+        super().__init__(loss_fn)
         self.data = data
         self.var_share = var_share
         self.inference = inference

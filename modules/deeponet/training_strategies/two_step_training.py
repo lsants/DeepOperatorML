@@ -1,11 +1,11 @@
 import torch
 import logging
 from .training_strategy_base import TrainingStrategy
-from ..optimization.loss_complex import loss_complex
 
 logger = logging.getLogger(__name__)
 class TwoStepTrainingStrategy(TrainingStrategy):
-    def __init__(self, train_dataset_length=None):
+    def __init__(self, loss_fn, train_dataset_length=None):
+        super().__init__(loss_fn)
         self.train_dataset_length = train_dataset_length
         if not self.train_dataset_length:
             logger.warning("Initializing the model without A matrix. Only do this if you're doing inference.")
@@ -87,7 +87,7 @@ class TwoStepTrainingStrategy(TrainingStrategy):
     def compute_loss(self, outputs, batch, model, params, **kwargs):
         if self.current_phase == 'trunk':
             targets = tuple(batch[key] for key in params['OUTPUT_KEYS'])
-            loss = loss_complex(targets, outputs)
+            loss = self.loss_fn(targets, outputs)
         elif self.current_phase == 'branch':
             targets = model.output_strategy.forward(
                 model, 
@@ -97,10 +97,10 @@ class TwoStepTrainingStrategy(TrainingStrategy):
                 matrices_trunk=self.R_list
             )
 
-            loss = loss_complex(targets, outputs)
+            loss = self.loss_fn(targets, outputs)
         elif self.current_phase == 'final':
             targets = tuple(batch[key] for key in params['OUTPUT_KEYS'])
-            loss = loss_complex(targets, outputs)
+            loss = self.loss_fn(targets, outputs)
         else:
             raise ValueError(f"Unknown training phase: {self.current_phase}")
         return loss
