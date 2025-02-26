@@ -35,6 +35,10 @@ def process_config(config):
     training_strategy = config["TRAINING_STRATEGY"]
     if training_strategy:
         model_name += "_" + training_strategy.lower()
+    if training_strategy == 'two_step':
+        model_name += '_' + config['TRUNK_DECOMPOSITION']
+    if config["LOSS_FUNCTION"] != 'mse':
+        model_name += f"_{config['LOSS_FUNCTION']}"
     if config.get("INPUT_NORMALIZATION", False):
         model_name += "_in"
     if config.get("OUTPUT_NORMALIZATION", False):
