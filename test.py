@@ -11,12 +11,6 @@ from modules.plotting.plot_basis import plot_basis_function
 from modules.utilities import dir_functions
 from modules.data_processing import preprocessing as ppr
 
-logging.basicConfig(
-    level=logging.INFO,
-    format="[%(asctime)s] [%(levelname)s] %(name)s: %(message)s",
-    datefmt="%d-%m-%Y %H:%M:%S",
-    stream=sys.stdout
-)
 logger = logging.getLogger(__name__)
 
 def test_model(config_path: str, trained_model_config=None):
@@ -113,4 +107,10 @@ def test_model(config_path: str, trained_model_config=None):
     logger.info("\n----------------------- Plotting succesfully completed ------------------\n")
 
 if __name__ == "__main__":
+    # logging.basicConfig(
+    #     level=logging.INFO,
+    #     format="[%(asctime)s] [%(levelname)s] %(name)s: %(message)s",
+    #     datefmt="%d-%m-%Y %H:%M:%S",
+    #     stream=sys.stdout
+    # )
     test_model("./configs/config_test.yaml")
