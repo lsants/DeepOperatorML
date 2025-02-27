@@ -117,7 +117,7 @@ class Saver:
             logger.info(f"\nNormalization parameters saved to:\n{norm_params_path}\n")
 
     def save_history(self, history_dict, phase=None, filename_prefix=None):
-        filename = f'{filename_prefix or "history"}_{self.name}.yaml'
+        filename = f'{filename_prefix or "history"}_{self.name}.txt'
         history_path = self.make_output_dir(self.data_output_folder, filename)
         serializable_history = self.make_serializable(history_dict)
         with open(history_path, 'w') as f:
