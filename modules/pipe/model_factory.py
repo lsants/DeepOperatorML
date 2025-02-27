@@ -1,7 +1,7 @@
 import os
+import warnings
 import yaml
 import torch
-
 from ..utilities.config_utils import process_config
 from ..deeponet.deeponet import DeepONet
 from modules.deeponet.optimization.loss_fns import LOSS_FUNCTIONS
@@ -11,13 +11,11 @@ from ..deeponet.training_strategies import (
     TwoStepTrainingStrategy,
     PODTrainingStrategy
 )
-
 from ..deeponet.output_strategies import (
-    SingleTrunkSplitBranchStrategy,
-    SplitTrunkSingleBranchStrategy,
-    MultipleTrunksSingleBranchStrategy,
-    SingleTrunkMultipleBranchesStrategy,
-    MultipleTrunksMultipleBranchesStrategy
+    SingleOutputStrategy,
+    ShareBranchStrategy,
+    ShareTrunkStrategy,
+    SplitNetworksStrategy,
 )
 
 def create_model(model_params, **kwargs):
@@ -49,9 +47,10 @@ def create_model(model_params, **kwargs):
         """
 
         if name not in ACTIVATION_MAP:
-            raise ValueError(f"Unsupported activation function: '{name}'. Supported functions are: {list(ACTIVATION_MAP.keys())}")
+            raise ValueError(
+                f"Unsupported activation function: '{name}'. Supported functions are: {list(ACTIVATION_MAP.keys())}")
         return ACTIVATION_MAP[name]
-    
+
     def get_loss_function(name):
         """
         Maps a string name to the corresponding PyTorch loss function.
@@ -66,12 +65,14 @@ def create_model(model_params, **kwargs):
             ValueError: If the loss function name is not recognized.
         """
         if name not in LOSS_FUNCTIONS:
-            raise ValueError(f"Unsupported loss function: '{name}'. Supported functions are: {list(LOSS_FUNCTIONS.keys())}")
+            raise ValueError(
+                f"Unsupported loss function: '{name}'. Supported functions are: {list(LOSS_FUNCTIONS.keys())}")
         if name == "mag_phase":
             if len(model_params["OUTPUT_KEYS"]) != 2:
-                raise ValueError(f"Invalid loss function '{name}' for non-complex targets.") 
+                raise ValueError(
+                    f"Invalid loss function '{name}' for non-complex targets.")
         return LOSS_FUNCTIONS[name]
-    
+
     model_params = process_config(model_params)
 
     if 'MODELNAME' not in model_params or not model_params['MODELNAME']:
@@ -83,7 +84,8 @@ def create_model(model_params, **kwargs):
     trunk_input_size = len(model_params['COORDINATE_KEYS'])
     if model_params.get('TRUNK_FEATURE_EXPANSION', False):
         trunk_input_size += (
-            2 * len(model_params['COORDINATE_KEYS']) * model_params['TRUNK_EXPANSION_FEATURES_NUMBER']
+            2 * len(model_params['COORDINATE_KEYS']) *
+            model_params['TRUNK_EXPANSION_FEATURES_NUMBER']
         )
 
     branch_architecture = model_params['BRANCH_ARCHITECTURE']
@@ -105,16 +107,20 @@ def create_model(model_params, **kwargs):
         ),
     }
     if branch_architecture.lower() == 'mlp':
-        branch_config['activation'] = get_activation_function(model_params.get('BRANCH_ACTIVATION'))
+        branch_config['activation'] = get_activation_function(
+            model_params.get('BRANCH_ACTIVATION'))
 
     if trunk_architecture.lower() == 'mlp':
-        trunk_config['activation'] = get_activation_function(model_params.get('TRUNK_ACTIVATION'))
+        trunk_config['activation'] = get_activation_function(
+            model_params.get('TRUNK_ACTIVATION'))
 
     if branch_architecture.lower() == 'resnet':
-        branch_config['activation'] = get_activation_function(model_params.get('BRANCH_ACTIVATION'))
+        branch_config['activation'] = get_activation_function(
+            model_params.get('BRANCH_ACTIVATION'))
 
     if trunk_architecture.lower() == 'resnet':
-        trunk_config['activation'] = get_activation_function(model_params.get('TRUNK_ACTIVATION'))
+        trunk_config['activation'] = get_activation_function(
+            model_params.get('TRUNK_ACTIVATION'))
 
     if branch_architecture.lower() == 'kan':
         branch_config['degree'] = model_params.get('BRANCH_DEGREE')
@@ -124,15 +130,21 @@ def create_model(model_params, **kwargs):
 
     output_handling = model_params['OUTPUT_HANDLING'].lower()
     output_strategy_mapping = {
-        'single_trunk_split_branch': SingleTrunkSplitBranchStrategy,
-        'split_trunk_single_branch': SplitTrunkSingleBranchStrategy,
-        'multiple_trunks_single_branch': MultipleTrunksSingleBranchStrategy,
-        'single_trunk_multiple_branches': SingleTrunkMultipleBranchesStrategy,
-        'multiple_trunks_multiple_branches': MultipleTrunksMultipleBranchesStrategy,
+        'single_output': SingleOutputStrategy,
+        'share_branch': ShareBranchStrategy,
+        'share_trunk': ShareTrunkStrategy,
+        'split_networks': SplitNetworksStrategy,
     }
 
     if output_handling not in output_strategy_mapping:
-        raise ValueError(f"Unsupported OUTPUT_HANDLING strategy: {output_handling}")
+        raise ValueError(
+            f"Unsupported OUTPUT_HANDLING strategy: {output_handling}")
+    elif output_handling == 'single_output' and len(model_params['OUTPUT_KEYS']) != 1:
+        raise ValueError(
+            f"Invalid output handling, can't use {output_handling} strategy for a model with {len(model_params['OUTPUT_KEYS'])} outputs")
+    elif len(model_params['OUTPUT_KEYS']) == 1:
+        warnings.warn(
+            f"Warning.... There's little use in using a strategy for handling multiple outputs when the model has {len(model_params['OUTPUT_KEYS'])} output. Resources will be wasted.")
 
     output_strategy = output_strategy_mapping[output_handling]()
 
@@ -144,26 +156,33 @@ def create_model(model_params, **kwargs):
 
     if training_strategy_name == 'pod':
         inference_mode = kwargs.get('inference', False)
-        training_strategy = PODTrainingStrategy(loss_fn=loss_function, 
-                                                data=data, 
-                                                var_share=var_share, 
+        training_strategy = PODTrainingStrategy(loss_fn=loss_function,
+                                                data=data,
+                                                var_share=var_share,
                                                 inference=inference_mode)
 
     elif training_strategy_name == 'two_step':
         train_dataset_length = len(data['xb']) if data else None
         if train_dataset_length is None:
-            training_strategy = TwoStepTrainingStrategy(loss_fn=loss_function)
+            training_strategy = TwoStepTrainingStrategy(loss_fn=loss_function, 
+                                                        device=model_params['DEVICE'], 
+                                                        precision=getattr(torch, model_params['PRECISION']),
+                                                        )
         else:
             training_strategy = TwoStepTrainingStrategy(loss_fn=loss_function, 
-                                                        train_dataset_length=train_dataset_length)
+                                                        device=model_params['DEVICE'],
+                                                        precision=getattr(torch, model_params['PRECISION']),
+                                                        train_dataset_length=train_dataset_length
+                                                        )
 
     elif training_strategy_name == 'standard':
         training_strategy = StandardTrainingStrategy(loss_function)
 
     else:
-        raise ValueError(f"Unsupported TRAINING_STRATEGY: {training_strategy_name}")
+        raise ValueError(
+            f"Unsupported TRAINING_STRATEGY: {training_strategy_name}")
 
-    model = DeepONet( 
+    model = DeepONet(
         branch_config=branch_config,
         trunk_config=trunk_config,
         output_strategy=output_strategy,
@@ -173,6 +192,7 @@ def create_model(model_params, **kwargs):
     ).to(model_params['DEVICE'], dtype=getattr(torch, model_params['PRECISION']))
 
     return model, model_name
+
 
 def initialize_model(model_folder, model_name, device, precision):
     """
@@ -209,12 +229,12 @@ def initialize_model(model_folder, model_name, device, precision):
     training_strategy = model_params.get('TRAINING_STRATEGY', '').lower()
     if training_strategy == 'two_step':
         model.training_strategy.set_matrices(Q_list=checkpoint.get('Q'),
-                                                     R_list=checkpoint.get('R'),
-                                                     T_list=checkpoint.get('T'))
+                                             R_list=checkpoint.get('R'),
+                                             T_list=checkpoint.get('T'))
     elif training_strategy == 'pod':
         model.training_strategy.set_basis(pod_basis=checkpoint.get('pod_basis'),
-                                                     mean_functions=checkpoint.get('pod_basis'))
-    
+                                          mean_functions=checkpoint.get('pod_basis'))
+
     model.training_strategy.inference_mode()
     model.eval()
     return model, model_params
