@@ -29,7 +29,7 @@ class TrainingLoop:
         self.saver = saver
         self.p = params
 
-        self.training_strategy.prepare_training(self.model)
+        self.training_strategy.prepare_training(self.model, params=self.p)
         self.optimizers = self.training_strategy.get_optimizers(self.model, self.p)
         self.schedulers = self.training_strategy.get_schedulers(self.optimizers, self.p)
 
