@@ -15,7 +15,6 @@ logger = logging.getLogger(__name__)
 
 def train_model(config_path: str):
     # --------------------------- Load params file ------------------------
-    print(config_path)
     p = dir_functions.load_params(config_path)
     logger.info(f"Training data from:\n{p['DATAFILE']}\n")
 
@@ -102,6 +101,8 @@ def train_model(config_path: str):
         figures_folder=os.path.join(p["IMAGES_FOLDER"])
     )
 
+    saver.set_logging(False)
+
     training_strategy = model.training_strategy
 
     training_loop = TrainingLoop(
@@ -113,19 +114,8 @@ def train_model(config_path: str):
 
     # ---------------------------------- Batching data -------------------------------------
 
-    def get_single_batch(dataset, indices):
-        dtype = getattr(torch, p['PRECISION'])
-        device = p['DEVICE']
-
-        batch = {}
-        batch['xb'] = torch.stack([dataset[idx]['xb'] for idx in indices], dim=0).to(dtype=dtype, device=device)
-        batch['xt'] = dataset.get_trunk()
-        for key in p['OUTPUT_KEYS']:
-            batch[key] = torch.stack([dataset[idx][key] for idx in indices], dim=0).to(dtype=dtype, device=device)
-        return batch
-
-    train_batch = get_single_batch(dataset, train_dataset.indices)
-    val_batch = get_single_batch(dataset, val_dataset.indices) if p.get('VAL_PERC', 0) > 0 else None
+    train_batch = ppr.get_single_batch(dataset, train_dataset.indices, p)
+    val_batch = ppr.get_single_batch(dataset, val_dataset.indices, p) if p.get('VAL_PERC', 0) > 0 else None
 
     # ----------------------------------------- Train loop ---------------------------------
     start_time = time.time()

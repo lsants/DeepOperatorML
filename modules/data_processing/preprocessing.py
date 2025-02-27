@@ -193,6 +193,17 @@ def get_minmax_norm_params(dataset, keys=None):
 
     return min_max_params
 
+def get_single_batch(dataset, indices, params):
+    dtype = getattr(torch, params['PRECISION'])
+    device = params['DEVICE']
+
+    batch = {}
+    batch['xb'] = torch.stack([dataset[idx]['xb'] for idx in indices], dim=0).to(dtype=dtype, device=device)
+    batch['xt'] = dataset.get_trunk()
+    for key in params['OUTPUT_KEYS']:
+        batch[key] = torch.stack([dataset[idx][key] for idx in indices], dim=0).to(dtype=dtype, device=device)
+    return batch
+
 def don_to_meshgrid(arr):
     """
     Recovers the original coordinate arrays from a trunk (or branch) array.
