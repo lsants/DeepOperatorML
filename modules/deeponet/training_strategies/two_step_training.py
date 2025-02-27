@@ -3,12 +3,17 @@ import logging
 from .training_strategy_base import TrainingStrategy
 
 logger = logging.getLogger(__name__)
+
+
 class TwoStepTrainingStrategy(TrainingStrategy):
-    def __init__(self, loss_fn, train_dataset_length=None):
+    def __init__(self, loss_fn, device, precision, train_dataset_length=None):
         super().__init__(loss_fn)
         self.train_dataset_length = train_dataset_length
+        self.device = device
+        self.precision = precision
         if not self.train_dataset_length:
-            logger.warning("Initializing the model without A matrix. Only do this if you're doing inference.")
+            logger.warning(
+                "Initializing the model without A matrix. Only do this if you're doing inference.")
         self.A_list = None
         self.Q_list = []
         self.R_list = []
@@ -19,27 +24,31 @@ class TwoStepTrainingStrategy(TrainingStrategy):
         self.prepare_before_configure = False
 
     def get_epochs(self, params):
-            return [params['TRUNK_TRAIN_EPOCHS'], params['BRANCH_TRAIN_EPOCHS']]
+        return [params['TRUNK_TRAIN_EPOCHS'], params['BRANCH_TRAIN_EPOCHS']]
 
     def update_training_phase(self, phase, **kwargs):
         self.current_phase = phase
         logger.info(f'Current phase: {self.current_phase}')
 
     def prepare_training(self, model, **kwargs):
-        branch_output_size = getattr(model.output_strategy, 'branch_output_dim')
+        branch_output_size = getattr(
+            model.output_strategy, 'branch_output_size')
         if self.train_dataset_length and not self.A_list:
             A_dim = (branch_output_size, self.train_dataset_length)
 
-            logger.debug(f"A matrix's dimensions: {branch_output_size, self.train_dataset_length}")
-            logger.debug(f"Creating {model.output_strategy.num_branches} trainable matrices")
+            logger.info(
+                f"A matrix's dimensions: {branch_output_size, self.train_dataset_length}")
+            logger.info(
+                f"Creating {model.output_strategy.num_branches} trainable matrices")
 
             self.A_list = torch.nn.ParameterList([
-                torch.nn.Parameter(torch.randn(A_dim))
+                torch.nn.Parameter(torch.randn(A_dim)).to(
+                    device=self.device, dtype=self.precision)
                 for _ in range(model.output_strategy.num_branches)
             ])
             for A in self.A_list:
                 torch.nn.init.kaiming_uniform_(A)
-    
+
     def prepare_for_phase(self, model, **kwargs):
         params = kwargs.get('model_params')
         xt = kwargs.get('train_batch')
@@ -83,17 +92,17 @@ class TwoStepTrainingStrategy(TrainingStrategy):
         for branch in model.branch_networks:
             for param in branch.parameters():
                 param.requires_grad = True
-   
+
     def compute_loss(self, outputs, batch, model, params, **kwargs):
         if self.current_phase == 'trunk':
             targets = tuple(batch[key] for key in params['OUTPUT_KEYS'])
             loss = self.loss_fn(targets, outputs)
         elif self.current_phase == 'branch':
             targets = model.output_strategy.forward(
-                model, 
-                data_branch=None, 
-                data_trunk=None, 
-                matrices_branch=self.A_list, 
+                model,
+                data_branch=None,
+                data_trunk=None,
+                matrices_branch=self.A_list,
                 matrices_trunk=self.R_list
             )
 
@@ -108,25 +117,28 @@ class TwoStepTrainingStrategy(TrainingStrategy):
     def compute_errors(self, outputs, batch, model, params, **kwargs):
         errors = {}
         if self.current_phase in ['trunk', 'final']:
-            targets = {k:v for k,v in batch.items() if k in params['OUTPUT_KEYS']}
+            targets = {k: v for k, v in batch.items(
+            ) if k in params['OUTPUT_KEYS']}
             for key, target, pred in zip(params['OUTPUT_KEYS'], targets.values(), outputs):
                 if key in params['OUTPUT_KEYS']:
                     error = (
-                        torch.linalg.vector_norm(target - pred, ord=params['ERROR_NORM'])
+                        torch.linalg.vector_norm(
+                            target - pred, ord=params['ERROR_NORM'])
                         / torch.linalg.vector_norm(target, ord=params['ERROR_NORM'])
                     ).item()
                     errors[key] = error
         elif self.current_phase == 'branch':
             targets = model.output_strategy.forward(
-                model, 
-                data_branch=None, 
-                data_trunk=None, 
-                matrices_branch=self.A_list, 
+                model,
+                data_branch=None,
+                data_trunk=None,
+                matrices_branch=self.A_list,
                 matrices_trunk=self.R_list
             )
             for _, (key, target, pred) in enumerate(zip(params['OUTPUT_KEYS'], targets, outputs)):
                 error = (
-                    torch.linalg.vector_norm(target - pred, ord=params['ERROR_NORM'])
+                    torch.linalg.vector_norm(
+                        target - pred, ord=params['ERROR_NORM'])
                     / torch.linalg.vector_norm(target, ord=params['ERROR_NORM'])
                 ).item()
                 errors[key] = error
@@ -139,10 +151,12 @@ class TwoStepTrainingStrategy(TrainingStrategy):
 
     def after_epoch(self, epoch, model, params, **kwargs):
         if self.current_phase == 'trunk' and epoch + 1 == params['TRUNK_TRAIN_EPOCHS']:
-            logger.debug(f"THIS RAN BECAUSE PHASE ({self.current_phase}) SHOULD BE TRUNK AND NEXT EPOCH ({epoch + 1}) IS {params['TRUNK_TRAIN_EPOCHS']}")
+            logger.debug(
+                f"THIS RAN BECAUSE PHASE ({self.current_phase}) SHOULD BE TRUNK AND NEXT EPOCH ({epoch + 1}) IS {params['TRUNK_TRAIN_EPOCHS']}")
             train_batch = kwargs.get('train_batch')
             self.update_q_r_t_matrices(model, params, train_batch)
-            logger.info(f"Trunk matrices updated and phase transition triggered at epoch {epoch + 1}")
+            logger.info(
+                f"Trunk matrices updated and phase transition triggered at epoch {epoch + 1}")
 
     def get_optimizers(self, model, params):
         optimizers = {}
@@ -153,15 +167,14 @@ class TwoStepTrainingStrategy(TrainingStrategy):
         trunk_params += list(self.A_list)
         optimizers['trunk'] = torch.optim.Adam(
             trunk_params, lr=params['TRUNK_LEARNING_RATE'], weight_decay=params['L2_REGULARIZATION'])
-        
+
         branch_params = []
         for branch in model.branch_networks:
             branch_params += list(branch.parameters())
         optimizers['branch'] = torch.optim.Adam(
             branch_params, lr=params['BRANCH_LEARNING_RATE'], weight_decay=params['L2_REGULARIZATION'])
-
         return optimizers
-    
+
     def get_schedulers(self, optimizers, params):
         schedulers = {}
         if params["LR_SCHEDULING"]:
@@ -176,7 +189,7 @@ class TwoStepTrainingStrategy(TrainingStrategy):
                 gamma=params['BRANCH_SCHEDULER_GAMMA']
             )
         return schedulers
-    
+
     def zero_grad(self, optimizers):
         if self.current_phase == 'trunk':
             optimizers['trunk'].zero_grad()
@@ -196,41 +209,46 @@ class TwoStepTrainingStrategy(TrainingStrategy):
             schedulers['branch'].step()
 
     def get_trunk_output(self, model, i, xt_i):
-        return model.trunk_networks[i % len(model.trunk_networks)](xt_i)
+        if xt_i is not None:
+            trunk_output = model.trunk_networks[i % len(
+                model.trunk_networks)](xt_i)
+        return trunk_output
 
     def get_branch_output(self, model, i, xb_i):
-        branch_output = model.branch_networks[i % len(model.branch_networks)](xb_i)
+        branch_output = model.branch_networks[i % len(
+            model.branch_networks)](xb_i)
         return branch_output.T
 
     def forward(self, model, xb=None, xt=None):
         if self.current_phase == 'trunk':
             input_branch = self.A_list
             input_trunk = xt
-            return model.output_strategy.forward(model, 
-                                                 data_branch=None, 
-                                                 data_trunk=input_trunk, 
-                                                 matrices_branch=input_branch, 
+            return model.output_strategy.forward(model,
+                                                 data_branch=None,
+                                                 data_trunk=input_trunk,
+                                                 matrices_branch=input_branch,
                                                  matrices_trunk=None)
         elif self.current_phase == 'branch':
             input_branch = xb
-            input_trunk = [aij @ bij for aij, bij in zip(self.T_list, self.R_list)]
-            return model.output_strategy.forward(model, 
-                                                 data_branch=input_branch, 
-                                                 data_trunk=None, 
-                                                 matrices_branch=None, 
+            input_trunk = None
+            return model.output_strategy.forward(model,
+                                                 data_branch=input_branch,
+                                                 data_trunk=None,
+                                                 matrices_branch=None,
                                                  matrices_trunk=input_trunk)
         else:
             input_branch = xb
             input_trunk = self.trained_trunk_list
-            return model.output_strategy.forward(model, 
-                                                 data_branch=input_branch, 
-                                                 data_trunk=None, 
-                                                 matrices_branch=None, 
+            return model.output_strategy.forward(model,
+                                                 data_branch=input_branch,
+                                                 data_trunk=None,
+                                                 matrices_branch=None,
                                                  matrices_trunk=input_trunk)
-        
+
     def get_basis_functions(self, **kwargs):
         trunks = self.trained_trunk_list
-        basis_functions = torch.stack([net.T for net, _ in zip(trunks, range(len(trunks)))], dim=0)
+        basis_functions = torch.stack(
+            [net.T for net, _ in zip(trunks, range(len(trunks)))], dim=0)
         return basis_functions
 
     def update_q_r_t_matrices(self, model, params,  xt):
@@ -257,16 +275,20 @@ class TwoStepTrainingStrategy(TrainingStrategy):
 
                 self.trained_trunk_list.append(Q @ R @ T)
 
-                logger.info(f"Q shape: {Q.shape}, R shape: {R.shape}, T shape: {T.shape}")
+                logger.info(
+                    f"Q shape: {Q.shape}, R shape: {R.shape}, T shape: {T.shape}")
                 logger.info(f"Reconstructed Phi shape: {(Q @ R @ T).shape}")
-                logger.info(f"Q @ R == Phi check: {torch.allclose(Q @ R, phi, atol=1e-6)}")
-                logger.info(f"Q matrices: {len(self.Q_list)}\nR matrices: {len(self.R_list)}\nT matrices: {len(self.T_list)}")
+                logger.info(
+                    f"Q @ R == Phi check: {torch.allclose(Q @ R, phi, atol=1e-5)}")
+                logger.info(
+                    f"Q matrices: {len(self.Q_list)}\nR matrices: {len(self.R_list)}\nT matrices: {len(self.T_list)}")
 
             if not self.Q_list or not self.R_list or not self.T_list:
                 raise ValueError(
                     f"Trunk decomposition failed. At least one of the matrices wasn't stored.")
             else:
-                logger.info(f"Trunk decomposed successfully. \nMoving on to second step...")
+                logger.info(
+                    f"Trunk decomposed successfully. \nMoving on to second step...")
 
     def set_matrices(self, **kwargs):
         self.Q_list = kwargs.get('Q_list')
@@ -279,9 +301,10 @@ class TwoStepTrainingStrategy(TrainingStrategy):
             raise ValueError("ERROR: R matrices couldn't be assigned.")
         if not self.T_list:
             raise ValueError("ERROR: T matrices couldn't be assigned.")
-        self.trained_trunk_list = [Q @ R @ T for Q, R, T in 
-                                    zip(self.Q_list, self.R_list, self.T_list)]
-        logger.info(f"Set {len(self.trained_trunk_list)} trained trunk(s) (shaped {(self.trained_trunk_list[0].shape[0], self.trained_trunk_list[0].shape[1])}) for inference.")
+        self.trained_trunk_list = [Q @ R @ T for Q, R, T in
+                                   zip(self.Q_list, self.R_list, self.T_list)]
+        logger.info(
+            f"Set {len(self.trained_trunk_list)} trained trunk(s) (shaped {(self.trained_trunk_list[0].shape[0], self.trained_trunk_list[0].shape[1])}) for inference.")
 
     def inference_mode(self):
         self.current_phase = 'final'
