@@ -155,7 +155,6 @@ class PODTrainingStrategy(TrainingStrategy):
 
     def get_basis_functions(self, **kwargs):
         trunks = self.pod_basis
-        print(trunks.shape)
         basis_functions = torch.transpose(trunks, 2, 1)
         return basis_functions
 
