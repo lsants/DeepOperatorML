@@ -1,5 +1,3 @@
-# modules/model/output_strategies/single_trunk_split_branch.py
-
 import logging
 import torch
 from .output_handling_base import OutputHandlingStrategy
@@ -7,9 +5,9 @@ from ...utilities.log_functions import pprint_layer_dict
 
 logger = logging.getLogger(__name__)
 
-class SingleTrunkSplitBranchStrategy(OutputHandlingStrategy):
+class SingleOutputStrategy(OutputHandlingStrategy):
     """Use a single set of basis functions and one single input function mapping
-       to learn all outputs.
+       to learn one single output.
     """
     def __init__(self):
         self.branch_output_dim = None
@@ -19,7 +17,7 @@ class SingleTrunkSplitBranchStrategy(OutputHandlingStrategy):
         
     def get_basis_config(self):
         """
-        Specifies that this strategy requires a single set of basis functions for both real and imaginary parts.
+        Specifies that this strategy requires a single set of basis functions.
 
         Returns:
             dict: Basis configuration.
@@ -28,7 +26,7 @@ class SingleTrunkSplitBranchStrategy(OutputHandlingStrategy):
     
     def configure_networks(self, model, branch_config, trunk_config, **kwargs):
         """
-        Configures the networks for the SingleTrunkSplitBranchStrategy.
+        Configures the networks for the SingleOutputStrategy.
 
         Args:
             model (DeepONet): The model instance.
@@ -44,7 +42,7 @@ class SingleTrunkSplitBranchStrategy(OutputHandlingStrategy):
 
         if pod_basis is not None:
             if pod_basis.shape[0] != 1:
-                raise ValueError("SingleTrunkSplitBranchStrategy expects a single set of basis functions with shape (1, n_features, n_modes).")
+                raise ValueError("SingleOutputStrategy expects a single set of basis functions with shape (1, n_features, n_modes).")
             single_basis = pod_basis[0]
             n_basis_functions = single_basis.shape[1]
             model.n_basis_functions = n_basis_functions
@@ -56,24 +54,25 @@ class SingleTrunkSplitBranchStrategy(OutputHandlingStrategy):
         trunk = model.create_network(trunk_config)
         trunk_networks = torch.nn.ModuleList([trunk])
 
-
         self.trunk_output_dim = trunk_output_size
-        self.num_trunks = trunk_output_size // n_basis_functions
+        self.num_trunks = len(trunk_networks)
 
         branch_config = branch_config.copy()
-        branch_output_size = n_basis_functions * model.n_outputs
+        branch_output_size = n_basis_functions
         branch_config['layers'].append(branch_output_size)
 
         branch = model.create_network(branch_config)
         branch_networks = torch.nn.ModuleList([branch])
 
         self.branch_output_dim = branch_output_size
-        self.num_branches = branch_output_size // n_basis_functions
+        self.num_branches = len(branch_networks)
 
         logger.info(f"\nNumber of Branch networks: {self.num_branches}\n")
         logger.info(f"\nNumber of Trunk networks: {self.num_trunks}\n")
         logger.info(f"\nBranch layer sizes: {pprint_layer_dict(branch_config['layers'])}\n")
         logger.info(f"\nTrunk layer sizes: {pprint_layer_dict(trunk_config['layers'])}\n")
+
+        logger.info(f"\nBranch network size: {branch_output_size}\nTrunk network size: {trunk_output_size}\n")
 
         return branch_networks, trunk_networks
     
@@ -90,14 +89,9 @@ class SingleTrunkSplitBranchStrategy(OutputHandlingStrategy):
             else model.get_branch_output(0, data_branch)
         )
 
-        N = trunk_out.shape[-1] 
-
         outputs = []
-
-        for i in range(model.n_outputs):
-            branch_out_split = branch_out[ i * N : (i + 1) * N , : ]
-            output = torch.matmul(trunk_out, branch_out_split).T
-            outputs.append(output)
+        output = torch.matmul(trunk_out, branch_out).T
+        outputs.append(output)
 
         return tuple(outputs)
 
