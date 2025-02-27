@@ -1,21 +1,20 @@
 import sys
 import time
-import argparse
+import argparse 
 import yaml
 import logging
 from train import train_model
 from test import test_model
+    
+logger = logging.getLogger(__name__)
 
 logging.basicConfig(
-    filename=f"./data/logs/{time.strftime('%%Y%%m%%D%%H%%M%%S')}_main.log",
     filemode='w',
     level=logging.INFO,
     format="[%(asctime)s] [%(levelname)s] %(name)s: %(message)s",
     datefmt="%d-%m-%Y %H:%M:%S",
     stream=sys.stdout
 )
-    
-logger = logging.getLogger(__name__)
 
 def main():
     parser = argparse.ArgumentParser()
