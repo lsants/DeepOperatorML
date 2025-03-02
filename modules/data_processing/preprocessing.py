@@ -289,16 +289,16 @@ def reshape_outputs_to_plot_format(output, coords, basis=False):
         N_branch, trunk_size = output.shape
         if np.prod(grid_shape) != trunk_size and not basis:
             raise ValueError("Mismatch between trunk size and product of coordinate lengths.")
-        reshaped = output.reshape(N_branch, 1, *grid_shape)
+        reshaped = output.reshape(N_branch, *grid_shape, 1)
     elif output.ndim == 3:
         if not basis:
-            N_branch, trunk_size, n_basis = output.shape
-            if np.prod(grid_shape) != trunk_size:
-                    raise ValueError("Mismatch between trunk size and product of coordinate lengths.")
-            reshaped = output.reshape(N_branch, n_basis, *grid_shape)
+            N_branch, outputs, trunk_size = output.shape
         else:
-            N_branch, n_basis, trunk_size = output.shape
-            reshaped = output.reshape(N_branch, n_basis, *grid_shape)
+            N_branch, trunk_size, outputs = output.shape
+
+        if np.prod(grid_shape) != trunk_size:
+                raise ValueError("Mismatch between trunk size and product of coordinate lengths.")
+        reshaped = output.reshape(N_branch, *grid_shape, outputs)
 
     else:
         raise ValueError("Output must be either 2D or 3D.")
@@ -425,16 +425,13 @@ def postprocess_for_2D_plot(model, plot_config, model_config, branch_features, t
 
     trunk_output = model.training_strategy.get_basis_functions(xt=trunk_features, model=model)
     # branch_output = model.training_strategy.get_coefficients(xb=branch_features, model=model)
+    logger.info(f"T: {trunk_output.shape}")
     basis_modes = reshape_outputs_to_plot_format(trunk_output, coords_tuple, basis=True)
+    logger.info(f"modes output: {basis_modes.shape}")
     # coeff_modes = reshape_outputs_to_plot_format(branch_output, branch_tuple, basis=True) # Need to implement a 'plot coeffs' function for the future
     
     if basis_modes.ndim < 4:
         basis_modes = np.expand_dims(basis_modes, axis=1)
-
-    if basis_modes.ndim == 4:
-        basis_modes = basis_modes.transpose(1, 2, 3, 0)
-    elif basis_modes.ndim == 5:
-        basis_modes = basis_modes.transpose(1, 2, 3, 4, 0)
     
     if basis_modes.shape[0] > model_config.get('BASIS_FUNCTIONS'):
         split_1 = basis_modes[ : model_config.get('BASIS_FUNCTIONS')]
