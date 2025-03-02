@@ -99,43 +99,58 @@ class TrainingStrategy(ABC):
     def forward(self, model, xb=None, xt=None):
         return model.output_strategy.forward(model, data_branch=xb, data_trunk=xt)
 
-    def get_trunk_output(self, model, i, xt_i):
-        return model.trunk_networks[i % len(model.trunk_networks)](xt_i)
+    def get_trunk_output(self, model, xt):
+        return model.trunk_network(xt)
 
-    def get_branch_output(self, model, i, xb_i):
-        branch_output = model.branch_networks[i % len(model.branch_networks)](xb_i)
+    def get_branch_output(self, model, xb):
+        branch_output = model.branch_network(xb)
         return branch_output.T
 
     def _freeze_trunk(self, model):
-        for trunk in model.trunk_networks:
-            for param in trunk.parameters():
-                param.requires_grad = False
+        for param in model.trunk_network.parameters():
+            param.requires_grad = False
 
     def _unfreeze_trunk(self, model):
-        for trunk in model.trunk_networks:
-            for param in trunk.parameters():
-                param.requires_grad = True
+        for param in model.trunk_network.parameters():
+            param.requires_grad = True
 
     def _freeze_branch(self, model):
-        for branch in model.branch_networks:
-            for param in branch.parameters():
-                param.requires_grad = False
+        for param in model.branch_network.parameters():
+            param.requires_grad = False
 
     def _unfreeze_branch(self, model):
-        for branch in model.branch_networks:
-            for param in branch.parameters():
-                param.requires_grad = True
+        for param in model.branch_network.parameters():
+            param.requires_grad = True
 
     def get_basis_functions(self, **kwargs):
         xt = kwargs.get('xt')
         model = kwargs.get('model')
-        trunks = [net(xt) for net, _ in zip(model.trunk_networks, range(len(model.trunk_networks)))]
-        basis_functions = torch.stack([net.T for net, _ in zip(trunks, range(len(trunks)))], dim=0)
+        n = model.n_outputs
+        N_model = model.output_strategy.trunk_output_size
+        N_trunk = model.n_basis_functions
+
+        trunk_out = model.trunk_network(xt)
+
+        if N_trunk > N_model:
+            basis_functions = torch.stack(
+                [trunk_out[ : , i * N_model : (i + 1) * N_model ] for i in range(n)], dim=0)
+        else:
+            basis_functions = trunk_out.unsqueeze(-1)
+            basis_functions = torch.transpose(basis_functions, 1, 0)
         return basis_functions
 
     def get_coefficients(self, **kwargs):
         xb = kwargs.get('xb')
         model = kwargs.get('model')
-        branches = [net(xb) for net, _ in zip(model.branch_networks, range(len(model.branch_networks)))]
-        coefficients = torch.stack([net.T for net, _ in zip(branches, range(len(branches)))], dim=0)
+        n = model.n_outputs
+        N_model = model.output_strategy.branch_output_size
+        N_branch = model.n_basis_functions
+
+        branch_out = model.branch_network(xb)
+
+        if N_branch > N_model:
+            coefficients = torch.stack(
+                [branch_out[ : , i * N_model : (i + 1) * N_model ] for i in range(n)], dim=0)
+        else:
+            coefficients = branch_out.unsqueeze(-1)
         return coefficients

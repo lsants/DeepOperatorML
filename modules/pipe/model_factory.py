@@ -217,7 +217,7 @@ def initialize_model(model_folder, model_name, device, precision):
     model_params['DEVICE'] = device
     model_params['PRECISION'] = precision
 
-    checkpoint = torch.load(model_path, map_location=device, weights_only=True)
+    checkpoint = torch.load(model_path, map_location=device, weights_only=False)
 
     model, _ = create_model(
         model_params,
@@ -228,9 +228,9 @@ def initialize_model(model_folder, model_name, device, precision):
 
     training_strategy = model_params.get('TRAINING_STRATEGY', '').lower()
     if training_strategy == 'two_step':
-        model.training_strategy.set_matrices(Q_list=checkpoint.get('Q'),
-                                             R_list=checkpoint.get('R'),
-                                             T_list=checkpoint.get('T'))
+        model.training_strategy.set_matrices(Q=checkpoint.get('Q'),
+                                             R=checkpoint.get('R'),
+                                             T=checkpoint.get('T'))
     elif training_strategy == 'pod':
         model.training_strategy.set_basis(pod_basis=checkpoint.get('pod_basis'),
                                           mean_functions=checkpoint.get('pod_basis'))

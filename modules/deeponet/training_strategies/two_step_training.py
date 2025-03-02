@@ -14,11 +14,11 @@ class TwoStepTrainingStrategy(TrainingStrategy):
         if not self.train_dataset_length:
             logger.warning(
                 "Initializing the model without A matrix. Only do this if you're doing inference.")
-        self.A_list = None
-        self.Q_list = []
-        self.R_list = []
-        self.T_list = []
-        self.trained_trunk_list = []
+        self.A = None
+        self.Q = None
+        self.R = None
+        self.T = None
+        self.trained_trunk = None
         self.phases = ['trunk', 'branch', 'final']
         self.current_phase = self.phases[0]
         self.prepare_before_configure = False
@@ -33,32 +33,28 @@ class TwoStepTrainingStrategy(TrainingStrategy):
     def prepare_training(self, model, **kwargs):
         branch_output_size = getattr(
             model.output_strategy, 'branch_output_size')
-        if self.train_dataset_length and not self.A_list:
+        if self.train_dataset_length and self.A is None:
             A_dim = (branch_output_size, self.train_dataset_length)
 
             logger.info(
                 f"A matrix's dimensions: {branch_output_size, self.train_dataset_length}")
             logger.info(
-                f"Creating {model.output_strategy.num_branches} trainable matrices")
+                f"Creating trainable matrix")
 
-            self.A_list = torch.nn.ParameterList([
-                torch.nn.Parameter(torch.randn(A_dim)).to(
-                    device=self.device, dtype=self.precision)
-                for _ in range(model.output_strategy.num_branches)
-            ])
-            for A in self.A_list:
-                torch.nn.init.kaiming_uniform_(A)
+            self.A = torch.nn.Parameter(torch.randn(A_dim)).to(device=self.device, 
+                                                               dtype=self.precision)
+            torch.nn.init.kaiming_uniform_(self.A)
 
     def prepare_for_phase(self, model, **kwargs):
         params = kwargs.get('model_params')
         xt = kwargs.get('train_batch')
         self._set_phase_params(model, self.current_phase)
-        if self.current_phase == 'branch' and not self.trained_trunk_list:
+        if self.current_phase == 'branch' and self.trained_trunk is None:
             self.update_q_r_t_matrices(model, params, xt)
             with torch.no_grad():
-                self.branch_matrices = {
-                    'trunk_matrices': self.R_list,
-                    'branch_matrices': self.A_list
+                self.branch_matrix = {
+                    'trunk_matrix': self.R,
+                    'branch_matrix': self.A
                 }
 
     def _set_phase_params(self, model, phase):
@@ -70,28 +66,22 @@ class TwoStepTrainingStrategy(TrainingStrategy):
             self._unfreeze_branch(model)
 
     def _freeze_trunk(self, model):
-        for trunk in model.trunk_networks:
-            for param in trunk.parameters():
-                param.requires_grad = False
-        for A in self.A_list:
-            A.requires_grad = False
+        for param in model.trunk_network.parameters():
+            param.requires_grad = False
+        self.A.requires_grad = False
 
     def _unfreeze_trunk(self, model):
-        for trunk in model.trunk_networks:
-            for param in trunk.parameters():
-                param.requires_grad = True
-        for A in self.A_list:
-            A.requires_grad = True
+        for param in model.trunk_network.parameters():
+            param.requires_grad = True
+        self.A.requires_grad = True
 
     def _freeze_branch(self, model):
-        for branch in model.branch_networks:
-            for param in branch.parameters():
-                param.requires_grad = False
+        for param in model.branch_network.parameters():
+            param.requires_grad = False
 
     def _unfreeze_branch(self, model):
-        for branch in model.branch_networks:
-            for param in branch.parameters():
-                param.requires_grad = True
+        for param in model.branch_network.parameters():
+            param.requires_grad = True
 
     def compute_loss(self, outputs, batch, model, params, **kwargs):
         if self.current_phase == 'trunk':
@@ -102,8 +92,8 @@ class TwoStepTrainingStrategy(TrainingStrategy):
                 model,
                 data_branch=None,
                 data_trunk=None,
-                matrices_branch=self.A_list,
-                matrices_trunk=self.R_list
+                matrix_branch=self.A,
+                matrix_trunk=self.R
             )
 
             loss = self.loss_fn(targets, outputs)
@@ -132,8 +122,8 @@ class TwoStepTrainingStrategy(TrainingStrategy):
                 model,
                 data_branch=None,
                 data_trunk=None,
-                matrices_branch=self.A_list,
-                matrices_trunk=self.R_list
+                matrix_branch=self.A,
+                matrix_trunk=self.R
             )
             for _, (key, target, pred) in enumerate(zip(params['OUTPUT_KEYS'], targets, outputs)):
                 error = (
@@ -156,21 +146,19 @@ class TwoStepTrainingStrategy(TrainingStrategy):
             train_batch = kwargs.get('train_batch')
             self.update_q_r_t_matrices(model, params, train_batch)
             logger.info(
-                f"Trunk matrices updated and phase transition triggered at epoch {epoch + 1}")
+                f"Trunk matrix updated and phase transition triggered at epoch {epoch + 1}")
 
     def get_optimizers(self, model, params):
         optimizers = {}
 
-        trunk_params = []
-        for trunk in model.trunk_networks:
-            trunk_params += list(trunk.parameters())
-        trunk_params += list(self.A_list)
+        trunk_params = [i for i in model.trunk_network.parameters()]
+        trunk_params.append(self.A)
+
         optimizers['trunk'] = torch.optim.Adam(
             trunk_params, lr=params['TRUNK_LEARNING_RATE'], weight_decay=params['L2_REGULARIZATION'])
 
-        branch_params = []
-        for branch in model.branch_networks:
-            branch_params += list(branch.parameters())
+        branch_params = [i for i in model.branch_network.parameters()]
+
         optimizers['branch'] = torch.optim.Adam(
             branch_params, lr=params['BRANCH_LEARNING_RATE'], weight_decay=params['L2_REGULARIZATION'])
         return optimizers
@@ -208,103 +196,106 @@ class TwoStepTrainingStrategy(TrainingStrategy):
         elif self.current_phase == 'branch':
             schedulers['branch'].step()
 
-    def get_trunk_output(self, model, i, xt_i):
-        if xt_i is not None:
-            trunk_output = model.trunk_networks[i % len(
-                model.trunk_networks)](xt_i)
+    def get_trunk_output(self, model, xt):
+        if xt is not None:
+            trunk_output = model.trunk_network(xt)
         return trunk_output
 
-    def get_branch_output(self, model, i, xb_i):
-        branch_output = model.branch_networks[i % len(
-            model.branch_networks)](xb_i)
+    def get_branch_output(self, model, xb):
+        branch_output = model.branch_network(xb)
         return branch_output.T
 
     def forward(self, model, xb=None, xt=None):
         if self.current_phase == 'trunk':
-            input_branch = self.A_list
+            input_branch = self.A
             input_trunk = xt
             return model.output_strategy.forward(model,
                                                  data_branch=None,
                                                  data_trunk=input_trunk,
-                                                 matrices_branch=input_branch,
-                                                 matrices_trunk=None)
+                                                 matrix_branch=input_branch,
+                                                 matrix_trunk=None)
         elif self.current_phase == 'branch':
             input_branch = xb
-            input_trunk = None
             return model.output_strategy.forward(model,
                                                  data_branch=input_branch,
                                                  data_trunk=None,
-                                                 matrices_branch=None,
-                                                 matrices_trunk=input_trunk)
+                                                 matrix_branch=None,
+                                                 matrix_trunk=None)
         else:
             input_branch = xb
-            input_trunk = self.trained_trunk_list
+            input_trunk = self.trained_trunk
             return model.output_strategy.forward(model,
                                                  data_branch=input_branch,
                                                  data_trunk=None,
-                                                 matrices_branch=None,
-                                                 matrices_trunk=input_trunk)
+                                                 matrix_branch=None,
+                                                 matrix_trunk=input_trunk)
 
     def get_basis_functions(self, **kwargs):
-        trunks = self.trained_trunk_list
-        basis_functions = torch.stack(
-            [net.T for net, _ in zip(trunks, range(len(trunks)))], dim=0)
+        trunk_outputs = self.trained_trunk
+        model = kwargs.get('model')
+        N_model = model.output_strategy.trunk_output_size
+        N_trunk = model.n_basis_functions
+        n = model.n_outputs
+
+        if N_trunk > N_model:
+            basis_functions = torch.stack(
+                [trunk_outputs[ : , i * N_model : (i + 1) * N_model ] for i in range(n)], dim=0)
+        else:
+            basis_functions = trunk_outputs.unsqueeze(-1)
+            basis_functions = torch.transpose(basis_functions, 1, 0)
         return basis_functions
 
     def update_q_r_t_matrices(self, model, params,  xt):
         with torch.no_grad():
-            trunks = model.trunk_networks
             decomposition = params.get('TRUNK_DECOMPOSITION')
-            for trunk in trunks:
-                phi = trunk(xt)
-                if decomposition.lower() == 'qr':
-                    logger.info(f"Decomposition using QR factorization...")
-                    Q, R = torch.linalg.qr(phi)
-                    self.Q_list.append(Q)
-                    self.R_list.append(R)
+            phi = model.trunk_network(xt)
 
-                if decomposition.lower() == 'svd':
-                    logger.info(f"Decomposition using SVD...")
-                    Q, Sd, Vd = torch.linalg.svd(phi, full_matrices=False)
-                    R = torch.diag(Sd) @ Vd
-                    self.Q_list.append(Q)
-                    self.R_list.append(R)
+            if decomposition.lower() == 'qr':
+                logger.info(f"Decomposition using QR factorization...")
+                Q, R = torch.linalg.qr(phi)
+                self.Q = Q
+                self.R = R
 
-                T = torch.linalg.inv(R)
-                self.T_list.append(torch.linalg.inv(R))
+            if decomposition.lower() == 'svd':
+                logger.info(f"Decomposition using SVD...")
+                Q, Sd, Vd = torch.linalg.svd(phi, full_matrices=False)
+                R = torch.diag(Sd) @ Vd
+                self.Q = Q
+                self.R = R
 
-                self.trained_trunk_list.append(Q @ R @ T)
+            self.T = torch.linalg.inv(R)
 
-                logger.info(
-                    f"Q shape: {Q.shape}, R shape: {R.shape}, T shape: {T.shape}")
-                logger.info(f"Reconstructed Phi shape: {(Q @ R @ T).shape}")
-                logger.info(
-                    f"Q @ R == Phi check: {torch.allclose(Q @ R, phi, atol=1e-5)}")
-                logger.info(
-                    f"Q matrices: {len(self.Q_list)}\nR matrices: {len(self.R_list)}\nT matrices: {len(self.T_list)}")
+            self.trained_trunk = self.Q @ self.R @ self.T
 
-            if not self.Q_list or not self.R_list or not self.T_list:
+            logger.info(
+                f"Q shape: {self.Q.shape}, R shape: {self.R.shape}, T shape: {self.T.shape}")
+            logger.info(f"Reconstructed Phi shape: {(self.Q @ self.R @ self.T).shape}")
+            logger.info(
+                f"Q @ R == Phi check: {torch.allclose(self.Q @ self.R, phi, atol=1e-5)}")
+            
+            if self.Q is None or self.R is None or self.T is None:
                 raise ValueError(
-                    f"Trunk decomposition failed. At least one of the matrices wasn't stored.")
+                    f"Trunk decomposition failed. At least one of the matrix wasn't stored.")
             else:
                 logger.info(
                     f"Trunk decomposed successfully. \nMoving on to second step...")
 
     def set_matrices(self, **kwargs):
-        self.Q_list = kwargs.get('Q_list')
-        self.R_list = kwargs.get('R_list')
-        self.T_list = kwargs.get('T_list')
+        self.Q = kwargs.get('Q')
+        self.R = kwargs.get('R')
+        self.T = kwargs.get('T')
 
-        if not self.Q_list:
-            raise ValueError("ERROR: Q matrices couldn't be assigned.")
-        if not self.R_list:
-            raise ValueError("ERROR: R matrices couldn't be assigned.")
-        if not self.T_list:
-            raise ValueError("ERROR: T matrices couldn't be assigned.")
-        self.trained_trunk_list = [Q @ R @ T for Q, R, T in
-                                   zip(self.Q_list, self.R_list, self.T_list)]
+        if self.Q is None:
+            raise ValueError("ERROR: Q matrix couldn't be assigned.")
+        if self.R is None:
+            raise ValueError("ERROR: R matrix couldn't be assigned.")
+        if self.T is None:
+            raise ValueError("ERROR: T matrix couldn't be assigned.")
+        
+        self.trained_trunk = self.Q @ self.R @ self.T
+        
         logger.info(
-            f"Set {len(self.trained_trunk_list)} trained trunk(s) (shaped {(self.trained_trunk_list[0].shape[0], self.trained_trunk_list[0].shape[1])}) for inference.")
+            f"Set trained trunk (shaped {(self.trained_trunk.shape[0], self.trained_trunk.shape[1])}) for inference.")
 
     def inference_mode(self):
         self.current_phase = 'final'
