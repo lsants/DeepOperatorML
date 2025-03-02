@@ -12,6 +12,8 @@ from ..deeponet.training_strategies import (
     PODTrainingStrategy
 )
 
+logger = logging.getLogger(__name__)
+
 class TrainingLoop:
     def __init__(self, model, training_strategy, saver, params):
         """
@@ -83,6 +85,7 @@ class TrainingLoop:
     def train(self, train_batch, val_batch=None):
         epochs_per_phase = self.training_strategy.get_epochs(self.p)
         best_model_checkpoint = None
+        best_train_loss = float('inf')
         best_val_loss = float('inf')
 
         for phase_index, phase_epochs in enumerate(epochs_per_phase):
@@ -113,8 +116,9 @@ class TrainingLoop:
                 self.training_strategy.zero_grad(self.optimizers)
                 loss.backward()
 
-                # if epoch % 500 == 0:
-                #     logger.info(f"\nLoss: {loss.item():.3E}\n")
+                if epoch % 500 == 0 and epoch > 0:
+                    logger.info(f"\nLoss: {loss.item():.3E}\n")
+
 
                 self.training_strategy.step(self.optimizers)
 
@@ -141,16 +145,19 @@ class TrainingLoop:
                             'val_errors': val_errors
                         }
 
-                if not self.training_strategy.can_validate():
-                    if isinstance(self.training_strategy, TwoStepTrainingStrategy):
-                        best_model_checkpoint = {
-                            'model_state_dict': self.model.state_dict(),
-                            'Q': self.training_strategy.Q_list,
-                            'T': self.training_strategy.T_list,
-                            'R': self.training_strategy.R_list,
-                            'optimizer_state_dict': self.optimizers[self.training_strategy.current_phase].state_dict() if self.optimizers.get(self.training_strategy.current_phase) else None,
-                            'val_loss': None
-                        }
+                else:
+                    if loss < best_train_loss:
+                        best_train_loss = loss
+                        if isinstance(self.training_strategy, TwoStepTrainingStrategy):
+                            best_model_checkpoint = {
+                                'model_state_dict': self.model.state_dict(),
+                                'Q': self.training_strategy.Q,
+                                'T': self.training_strategy.T,
+                                'R': self.training_strategy.R,
+                                'optimizer_state_dict': self.optimizers[self.training_strategy.current_phase].state_dict() if self.optimizers.get(self.training_strategy.current_phase) else None,
+                                'train_loss': loss,
+                                'val_loss': None
+                            }
                 
                 if isinstance(self.training_strategy, PODTrainingStrategy):
                     best_model_checkpoint['pod_basis'] = self.training_strategy.pod_basis
