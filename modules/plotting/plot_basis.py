@@ -62,7 +62,6 @@ def plot_basis_function(coords, basis, strategy, **kwargs):
         basis = np.concatenate((np.flip(basis[1:], axis=0), basis), axis=0)
     
     X, Y = np.meshgrid(horiz_full, vert, indexing='ij')
-    # After mirroring, X should have shape (n_h_full, len(vert)).
     if X.shape != (n_h_full, len(vert)):
         raise ValueError(f"Meshgrid shape mismatch: X.shape={X.shape}, expected {(n_h_full, len(vert))}")
     
@@ -74,7 +73,6 @@ def plot_basis_function(coords, basis, strategy, **kwargs):
     else:
         x_label, y_label = plot_dim1, plot_dim2
     
-    # Build the title.
     title = f"Basis Functions ({strategy})"
     
     # Plot each channel in the basis function on the same row.
