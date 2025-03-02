@@ -83,10 +83,11 @@ class PODTrainingStrategy(TrainingStrategy):
         basis = U[:, : n_modes]
         pod_basis_list.append(basis)
         
-        self.pod_basis = torch.stack(pod_basis_list, dim=0)
+        self.pod_basis = basis
+        self.mean_functions = mean.unsqueeze(0)
 
-        self.mean_functions = torch.stack(mean_functions_list, dim=0)
-
+        logger.info(f"\n Using {n_modes} modes for {variance_share:.2%} of variance.\n")
+        logger.info(f"\n Basis functions, mean functions: {self.pod_basis.shape}, {self.mean_functions.shape}.\n")
         model.register_buffer(f'pod_basis', self.pod_basis)
         model.register_buffer(f'mean_functions', self.mean_functions)
 
@@ -114,7 +115,6 @@ class PODTrainingStrategy(TrainingStrategy):
             output = self.data[output_name]
 
             mean = torch.mean(output, dim=0)
-            mean_functions_list.append(mean)
             centered = (output - mean).T
 
             U, S, _ = torch.linalg.svd(centered)
@@ -145,17 +145,19 @@ class PODTrainingStrategy(TrainingStrategy):
             basis = U[ : , : n_modes]
             pod_basis_list.append(basis)
 
-            logger.debug(f"BASIS SHAPE, {basis.shape}")
-
-        self.pod_basis = torch.stack(pod_basis_list, dim=0)
+        self.pod_basis = torch.concatenate(pod_basis_list, dim=-1)
         self.mean_functions = torch.stack(mean_functions_list, dim=0)
 
+        logger.info(f"\n Using {n_modes} modes for {variance_share:.2%} of variance.\n")
+        logger.info(f"\n Basis functions, mean functions: {self.pod_basis.shape}, {self.mean_functions.shape}.\n")
         model.register_buffer(f'pod_basis', self.pod_basis)
         model.register_buffer(f'mean_functions', self.mean_functions)
 
     def get_basis_functions(self, **kwargs):
         trunk_output = self.pod_basis
-        basis_functions = torch.transpose(trunk_output, 2, 1)
+        if trunk_output.ndim == 2:
+            trunk_output = trunk_output.unsqueeze(-1)
+        basis_functions = torch.transpose(trunk_output, 0, 1)
         return basis_functions
 
     def set_basis(self, pod_basis, mean_functions):
@@ -192,7 +194,20 @@ class PODTrainingStrategy(TrainingStrategy):
 
     def forward(self, model, xb=None, xt=None):
         pod_basis = self.pod_basis
-        return model.output_strategy.forward(model, data_branch=xb, data_trunk=pod_basis)
+        dot_product = model.output_strategy.forward(model, 
+                                             data_branch=xb, 
+                                             data_trunk=None,
+                                             matrix_branch=None,
+                                             matrix_trunk=pod_basis)
+
+        m = self.mean_functions.shape[0]
+        if m == 1:
+            output = tuple(x + self.mean_functions for x in dot_product)
+        else:
+            if len(dot_product) != m:
+                raise ValueError("When m > 1, the number of outputs must be equal to m.")
+            output = tuple(dot_product[i] + self.mean_functions[i : i + 1] for i in range(m))
+        return output
 
     def after_epoch(self, epoch, model, params, **kwargs):
         if epoch > 1:
