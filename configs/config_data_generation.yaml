@@ -1,4 +1,4 @@
-DATA_FILENAME: ./data/raw/kelvin_displacements.npz
+DATA_FILENAME: ./data/raw/dynamic_displacements.npz
 
 SEED: 42
 
