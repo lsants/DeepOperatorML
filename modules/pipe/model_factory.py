@@ -233,7 +233,7 @@ def initialize_model(model_folder, model_name, device, precision):
                                              T=checkpoint.get('T'))
     elif training_strategy == 'pod':
         model.training_strategy.set_basis(pod_basis=checkpoint.get('pod_basis'),
-                                          mean_functions=checkpoint.get('pod_basis'))
+                                          mean_functions=checkpoint.get('mean_functions'))
 
     model.training_strategy.inference_mode()
     model.eval()
