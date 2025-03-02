@@ -40,11 +40,7 @@ class ShareTrunkStrategy(OutputHandlingStrategy):
         n_basis_functions = model.n_basis_functions
 
         if pod_basis is not None:
-            if pod_basis.shape[0] != 1:
-                raise ValueError(
-                    "ShareTrunkStrategy expects a single set of basis functions with shape (1, n_features, n_modes).")
-            single_basis = pod_basis[0]
-            n_basis_functions = single_basis.shape[1]
+            n_basis_functions = pod_basis.shape[-1]
             model.n_basis_functions = n_basis_functions
 
         self.trunk_output_size = n_basis_functions
@@ -61,21 +57,20 @@ class ShareTrunkStrategy(OutputHandlingStrategy):
 
         branch_network = model.create_network(branch_config)
 
-        logger.info(f"\nNumber of Branch outputs: {self.n_branch_outputs}\n")
-        logger.info(f"\nNumber of Trunk outputs: {self.n_trunk_outputs}\n")
-        logger.info(
+        logger.debug(f"\nNumber of Branch outputs: {self.n_branch_outputs}\n")
+        logger.debug(f"\nNumber of Trunk outputs: {self.n_trunk_outputs}\n")
+        logger.debug(
             f"\nBranch layer sizes: {pprint_layer_dict(branch_config['layers'])}\n")
-        logger.info(
+        logger.debug(
             f"\nTrunk layer sizes: {pprint_layer_dict(trunk_config['layers'])}\n")
 
-        logger.info(
+        logger.debug(
             f"\nBranch network size: {self.branch_output_size}\nTrunk network size: {self.trunk_output_size}\n")
 
         return branch_network, trunk_network
 
     def forward(self, model, data_branch, data_trunk, matrix_branch=None, matrix_trunk=None):
         N = model.n_basis_functions
-        
         branch_out = (
             matrix_branch
             if matrix_branch is not None
