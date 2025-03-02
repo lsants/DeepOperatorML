@@ -38,8 +38,6 @@ class TwoStepTrainingStrategy(TrainingStrategy):
 
             logger.info(
                 f"A matrix's dimensions: {branch_output_size, self.train_dataset_length}")
-            logger.info(
-                f"Creating trainable matrix")
 
             self.A = torch.nn.Parameter(torch.randn(A_dim)).to(device=self.device, 
                                                                dtype=self.precision)
@@ -88,12 +86,19 @@ class TwoStepTrainingStrategy(TrainingStrategy):
             targets = tuple(batch[key] for key in params['OUTPUT_KEYS'])
             loss = self.loss_fn(targets, outputs)
         elif self.current_phase == 'branch':
+            K =  model.n_basis_functions
+            R = self.R
+            if R.shape[0] == 2*K and R.shape[1] == 2*K:
+                R_first_block = self.R[ : K, : K]
+                R_second_block = self.R[ K: , K : ]
+                R = torch.cat((R_first_block, R_second_block), dim=1)
+
             targets = model.output_strategy.forward(
                 model,
                 data_branch=None,
                 data_trunk=None,
                 matrix_branch=self.A,
-                matrix_trunk=self.R
+                matrix_trunk=R
             )
 
             loss = self.loss_fn(targets, outputs)
@@ -118,12 +123,18 @@ class TwoStepTrainingStrategy(TrainingStrategy):
                     ).item()
                     errors[key] = error
         elif self.current_phase == 'branch':
+            K =  model.n_basis_functions
+            R = self.R
+            if R.shape[0] == 2*K and R.shape[1] == 2*K:
+                R_first_block = self.R[ : K, : K]
+                R_second_block = self.R[ K: , K : ]
+                R = torch.cat((R_first_block, R_second_block), dim=1)
             targets = model.output_strategy.forward(
                 model,
                 data_branch=None,
                 data_trunk=None,
                 matrix_branch=self.A,
-                matrix_trunk=self.R
+                matrix_trunk=R
             )
             for _, (key, target, pred) in enumerate(zip(params['OUTPUT_KEYS'], targets, outputs)):
                 error = (
