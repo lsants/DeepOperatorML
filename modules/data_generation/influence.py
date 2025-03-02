@@ -20,7 +20,7 @@ def influence(c11_val, c12_val, c13_val, c33_val, c44_val,
     else:
         raise OSError('Unsupported operating system')
     
-    lib_path = os.path.join('./data_generation/', lib_name)
+    lib_path = os.path.join('./modules/data_generation/', lib_name)
     
     lib = CDLL(lib_path)
 
