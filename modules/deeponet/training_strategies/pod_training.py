@@ -33,11 +33,11 @@ class PODTrainingStrategy(TrainingStrategy):
 
             if not self.inference:
                 if basis_type == 'single':
-                    num_basis = self._prepare_single_basis(model)
-                    model.n_basis_functions = num_basis
+                    n_basis = self._prepare_single_basis(model)
+                    model.n_basis_functions = n_basis
                 elif basis_type == 'multiple':
-                    num_basis = self._prepare_multiple_basis(model)
-                    model.n_basis_functions = num_basis
+                    n_basis = self._prepare_multiple_basis(model)
+                    model.n_basis_functions = n_basis
                 else:
                     raise ValueError(
                         f"Unknown 'basis_config' type: {basis_type}")
@@ -79,8 +79,8 @@ class PODTrainingStrategy(TrainingStrategy):
             raise ValueError(
                 "Variance share was not given. There's no way to know how many modes should be used.")
 
-        num_modes = most_significant_modes
-        basis = U[:, : num_modes]
+        n_modes = most_significant_modes
+        basis = U[:, : n_modes]
         pod_basis_list.append(basis)
         
         self.pod_basis = torch.stack(pod_basis_list, dim=0)
@@ -90,7 +90,7 @@ class PODTrainingStrategy(TrainingStrategy):
         model.register_buffer(f'pod_basis', self.pod_basis)
         model.register_buffer(f'mean_functions', self.mean_functions)
 
-        return num_modes
+        return n_modes
 
     def _prepare_multiple_basis(self, model, **kwargs):
         """Computes multiple sets of POD basis functions, one for each output.
@@ -126,14 +126,14 @@ class PODTrainingStrategy(TrainingStrategy):
             else:
                 raise ValueError("Variance share was not given. \nThere's no way to know how many modes should be used.")
 
-            num_modes = most_significant_modes
-            modes_for_each_output.append(num_modes)
+            n_modes = most_significant_modes
+            modes_for_each_output.append(n_modes)
             logger.debug(f"OUTPUT SHAPE, {output.shape}")
             logger.debug(f"U SHAPE, {U.shape}")
             logger.debug(f"S SHAPE, {S.shape}")
-            logger.debug(f"NUM MODES, {num_modes}")
+            logger.debug(f"NUM MODES, {n_modes}")
 
-        num_modes = max(modes_for_each_output)
+        n_modes = max(modes_for_each_output)
         for output_name in outputs_names:
             output = self.data[output_name]
 
@@ -142,7 +142,7 @@ class PODTrainingStrategy(TrainingStrategy):
             centered = (output - mean).T
 
             U, S, _ = torch.linalg.svd(centered)
-            basis = U[ : , : num_modes]
+            basis = U[ : , : n_modes]
             pod_basis_list.append(basis)
 
             logger.debug(f"BASIS SHAPE, {basis.shape}")
@@ -154,46 +154,41 @@ class PODTrainingStrategy(TrainingStrategy):
         model.register_buffer(f'mean_functions', self.mean_functions)
 
     def get_basis_functions(self, **kwargs):
-        trunks = self.pod_basis
-        basis_functions = torch.transpose(trunks, 2, 1)
+        trunk_output = self.pod_basis
+        basis_functions = torch.transpose(trunk_output, 2, 1)
         return basis_functions
 
     def set_basis(self, pod_basis, mean_functions):
         self.pod_basis = pod_basis
         self.mean_functions = mean_functions
 
-    def get_trunk_output(self, model, i, xt_i):
+    def get_trunk_output(self, model, xt):
         """
         Overrides the trunk output to use pod_basis instead of trunk_network.
 
         Args:
             model (DeepONet): The model instance.
-            i (int): Index of the output.
-            xt_i (torch.Tensor): Input to the trunk network for the i-th output (unused).
+            xt (torch.Tensor): Input to the trunk network (unused).
 
         Returns:
-            torch.Tensor: Trunk output for the i-th output, which is pod_basis.
+            torch.Tensor: Trunk output, which is pod_basis.
         """
 
-        pod_basis = self.pod_basis
-        requested_basis = pod_basis[i]
+        return self.pod_basis
 
-        return requested_basis
-
-    def get_branch_output(self, model, i, xb_i):
+    def get_branch_output(self, model, xb):
         """
         Optionally, modify the branch output if needed. For POD, branches are used as is.
 
         Args:
             model (DeepONet): The model instance.
-            i (int): Index of the output.
-            xb_i (torch.Tensor): Input to the branch network for the i-th output.
+            xb (torch.Tensor): Input to the branch network.
 
         Returns:
-            torch.Tensor: Branch output for the i-th output.
+            torch.Tensor: Branch output.
         """
 
-        return model.branch_networks[i](xb_i).T
+        return model.branch_network(xb).T
 
     def forward(self, model, xb=None, xt=None):
         pod_basis = self.pod_basis
