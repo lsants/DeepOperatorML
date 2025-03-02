@@ -37,7 +37,7 @@ class DeepONet(torch.nn.Module):
         if self.training_strategy.prepare_before_configure:
             self.training_strategy.prepare_training(self, basis_config=basis_config)
 
-        self.branch_networks, self.trunk_networks = self.output_strategy.configure_networks(
+        self.branch_network, self.trunk_network = self.output_strategy.configure_networks(
             self, 
             branch_config,
             trunk_config,
@@ -89,31 +89,29 @@ class DeepONet(torch.nn.Module):
         """
         return self.training_strategy.forward(self, xb, xt)
     
-    def get_trunk_output(self, i, xt_i):
+    def get_trunk_output(self, xt):
         """
-        Retrieves the trunk output for the i-th output. Delegates to TrainingStrategy.
+        Retrieves the trunk output. Delegates to TrainingStrategy.
 
         Args:
-            i (int): Index of the output.
-            xt_i (torch.Tensor): Input to the trunk network for the i-th output.
+            xt (torch.Tensor): Input to the trunk network.
 
         Returns:
-            torch.Tensor: Trunk output for the i-th output.
+            torch.Tensor: Trunk output.
         """
-        return self.training_strategy.get_trunk_output(self, i, xt_i)
+        return self.training_strategy.get_trunk_output(self, xt)
     
-    def get_branch_output(self, i, xb_i):
+    def get_branch_output(self, xb):
         """
-        Retrieves the branch output for the i-th output. Delegates to TrainingStrategy.
+        Retrieves the branch output. Delegates to TrainingStrategy.
 
         Args:
-            i (int): Index of the output.
-            xb_i (torch.Tensor): Input to the branch network for the i-th output.
+            xb (torch.Tensor): Input to the branch network.
 
         Returns:
-            torch.Tensor: Branch output for the i-th output.
+            torch.Tensor: Branch output.
         """
-        return self.training_strategy.get_branch_output(self, i, xb_i)
+        return self.training_strategy.get_branch_output(self, xb)
     
     def set_training_phase(self, phase):
         """
