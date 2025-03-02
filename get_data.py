@@ -35,26 +35,26 @@ def gen_data(config_path: str):
     # --------- Grouping parameters -------------
 
     if problem == "dynamic_fixed_material":
-        data_size = (p["N"], 
-                     p["N_R"], 
-                     p["N_Z"])
-        load_params = ((p["OMEGA_MAX"]), # Gotta fix this, should evaluate
-                       (p["OMEGA_MIN"]), 
-                       (p["LOAD"]), 
-                       (p["Z_SOURCE"]), 
-                       (p["L_SOURCE"]), 
-                       (p["R_SOURCE"]))
-        mesh_params = ((p["R_MIN"], 
-                        p["R_MAX"], 
-                        p["Z_MIN"], 
-                        p["Z_MAX"]))
-        problem_setup = (p['COMPONENT'], 
-                         p['LOADTYPE'], 
-                         p['BVPTYPE'])
-        material_params = ((p["E"], 
-                            p["NU"], 
-                            p["DAMP"], 
-                            p["DENS"]))
+        data_size = (int(p["N"]), 
+                     int(p["N_R"]), 
+                     int(p["N_Z"]))
+        load_params = (float(p["OMEGA_MAX"]), # Gotta fix this, should evaluate
+                       float(p["OMEGA_MIN"]), 
+                       float(p["LOAD"]), 
+                       float(p["Z_SOURCE"]), 
+                       float(p["L_SOURCE"]), 
+                       float(p["R_SOURCE"]))
+        mesh_params = ( float(p["R_MIN"]), 
+                        float(p["R_MAX"]), 
+                        float(p["Z_MIN"]), 
+                        float(p["Z_MAX"]))
+        problem_setup = (int(p['COMPONENT']), 
+                         int(p['LOADTYPE']), 
+                         int(p['BVPTYPE']))
+        material_params = ( float(p["E"]), 
+                            float(p["NU"]), 
+                            float(p["DAMP"]), 
+                            float(p["DENS"]))
 
         influence_functions = DynamicFixedMaterialProblem(
             data_size,
