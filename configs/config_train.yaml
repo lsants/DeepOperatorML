@@ -1,5 +1,5 @@
 #  ----------------------Location of .npz data file ----------------
-DATAFILE: ./data/raw/displacements.npz
+DATAFILE: ./data/raw/dynamic_displacements.npz
 
 # ------------------------------ Paths ------------------------
 # Model location
@@ -58,7 +58,7 @@ TRUNK_FEATURE_EXPANSION: true
 TRUNK_EXPANSION_FEATURES_NUMBER: 10
 
 # ------------------- Parameters for vanilla training ------------------
-LEARNING_RATE: 0.001
+LEARNING_RATE: 0.0001
 EPOCHS: 5000
 BATCH_SIZE: 50
 TRAIN_PERC: 0.8
@@ -68,7 +68,7 @@ ERROR_NORM: 2
 L2_REGULARIZATION: 0.00001 #implement L1, L2 and penalty
 EARLY_STOPPING: false
 LR_SCHEDULING: true
-SCHEDULER_STEP_SIZE: 1000
+SCHEDULER_STEP_SIZE: 3000
 SCHEDULER_GAMMA: 0.5
 CHANGE_OPTIMIZER: false # Not implemented
 DEFAULT_CHANGE_AT_EPOCH: 5000
@@ -79,7 +79,7 @@ VAR_SHARE: 0.999
 POD_PROGRESS_BAR_COLOR: 'yellow'
 
 # ------------------- Parameters for two step training ------------------
-TRUNK_TRAIN_EPOCHS: 10
+TRUNK_TRAIN_EPOCHS: 5000
 TRUNK_DECOMPOSITION: svd
 TRUNK_LEARNING_RATE: 0.001
 TRUNK_L2_REGULARIZATION: 0.0000001

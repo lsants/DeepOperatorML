@@ -1,11 +1,11 @@
 # Parameters for training DeepONets.
-MODELNAME: 20250224_DeepONet_dynamic_standard_in_norm_trunkexp_splitbasis
+MODELNAME: 20250301_DeepONet_dynamic_standard_in_norm_trunkexp_single_basis
 
 # Location of test file info
-DATAFILE: ./data/raw/kelvin_displacements.npz
+DATAFILE: ./data/raw/dynamic_displacements.npz
 
 # Model & outputs location
-MODEL_FOLDER: ./models/
+MODEL_FOLDER: ./models/dynamic/standard/share_trunk/20250301_DeepONet_dynamic_standard_in_norm_trunkexp_single_basis/
 
 # Data type, device, and error norm
 PRECISION: float32
