@@ -96,7 +96,7 @@ def gen_data(config_path: str):
         influence_functions.produce_samples(filename)
 
     else:
-        print("fatal error: not a valid problem.", file=sys.stderr)
+        logger.info("fatal error: not a valid problem.", file=sys.stderr)
 
 if __name__ == "__main__":
 
