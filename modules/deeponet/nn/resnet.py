@@ -28,12 +28,12 @@ class ResNet(torch.nn.Module):
         super(ResNet, self).__init__()
         self.activation = activation
         self.blocks = torch.nn.ModuleList()
-        num_blocks = len(layers) - 1
+        n_blocks = len(layers) - 1
 
-        for i in range(num_blocks):
+        for i in range(n_blocks):
             in_features = layers[i]
             out_features = layers[i + 1]
-            if i == num_blocks - 1:
+            if i == n_blocks - 1:
                 self.blocks.append(ResidualBlock(in_features, out_features, activation, apply_activation=False))
             else:
                 self.blocks.append(ResidualBlock(in_features, out_features, activation, apply_activation=True))

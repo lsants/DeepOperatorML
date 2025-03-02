@@ -56,8 +56,8 @@ class DynamicFixedMaterialProblem(Datagen):
         c44 = e1 * (1 - 2 * vs) / 2
         
         # ---------- Displacement matrix ------------
-        num_freqs = N
-        wd = np.zeros((num_freqs, n_r, n_z), dtype=complex)
+        n_freqs = N
+        wd = np.zeros((n_freqs, n_r, n_z), dtype=complex)
 
         # ------- Setting non-dimensional material constants ----------
         c11 = c11 / c44

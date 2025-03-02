@@ -32,12 +32,12 @@ class DeepONetDataset(torch.utils.data.Dataset):
                 if key not in data:
                     raise ValueError(f"Output key '{key}' not found in data.")
 
-        num_samples = self.branch.shape[0]
+        n_samples = self.branch.shape[0]
         self.outputs = {}
 
         for key in self.output_keys:
             field = data[key]
-            self.outputs[key] = field.reshape(num_samples, -1)
+            self.outputs[key] = field.reshape(n_samples, -1)
             logger.info(f"Shape of {key}:\t{self.outputs[key].shape}")
         
         self.transform = transform

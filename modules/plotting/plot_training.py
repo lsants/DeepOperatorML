@@ -33,11 +33,11 @@ def align_epochs(history):
             aligned_train_errors[key] = [e.get(key) for e in train_errors if isinstance(e, dict)]
             aligned_val_errors[key] = [e.get(key) for e in val_errors if isinstance(e, dict)]
 
-        num_epochs = max(len(train_loss), len(val_loss))
-        epochs = list(range(num_epochs))
+        n_epochs = max(len(train_loss), len(val_loss))
+        epochs = list(range(n_epochs))
 
         def extend_list(lst):
-            return lst + [None] * (num_epochs - len(lst))
+            return lst + [None] * (n_epochs - len(lst))
 
         train_loss = extend_list(train_loss)
         val_loss = extend_list(val_loss)

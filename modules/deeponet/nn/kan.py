@@ -33,8 +33,8 @@ class ChebyshevKAN(torch.nn.Module):
         super(ChebyshevKAN, self).__init__()
         self.linears = torch.nn.ModuleList()
         self.degree = degree
-        num_layers = len(layers)
-        for layer_index in range(num_layers - 1):
+        n_layers = len(layers)
+        for layer_index in range(n_layers - 1):
             self.linears.append(
                 ChebyshevKANLayer(
                     layers[layer_index],

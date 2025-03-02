@@ -10,14 +10,14 @@ from scipy.special import eval_legendre
 
 # neural network
 class FCNet(torch.nn.Module):
-    def __init__(self, num_ins=3,
-                 num_outs=3,
-                 num_layers=10,
+    def __init__(self, n_ins=3,
+                 n_outs=3,
+                 n_layers=10,
                  hidden_size=50,
                  activation=torch.nn.Tanh):
         super(FCNet, self).__init__()
 
-        layers = [num_ins] + [hidden_size] * num_layers + [num_outs]
+        layers = [n_ins] + [hidden_size] * n_layers + [n_outs]
         # parameters
         self.depth = len(layers) - 1
 
@@ -96,17 +96,17 @@ class ChebyKAN(nn.Module):
         return x
 
 class LegendreKANLayer(nn.Module):
-    def __init__(self, input_dim, output_dim, num_centers, order):
+    def __init__(self, input_dim, output_dim, n_centers, order):
         super(LegendreKANLayer, self).__init__()
         self.input_dim = input_dim
         self.output_dim = output_dim
-        self.num_centers = num_centers
+        self.n_centers = n_centers
         self.order = order
 
-        self.centers = nn.Parameter(torch.empty(num_centers, input_dim))
+        self.centers = nn.Parameter(torch.empty(n_centers, input_dim))
         init.xavier_uniform_(self.centers)
 
-        self.weights = nn.Parameter(torch.empty(num_centers, order + 1, output_dim))
+        self.weights = nn.Parameter(torch.empty(n_centers, order + 1, output_dim))
         init.xavier_uniform_(self.weights)
 
     def legendre_polynomials(self, x, order):
