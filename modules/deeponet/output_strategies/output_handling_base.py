@@ -3,6 +3,12 @@ from abc import ABC, abstractmethod
 ## Intuition: # of networks determines which one is in the loop. size determines slicing
 
 class OutputHandlingStrategy(ABC):
+    def __init__(self):
+        self.branch_output_size = None
+        self.trunk_output_size = None
+        self.n_trunk_outputs = None
+        self.n_branch_outputs = None
+        
     @abstractmethod
     def forward(self, model, xb=None, xt=None):
         """Defines how outputs are handled during the model's forward pass.
