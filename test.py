@@ -13,8 +13,7 @@ from modules.data_processing import preprocessing as ppr
 
 logger = logging.getLogger(__name__)
 
-def test_model(config_path: str, trained_model_config=None):
-    # Load configuration.
+def test_model(config_path: str, trained_model_config: dict | None=None) -> None:
     config = dir_functions.load_params(config_path)
     
     if trained_model_config:
@@ -45,12 +44,12 @@ def test_model(config_path: str, trained_model_config=None):
     saver.set_logging(False) # Don't print saved paths for plots
 
     data_for_2D_plotting = ppr.postprocess_for_2D_plot(model=model, 
-                                                    plot_config=config, 
-                                                    model_config=config_model, 
-                                                    branch_features=branch_features, 
-                                                    trunk_features=trunk_features,
-                                                    ground_truth=ground_truth,
-                                                    preds=preds)
+                                                       plot_config=config, 
+                                                       model_config=config_model, 
+                                                       branch_features=branch_features, 
+                                                       trunk_features=trunk_features,
+                                                       ground_truth=ground_truth,
+                                                       preds=preds)
 
     N, d = data_for_2D_plotting["branch_features"].shape
 
@@ -91,7 +90,6 @@ def test_model(config_path: str, trained_model_config=None):
                 # )
                 # saver(figure=fig_axis, figure_prefix=f"axis_dim{dim}_for_param_{param_val}")
 
-    # Plot basis functions if configured.
     if config.get('PLOT_BASIS', False):
         for i in tqdm(range(1, config_model.get('BASIS_FUNCTIONS') + 1), colour='blue'):
             fig_mode = plot_basis_function(data_for_2D_plotting["coords_2D"], 
