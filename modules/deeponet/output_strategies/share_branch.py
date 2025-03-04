@@ -14,14 +14,9 @@ class ShareBranchStrategy(OutputHandlingStrategy):
     def __init__(self):
         super().__init__()
 
-    def get_basis_config(self):
-        """
-        Specifies that this strategy requires a single set of basis functions for both real and imaginary parts.
-
-        Returns:
-            dict: Basis configuration.
-        """
-        return {'type': 'multiple'}
+    @property
+    def BASIS_CONFIG(self):
+        return 'multiple'
 
     def configure_networks(self, model, branch_config, trunk_config, **kwargs):
         """

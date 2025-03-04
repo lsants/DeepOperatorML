@@ -16,7 +16,7 @@ logging.basicConfig(
     stream=sys.stdout
 )
 
-def main():
+def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--train-config", default="./configs/config_train.yaml", help="Path to training config file.")
     parser.add_argument("--test-config",  default="./configs/config_test.yaml", help="Path to testing config file.")

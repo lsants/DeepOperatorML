@@ -1,12 +1,12 @@
 import torch
 
-def mse_loss(targets, preds):
+def mse_loss(targets: tuple[torch.Tensor], preds: tuple[torch.Tensor]) -> torch.Tensor:
     loss = 0
     for target, pred in zip(targets, preds):
          loss += torch.mean((pred - target) ** 2)
     return loss
 
-def mag_phase_loss(targets, preds):
+def mag_phase_loss(targets: tuple[torch.Tensor], preds: tuple[torch.Tensor]) -> torch.Tensor:
      if len(targets) < 2 or len(preds) < 2:
           raise ValueError("Magnitude-Phase loss requires complex (2-sized) output.")
      mag_target = torch.sqrt(targets[0] ** 2 + targets[1] ** 2)

@@ -1,20 +1,14 @@
 # modules/model/deeponet.py
 import torch
 import logging
-from .nn.mlp import MLP
-from .nn.kan import ChebyshevKAN
-from .nn.resnet import ResNet
-
-NETWORK_ARCHITECTURES = {
-    'mlp': MLP,
-    'kan': ChebyshevKAN,
-    'resnet': ResNet
-}
+from .training_strategies import TrainingStrategy
+from ..factories.network_factory import NetworkFactory
+from .output_strategies.output_handling_base import OutputHandlingStrategy
 
 logger = logging.getLogger(__name__)
 
 class DeepONet(torch.nn.Module):
-    def __init__(self, branch_config, trunk_config, output_strategy, training_strategy, n_outputs, n_basis_functions, **kwargs):
+    def __init__(self, branch_config: dict, trunk_config: dict, output_strategy: OutputHandlingStrategy, training_strategy: TrainingStrategy, n_outputs: int, n_basis_functions: int, **kwargs) -> None:
         """Initializes the DeepONet model with specified strategies.
 
         Args:
@@ -23,19 +17,17 @@ class DeepONet(torch.nn.Module):
             output_strategy (OutputHandlingStrategy): Strategy for handling the outputs.
             training_strategy (TrainingStrategy): Strategy for training.
             n_outputs (int): Number of outputs.
-            data (optional): Data for strategies requiring pre-computed basis.
-            var_share (optional): For POD.
+            n_basis_functions (int): Number of basis functions.
+
         """
         super(DeepONet, self).__init__()
-        self.n_outputs = n_outputs
-        self.n_basis_functions = n_basis_functions
-        self.output_strategy = output_strategy
-        self.training_strategy = training_strategy
-
-        basis_config = self.output_strategy.get_basis_config()
+        self.n_outputs: int = n_outputs
+        self.n_basis_functions: int = n_basis_functions
+        self.output_strategy: OutputHandlingStrategy = output_strategy
+        self.training_strategy: TrainingStrategy = training_strategy
 
         if self.training_strategy.prepare_before_configure:
-            self.training_strategy.prepare_training(self, basis_config=basis_config)
+            self.training_strategy.prepare_training(self)
 
         self.branch_network, self.trunk_network = self.output_strategy.configure_networks(
             self, 
@@ -45,39 +37,23 @@ class DeepONet(torch.nn.Module):
         )
 
         if not self.training_strategy.prepare_before_configure:
-            self.training_strategy.prepare_training(self, basis_config=basis_config)
+            self.training_strategy.prepare_training(self)
         
         if hasattr(self.training_strategy, 'after_networks_configured'):
             self.training_strategy.after_networks_configured(self)
 
-    def create_network(self, config):
+    def create_network(self, config: dict) -> torch.nn.Module:
         """Creates a neural network based on provided configuration.
 
         Args:
-            config (dict): 
-                - 'architecture': Name of the architecture (e.g., MLP), (str).
-                - 'layers': List defining the number of neurons in each layer.
-                - 'activation': Activation function name (str).
-                - Additional architecture-specific parameters.
+            config (dict): Configuration of the network.
 
         Returns:
-            nn.Module: Initialized network
+            torch.nn.Module: Initialized network
         """
-        config = config.copy()
-        architecture_name = config.pop('architecture').lower()
-        try:
-            constructor = NETWORK_ARCHITECTURES[architecture_name]
-        except KeyError:
-            raise ValueError(f"Architecture '{architecture_name}' not implemented.")
-        
-        required_params = constructor.get_required_params() if hasattr(constructor, 'get_required_params') else []
-        for param in required_params:
-            if param not in config:
-                raise ValueError(f"Missing required parameter '{param}' for architecture '{architecture_name}'.")
+        return NetworkFactory.create_network(config)
 
-        return constructor(**config)
-
-    def forward(self, xb=None, xt=None):
+    def forward(self, xb: torch.Tensor | None=None, xt: torch.Tensor | None=None) -> tuple[torch.Tensor]:
         """Forward pass that delegates to the training strategy's forward method.
 
         Args:
@@ -89,7 +65,7 @@ class DeepONet(torch.nn.Module):
         """
         return self.training_strategy.forward(self, xb, xt)
     
-    def get_trunk_output(self, xt):
+    def get_trunk_output(self, xt: torch.Tensor) -> torch.Tensor:
         """
         Retrieves the trunk output. Delegates to TrainingStrategy.
 
@@ -101,7 +77,7 @@ class DeepONet(torch.nn.Module):
         """
         return self.training_strategy.get_trunk_output(self, xt)
     
-    def get_branch_output(self, xb):
+    def get_branch_output(self, xb: torch.Tensor) -> torch.Tensor:
         """
         Retrieves the branch output. Delegates to TrainingStrategy.
 
@@ -113,7 +89,7 @@ class DeepONet(torch.nn.Module):
         """
         return self.training_strategy.get_branch_output(self, xb)
     
-    def set_training_phase(self, phase):
+    def set_training_phase(self, phase: str) -> None:
         """
         Updates the training phase using the training strategy.
 

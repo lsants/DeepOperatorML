@@ -1,12 +1,11 @@
-DATA_FILENAME: ./data/raw/dynamic_displacements.npz
+DATA_FILENAME: ./data/raw/displacements.npz
 
 SEED: 42
 
-
 # ---------------------- Influence function dynamic problem -----------------
 
-N_R: 50                   # Mesh points for r coordinate
-N_Z: 50                   # Mesh points for z coordinate
+N_R: 40                   # Mesh points for r coordinate
+N_Z: 40                   # Mesh points for z coordinate
 R_MIN: 0               # Min r coordinate sampled [m]
 Z_MIN: 0                  # Min. z coordinate sampled   [m]
 R_MAX: 20                 # Max. r coordinate sampled [m]
@@ -65,7 +64,7 @@ F_MIN_KELVIN: 1
 F_MAX_KELVIN: 100
 
 N_X_KELVIN: 50
-N_Y_KELVIN: 2
+N_Y_KELVIN: 1
 N_Z_KELVIN: 50
 X_MIN_KELVIN: 0.01
 X_MAX_KELVIN: 2

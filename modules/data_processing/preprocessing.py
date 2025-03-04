@@ -1,19 +1,21 @@
 import logging
 import torch
 import numpy as np
+from ..deeponet.deeponet import DeepONet
+from ..data_processing.deeponet_dataset import DeepONetDataset
 
 logger = logging.getLogger(__name__)
 class ToTensor:
-    def __init__(self, dtype, device):
+    def __init__(self, dtype: np.dtype, device: str) -> None:
         self.dtype = dtype
         self.device = device
 
-    def __call__(self, sample):
+    def __call__(self, sample: np.ndarray) -> torch.Tensor:
         tensor = torch.tensor(sample, dtype=self.dtype, device=self.device)
         return tensor
     
 class Scaling:
-    def __init__(self, min_val=None, max_val=None, mean=None, std=None):
+    def __init__(self, min_val: float | torch.Tensor | None=None, max_val: float | torch.Tensor | None=None, mean: float | torch.Tensor | None=None, std: float | torch.Tensor | None=None) -> None:
         """
         A generic class for scaling values, supporting both normalization and standardization.
 
@@ -31,7 +33,7 @@ class Scaling:
         if not ((min_val is not None and max_val is not None) or (mean is not None and std is not None)):
             raise ValueError("Either min_val and max_val or mean and std must be provided.")
 
-    def normalize(self, values):
+    def normalize(self, values: torch.Tensor) -> torch.Tensor:
         """
         Normalizes values to the range [0, 1].
 
@@ -48,7 +50,7 @@ class Scaling:
         v_max = torch.as_tensor(self.max_val, dtype=values.dtype, device=values.device)
         return (values - v_min) / (v_max - v_min)
 
-    def denormalize(self, values):
+    def denormalize(self, values: torch.Tensor) -> torch.Tensor:
         """
         Denormalizes values from the range [0, 1] back to the original range.
 
@@ -65,7 +67,7 @@ class Scaling:
         v_max = torch.as_tensor(self.max_val, dtype=values.dtype, device=values.device)
         return values * (v_max - v_min) + v_min
 
-    def standardize(self, values):
+    def standardize(self, values: torch.Tensor) -> torch.Tensor:
         """
         Standardizes values using the provided mean and standard deviation.
 
@@ -82,7 +84,7 @@ class Scaling:
         sigma = torch.as_tensor(self.std, dtype=values.dtype, device=values.device)
         return (values - mu) / sigma
 
-    def destandardize(self, values):
+    def destandardize(self, values: torch.Tensor) -> torch.Tensor:
         """
         Destandardizes values back to the original scale using mean and standard deviation.
 
@@ -99,7 +101,7 @@ class Scaling:
         sigma = torch.as_tensor(self.std, dtype=values.dtype, device=values.device)
         return values * sigma + mu
 
-def preprocess_npz_data(npz_filename, input_function_keys, coordinate_keys, **kwargs):
+def preprocess_npz_data(npz_filename: str, input_function_keys: list[str], coordinate_keys: list[str], **kwargs) -> dict[str, torch.Tensor]:
     """
     Loads data from an npz file and groups the input functions and coordinates into tuples
     called 'xb' and 'xt' suitable for creating the PyTorch dataset.
@@ -136,7 +138,7 @@ def preprocess_npz_data(npz_filename, input_function_keys, coordinate_keys, **kw
     if xb.ndim == 1:
         xb = xb.reshape(len(xb), -1)
     
-    coords = [data[key] for key in coordinate_keys]
+    coords = [data[name] for name in coordinate_keys]
     coord_mesh = np.meshgrid(*coords, indexing='ij')
     xt = np.column_stack([m.flatten() for m in coord_mesh])
     
@@ -153,7 +155,7 @@ def preprocess_npz_data(npz_filename, input_function_keys, coordinate_keys, **kw
     
     return result
 
-def get_minmax_norm_params(dataset, keys=None):
+def get_minmax_norm_params(dataset: DeepONetDataset, keys: list[str] | None=None) ->  dict[str, dict[str, float]]:
     """
     Compute min-max normalization parameters for specified keys in the dataset.
 
@@ -193,7 +195,90 @@ def get_minmax_norm_params(dataset, keys=None):
 
     return min_max_params
 
-def get_single_batch(dataset, indices, params):
+def get_norm_params(train_dataset: dict[str, torch.utils.data.Subset], params: dict[str, any]) -> dict[str, any]:
+    min_max_vals = get_minmax_norm_params(train_dataset)
+
+    xb_min, xb_max = min_max_vals['xb']['min'], min_max_vals['xb']['max']
+    xt_min, xt_max = min_max_vals['xt']['min'], min_max_vals['xt']['max']
+
+    normalize_branch = Scaling(min_val=xb_min, max_val=xb_max)
+    normalize_trunk = Scaling(min_val=xt_min, max_val=xt_max)
+
+    normalization_parameters = {
+        "xb": {
+            "min": xb_min,
+            "max": xb_max,
+            "normalize": normalize_branch.normalize,
+            "denormalize": normalize_branch.denormalize
+        },
+        "xt": {
+            "min": xt_min,
+            "max": xt_max,
+            "normalize": normalize_trunk.normalize,
+            "denormalize": normalize_trunk.denormalize
+        }
+    }
+
+    for key in params['OUTPUT_KEYS']:
+        key_min, key_max = min_max_vals[key]['min'], min_max_vals[key]['max']
+        scaling = Scaling(min_val=key_min, max_val=key_max)
+        normalization_parameters[key] = {
+            "min": key_min,
+            "max": key_max,
+            "normalize": scaling.normalize,
+            "denormalize": scaling.denormalize
+        }
+    return normalization_parameters
+
+
+def prepare_batch(batch: dict[str, torch.Tensor], params: dict[str, any]) -> dict[str, torch.Tensor]:
+    """
+    Prepares the batch data, including normalization and feature expansion.
+
+    Args:
+        batch (dict): The batch data.
+
+    Returns:
+        dict: The processed batch data.
+    """
+    processed_batch = {}
+    dtype = getattr(torch, params['PRECISION'])
+    device = params['DEVICE']
+
+    xb_scaler = Scaling(
+        min_val = params['NORMALIZATION_PARAMETERS']['xb']['min'],
+        max_val = params['NORMALIZATION_PARAMETERS']['xb']['max']
+    )
+    xt_scaler = Scaling(
+        min_val = params['NORMALIZATION_PARAMETERS']['xt']['min'],
+        max_val = params['NORMALIZATION_PARAMETERS']['xt']['max']
+    )
+
+    if params['INPUT_NORMALIZATION']:
+        processed_batch['xb'] = xb_scaler.normalize(batch['xb']).to(dtype=dtype, device=device)
+        processed_batch['xt'] = xt_scaler.normalize(batch['xt']).to(dtype=dtype, device=device)
+    else:
+        processed_batch['xb'] = batch['xb'].to(dtype=dtype, device=device)
+        processed_batch['xt'] = batch['xt'].to(dtype=dtype, device=device)
+
+    for key in params['OUTPUT_KEYS']:
+        scaler = Scaling(
+            min_val = params['NORMALIZATION_PARAMETERS'][key]['min'],
+            max_val = params['NORMALIZATION_PARAMETERS'][key]['max']
+        )
+        if params['OUTPUT_NORMALIZATION']:
+            processed_batch[key] = scaler.normalize(batch[key]).to(dtype=dtype, device=device)
+        else:
+            processed_batch[key] = batch[key].to(dtype=dtype, device=device)
+
+    if params['TRUNK_FEATURE_EXPANSION']:
+        processed_batch['xt'] = trunk_feature_expansion(
+            processed_batch['xt'], params['TRUNK_EXPANSION_FEATURES_NUMBER']
+        )
+
+    return processed_batch
+
+def get_single_batch(dataset: DeepONetDataset, indices, params) -> dict[str, torch.Tensor]:
     dtype = getattr(torch, params['PRECISION'])
     device = params['DEVICE']
 
@@ -204,7 +289,7 @@ def get_single_batch(dataset, indices, params):
         batch[key] = torch.stack([dataset[idx][key] for idx in indices], dim=0).to(dtype=dtype, device=device)
     return batch
 
-def don_to_meshgrid(arr):
+def don_to_meshgrid(arr: np.ndarray) -> tuple[np.ndarray]:
     """
     Recovers the original coordinate arrays from a trunk (or branch) array.
     
@@ -225,7 +310,7 @@ def don_to_meshgrid(arr):
     coords = tuple(np.unique(arr[:, i]) for i in range(d))
     return coords
 
-def meshgrid_to_don(*coords):
+def meshgrid_to_don(*coords: np.ndarray) -> np.ndarray:
     """
     Generates the trunk/branch matrix for DeepONet training from given coordinate arrays.
     
@@ -258,7 +343,7 @@ def meshgrid_to_don(*coords):
     data = np.column_stack([m.flatten() for m in meshes])
     return data
 
-def reshape_outputs_to_plot_format(output, coords, basis=False):
+def process_outputs_to_plot_format(output: torch.Tensor, coords, basis: bool=False) -> np.ndarray:
     """
     Reshapes the output from DeepONet into a meshgrid format for plotting.
     
@@ -282,8 +367,7 @@ def reshape_outputs_to_plot_format(output, coords, basis=False):
     else:
         grid_shape = (len(coords),)
     
-    if isinstance(output, torch.Tensor):
-        output = output.detach().cpu().numpy()
+    output = output.detach().cpu().numpy()
 
     if output.ndim == 2:
         N_branch, trunk_size = output.shape
@@ -305,23 +389,23 @@ def reshape_outputs_to_plot_format(output, coords, basis=False):
     
     return reshaped
 
-def trunk_feature_expansion(xt, p):
+def trunk_feature_expansion(xt: torch.Tensor, n_exp_features: int) -> torch.Tensor:
     expansion_features = [xt]
-    if p:
-        for k in range(1, p + 1):
+    if n_exp_features:
+        for k in range(1, n_exp_features + 1):
             expansion_features.append(torch.sin(k * torch.pi * xt))
             expansion_features.append(torch.cos(k * torch.pi * xt))
 
     trunk_features = torch.concat(expansion_features, axis=1)
     return trunk_features
 
-def mirror(arr):
+def mirror(arr: np.ndarray) -> np.ndarray:
     arr_flip = np.flip(arr[1 : , : ], axis=1)
     arr_mirrored = np.concatenate((arr_flip, arr), axis=1)
     arr_mirrored = arr_mirrored.T
     return arr_mirrored
 
-def format_param(param, param_keys=None):
+def format_param(param: dict[str, any], param_keys: list[str] | tuple | None=None) -> str:
     """
     Format a parameter value for display in the plot title.
     
@@ -353,7 +437,9 @@ def format_param(param, param_keys=None):
     else:
         return str(param)
     
-def postprocess_for_2D_plot(model, plot_config, model_config, branch_features, trunk_features, ground_truth, preds):
+def postprocess_for_2D_plot(model: DeepONet, plot_config: dict[str, any], model_config: dict[str, any], 
+                            branch_features: torch.Tensor, trunk_features: torch.Tensor,
+                            ground_truth: torch.Tensor, preds: torch.Tensor) -> dict[str, np.ndarray]:
     processed_data = {}
 
     # -------------- Prepare branch data --------------
@@ -420,15 +506,15 @@ def postprocess_for_2D_plot(model, plot_config, model_config, branch_features, t
         truth_field = ground_truth[output_keys[0]]
         pred_field = preds[output_keys[0]]
 
-    truth_field = reshape_outputs_to_plot_format(truth_field, coords_tuple)
-    pred_field = reshape_outputs_to_plot_format(pred_field, coords_tuple)
+    truth_field = process_outputs_to_plot_format(truth_field, coords_tuple)
+    pred_field = process_outputs_to_plot_format(pred_field, coords_tuple)
 
     trunk_output = model.training_strategy.get_basis_functions(xt=trunk_features, model=model)
     # branch_output = model.training_strategy.get_coefficients(xb=branch_features, model=model)
     logger.info(f"T: {trunk_output.shape}")
-    basis_modes = reshape_outputs_to_plot_format(trunk_output, coords_tuple, basis=True)
+    basis_modes = process_outputs_to_plot_format(trunk_output, coords_tuple, basis=True)
     logger.info(f"modes output: {basis_modes.shape}")
-    # coeff_modes = reshape_outputs_to_plot_format(branch_output, branch_tuple, basis=True) # Need to implement a 'plot coeffs' function for the future
+    # coeff_modes = process_outputs_to_plot_format(branch_output, branch_tuple, basis=True) # Need to implement a 'plot coeffs' function for the future
     
     if basis_modes.ndim < 4:
         basis_modes = np.expand_dims(basis_modes, axis=1)

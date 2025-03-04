@@ -14,14 +14,10 @@ class ShareTrunkStrategy(OutputHandlingStrategy):
     def __init__(self):
         super().__init__()
 
-    def get_basis_config(self):
-        """
-        Specifies that this strategy requires a single set of basis functions for both real and imaginary parts.
+    @property
+    def BASIS_CONFIG(self):
+        return 'single'
 
-        Returns:
-            dict: Basis configuration.
-        """
-        return {'type': 'single'}
 
     def configure_networks(self, model, branch_config, trunk_config, **kwargs):
         """
@@ -57,14 +53,14 @@ class ShareTrunkStrategy(OutputHandlingStrategy):
 
         branch_network = model.create_network(branch_config)
 
-        logger.debug(f"\nNumber of Branch outputs: {self.n_branch_outputs}\n")
-        logger.debug(f"\nNumber of Trunk outputs: {self.n_trunk_outputs}\n")
-        logger.debug(
+        logger.info(f"\nNumber of Branch outputs: {self.n_branch_outputs}\n")
+        logger.info(f"\nNumber of Trunk outputs: {self.n_trunk_outputs}\n")
+        logger.info(
             f"\nBranch layer sizes: {pprint_layer_dict(branch_config['layers'])}\n")
-        logger.debug(
+        logger.info(
             f"\nTrunk layer sizes: {pprint_layer_dict(trunk_config['layers'])}\n")
 
-        logger.debug(
+        logger.info(
             f"\nBranch network size: {self.branch_output_size}\nTrunk network size: {self.trunk_output_size}\n")
 
         return branch_network, trunk_network

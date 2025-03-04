@@ -1,17 +1,22 @@
 import torch
 import logging
 from .training_strategy_base import TrainingStrategy
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
+    from modules.deeponet.deeponet import DeepONet
+
 
 logger = logging.getLogger(__name__)
 
 
 class TwoStepTrainingStrategy(TrainingStrategy):
-    def __init__(self, loss_fn, device, precision, train_dataset_length=None):
+    def __init__(self, loss_fn: callable, device: str, precision: torch.dtype, **kwargs) -> None:
         super().__init__(loss_fn)
-        self.train_dataset_length = train_dataset_length
+        self.train_dataset_length = kwargs.get('train_dataset_length', None)
         self.device = device
         self.precision = precision
-        if not self.train_dataset_length:
+        self.inference = kwargs.get('inference', False)
+        if self.train_dataset_length is None and not self.inference:
             logger.warning(
                 "Initializing the model without A matrix. Only do this if you're doing inference.")
         self.A = None
@@ -23,14 +28,14 @@ class TwoStepTrainingStrategy(TrainingStrategy):
         self.current_phase = self.phases[0]
         self.prepare_before_configure = False
 
-    def get_epochs(self, params):
+    def get_epochs(self, params) -> list[int]:
         return [params['TRUNK_TRAIN_EPOCHS'], params['BRANCH_TRAIN_EPOCHS']]
 
-    def update_training_phase(self, phase, **kwargs):
+    def update_training_phase(self, phase: str, **kwargs) -> None:
         self.current_phase = phase
         logger.info(f'Current phase: {self.current_phase}')
 
-    def prepare_training(self, model, **kwargs):
+    def prepare_training(self, model: 'DeepONet', **kwargs) -> None:
         branch_output_size = getattr(
             model.output_strategy, 'branch_output_size')
         if self.train_dataset_length and self.A is None:
@@ -43,7 +48,7 @@ class TwoStepTrainingStrategy(TrainingStrategy):
                                                                dtype=self.precision)
             torch.nn.init.kaiming_uniform_(self.A)
 
-    def prepare_for_phase(self, model, **kwargs):
+    def prepare_for_phase(self, model: 'DeepONet', **kwargs) -> None:
         params = kwargs.get('model_params')
         xt = kwargs.get('train_batch')
         self._set_phase_params(model, self.current_phase)
@@ -55,7 +60,7 @@ class TwoStepTrainingStrategy(TrainingStrategy):
                     'branch_matrix': self.A
                 }
 
-    def _set_phase_params(self, model, phase):
+    def _set_phase_params(self, model: 'DeepONet', phase: str) -> None:
         if phase == 'trunk':
             self._freeze_branch(model)
             self._unfreeze_trunk(model)
@@ -63,25 +68,25 @@ class TwoStepTrainingStrategy(TrainingStrategy):
             self._freeze_trunk(model)
             self._unfreeze_branch(model)
 
-    def _freeze_trunk(self, model):
+    def _freeze_trunk(self, model: 'DeepONet') -> None:
         for param in model.trunk_network.parameters():
             param.requires_grad = False
         self.A.requires_grad = False
 
-    def _unfreeze_trunk(self, model):
+    def _unfreeze_trunk(self, model: 'DeepONet') -> None:
         for param in model.trunk_network.parameters():
             param.requires_grad = True
         self.A.requires_grad = True
 
-    def _freeze_branch(self, model):
+    def _freeze_branch(self, model: 'DeepONet') -> None:
         for param in model.branch_network.parameters():
             param.requires_grad = False
 
-    def _unfreeze_branch(self, model):
+    def _unfreeze_branch(self, model: 'DeepONet') -> None:
         for param in model.branch_network.parameters():
             param.requires_grad = True
 
-    def compute_loss(self, outputs, batch, model, params, **kwargs):
+    def compute_loss(self, outputs: tuple[torch.Tensor], batch: dict[str, torch.Tensor], model: 'DeepONet', params: dict[str, any], **kwargs) -> float:
         if self.current_phase == 'trunk':
             targets = tuple(batch[key] for key in params['OUTPUT_KEYS'])
             loss = self.loss_fn(targets, outputs)
@@ -109,7 +114,7 @@ class TwoStepTrainingStrategy(TrainingStrategy):
             raise ValueError(f"Unknown training phase: {self.current_phase}")
         return loss
 
-    def compute_errors(self, outputs, batch, model, params, **kwargs):
+    def compute_errors(self, outputs: tuple[torch.Tensor], batch: dict[str, torch.Tensor], model: 'DeepONet', params: dict[str, any], **kwargs) -> dict[str, any]:
         errors = {}
         if self.current_phase in ['trunk', 'final']:
             targets = {k: v for k, v in batch.items(
@@ -147,10 +152,10 @@ class TwoStepTrainingStrategy(TrainingStrategy):
             raise ValueError(f"Unknown training phase: {self.current_phase}")
         return errors
 
-    def can_validate(self):
+    def can_validate(self) -> bool:
         return False
 
-    def after_epoch(self, epoch, model, params, **kwargs):
+    def after_epoch(self, epoch: int, model: 'DeepONet', params: dict[str, any], **kwargs) -> None:
         if self.current_phase == 'trunk' and epoch + 1 == params['TRUNK_TRAIN_EPOCHS']:
             logger.debug(
                 f"THIS RAN BECAUSE PHASE ({self.current_phase}) SHOULD BE TRUNK AND NEXT EPOCH ({epoch + 1}) IS {params['TRUNK_TRAIN_EPOCHS']}")
@@ -159,7 +164,7 @@ class TwoStepTrainingStrategy(TrainingStrategy):
             logger.info(
                 f"Trunk matrix updated and phase transition triggered at epoch {epoch + 1}")
 
-    def get_optimizers(self, model, params):
+    def get_optimizers(self, model: 'DeepONet', params: dict[str, any]) -> dict[str, torch.optim.Optimizer]:
         optimizers = {}
 
         trunk_params = [i for i in model.trunk_network.parameters()]
@@ -174,7 +179,7 @@ class TwoStepTrainingStrategy(TrainingStrategy):
             branch_params, lr=params['BRANCH_LEARNING_RATE'], weight_decay=params['L2_REGULARIZATION'])
         return optimizers
 
-    def get_schedulers(self, optimizers, params):
+    def get_schedulers(self, optimizers: dict[str, torch.optim.Optimizer], params: dict[str, any]) -> dict[str, any]:
         schedulers = {}
         if params["LR_SCHEDULING"]:
             schedulers['trunk'] = torch.optim.lr_scheduler.StepLR(
@@ -189,59 +194,64 @@ class TwoStepTrainingStrategy(TrainingStrategy):
             )
         return schedulers
 
-    def zero_grad(self, optimizers):
+    def zero_grad(self, optimizers: dict[str, torch.optim.Optimizer]) -> None:
         if self.current_phase == 'trunk':
             optimizers['trunk'].zero_grad()
         elif self.current_phase == 'branch':
             optimizers['branch'].zero_grad()
 
-    def step(self, optimizers):
+    def step(self, optimizers: dict[str, torch.optim.Optimizer]) -> None:
         if self.current_phase == 'trunk':
             optimizers['trunk'].step()
         elif self.current_phase == 'branch':
             optimizers['branch'].step()
 
-    def step_schedulers(self, schedulers):
+    def step_schedulers(self, schedulers: dict[str, torch.optim.Optimizer]) -> None:
         if self.current_phase == 'trunk':
             schedulers['trunk'].step()
         elif self.current_phase == 'branch':
             schedulers['branch'].step()
 
-    def get_trunk_output(self, model, xt):
+    def get_trunk_output(self, model: 'DeepONet', xt: torch.Tensor) -> torch.Tensor:
         if xt is not None:
             trunk_output = model.trunk_network(xt)
         return trunk_output
 
-    def get_branch_output(self, model, xb):
+    def get_branch_output(self, model: 'DeepONet', xb: torch.Tensor) -> torch.Tensor:
         branch_output = model.branch_network(xb)
         return branch_output.T
 
-    def forward(self, model, xb=None, xt=None):
-        if self.current_phase == 'trunk':
-            input_branch = self.A
-            input_trunk = xt
-            return model.output_strategy.forward(model,
-                                                 data_branch=None,
-                                                 data_trunk=input_trunk,
-                                                 matrix_branch=input_branch,
-                                                 matrix_trunk=None)
-        elif self.current_phase == 'branch':
-            input_branch = xb
-            return model.output_strategy.forward(model,
-                                                 data_branch=input_branch,
-                                                 data_trunk=None,
-                                                 matrix_branch=None,
-                                                 matrix_trunk=None)
+    def forward(self, model: 'DeepONet', xb: torch.Tensor | None=None, xt: torch.Tensor | None=None) -> torch.Tensor:
+        if not self.inference:
+            if self.current_phase == 'trunk':
+                input_branch = self.A
+                input_trunk = xt
+                return model.output_strategy.forward(model,
+                                                    data_branch=None,
+                                                    data_trunk=input_trunk,
+                                                    matrix_branch=input_branch,
+                                                    matrix_trunk=None)
+            elif self.current_phase == 'branch':
+                input_branch = xb
+                return model.output_strategy.forward(model,
+                                                    data_branch=input_branch,
+                                                    data_trunk=None,
+                                                    matrix_branch=None,
+                                                    matrix_trunk=None)
+            else:
+                raise ValueError("Invalid training phase.")
         else:
+            if self.trained_trunk is None:
+                raise ValueError("Calling inference on untrained model.")
             input_branch = xb
             input_trunk = self.trained_trunk
             return model.output_strategy.forward(model,
-                                                 data_branch=input_branch,
-                                                 data_trunk=None,
-                                                 matrix_branch=None,
-                                                 matrix_trunk=input_trunk)
+                                                data_branch=input_branch,
+                                                data_trunk=None,
+                                                matrix_branch=None,
+                                                matrix_trunk=input_trunk)
 
-    def get_basis_functions(self, **kwargs):
+    def get_basis_functions(self, **kwargs) -> torch.Tensor:
         trunk_outputs = self.trained_trunk
         model = kwargs.get('model')
         N_model = model.output_strategy.trunk_output_size
@@ -256,7 +266,7 @@ class TwoStepTrainingStrategy(TrainingStrategy):
             basis_functions = torch.transpose(basis_functions, 1, 0)
         return basis_functions
 
-    def update_q_r_t_matrices(self, model, params,  xt):
+    def update_q_r_t_matrices(self, model: 'DeepONet', params: dict[str, any],  xt: torch.Tensor) -> None:
         with torch.no_grad():
             decomposition = params.get('TRUNK_DECOMPOSITION')
             phi = model.trunk_network(xt)
@@ -291,7 +301,7 @@ class TwoStepTrainingStrategy(TrainingStrategy):
                 logger.info(
                     f"Trunk decomposed successfully. \nMoving on to second step...")
 
-    def set_matrices(self, **kwargs):
+    def set_matrices(self, **kwargs) -> None:
         self.Q = kwargs.get('Q')
         self.R = kwargs.get('R')
         self.T = kwargs.get('T')
@@ -308,5 +318,6 @@ class TwoStepTrainingStrategy(TrainingStrategy):
         logger.info(
             f"Set trained trunk (shaped {(self.trained_trunk.shape[0], self.trained_trunk.shape[1])}) for inference.")
 
-    def inference_mode(self):
+    def inference_mode(self) -> None:
         self.current_phase = 'final'
+        self.inference_mode = True

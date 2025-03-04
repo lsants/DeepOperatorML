@@ -1,4 +1,8 @@
 from abc import ABC, abstractmethod
+import torch
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
+    from modules.deeponet.deeponet import DeepONet
 
 ## Intuition: # of networks determines which one is in the loop. size determines slicing
 
@@ -8,9 +12,14 @@ class OutputHandlingStrategy(ABC):
         self.trunk_output_size = None
         self.n_trunk_outputs = None
         self.n_branch_outputs = None
+
+    @property
+    @abstractmethod
+    def BASIS_CONFIG(self):
+        pass
         
     @abstractmethod
-    def forward(self, model, xb=None, xt=None):
+    def forward(self, model: 'DeepONet', xb: torch.Tensor | None=None, xt: torch.Tensor | None=None):
         """Defines how outputs are handled during the model's forward pass.
 
         Args:
@@ -23,7 +32,7 @@ class OutputHandlingStrategy(ABC):
         pass
 
     @abstractmethod
-    def configure_networks(self, model, branch_config, trunk_config, **kwargs):
+    def configure_networks(self, model: 'DeepONet', branch_config: dict, trunk_config: dict, **kwargs):
         """
         Configures the number and output sizes of the networks (branch and trunk).
 
@@ -35,8 +44,4 @@ class OutputHandlingStrategy(ABC):
         Returns:
             tuple: (list of branch networks, list of trunk networks)
         """
-        pass
-
-    @abstractmethod
-    def get_basis_config(self):
         pass
