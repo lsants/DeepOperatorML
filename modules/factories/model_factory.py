@@ -97,7 +97,6 @@ class ModelFactory:
                 pod_basis=checkpoint.get('pod_basis'),
                 mean_functions=checkpoint.get('mean_functions')
             )
-        
-        model.training_strategy.inference_mode()
+
         model.eval()
         return model, model_params
