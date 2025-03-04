@@ -5,13 +5,13 @@ from ...utilities.log_functions import pprint_layer_dict
 
 logger = logging.getLogger(__name__)
 
-
 class SplitNetworksStrategy(OutputHandlingStrategy):
     def __init__(self):
         super().__init__()
 
-    def get_basis_config(self):
-        return {'type': 'multiple'}
+    @property
+    def BASIS_CONFIG(self):
+        return 'multiple'
 
     def configure_networks(self, model, branch_config, trunk_config, **kwargs):
         pod_basis = getattr(model, 'pod_basis', None)
