@@ -117,6 +117,9 @@ class KelvinsProblemDeterministic(Datagen):
 
         displacements, duration = self._influencefunc(input_functions_meshgrid, x_field, y_field, z_field)
 
+        #2D if one coord has one point
+        displacements = np.squeeze(displacements, axis=2)
+
         logger.info(f"Runtime for computing Kelvin solution: {duration:.3f} ms")
         logger.info(f"\nData shapes:")
         logger.info(f"   Input functions meshgrid (F, mu, nu): {input_functions_meshgrid.shape}")
