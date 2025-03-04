@@ -33,7 +33,7 @@ class TrainingLoop:
         self.saver = saver
         self.params = params
         self.training_strategy.prepare_training(self.model, params=self.params)
-        self.optimizers = self.training_strategy.get_optimizers(self.model, self.params)
+        self.optimizers = self.training_strategy.get_optimizers(self.model, self.params) # Integrate with optimizer factory
         self.schedulers = self.training_strategy.get_schedulers(self.optimizers, self.params)
     
     def train(self, train_batch: dict[torch.Tensor], val_batch: dict[torch.Tensor] | None=None) -> dict:
