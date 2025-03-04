@@ -2,7 +2,7 @@ import time
 import torch
 import logging
 from modules.data_processing import preprocessing as ppr
-from modules.pipe.model_factory import initialize_model
+from modules.factories.model_factory import ModelFactory
 from modules.data_processing.deeponet_dataset import DeepONetDataset
 
 logger = logging.getLogger(__name__)
@@ -19,20 +19,22 @@ class TestEvaluator:
                         / torch.linalg.vector_norm(g_u, ord=self.error_norm)
         return test_error.detach().cpu().numpy()
 
-def inference(p: dict):
-    # Load configuration from YAML.
-    path_to_data = p['DATAFILE']
-    precision = p['PRECISION']
-    device = p['DEVICE']
-    model_name = p['MODELNAME']
-    model_folder = p['MODEL_FOLDER']
+def inference(params: dict):
+    path_to_data = params['DATAFILE']
+    precision = params['PRECISION']
+    device = params['DEVICE']
+    model_name = params['MODELNAME']
+    model_folder = params['MODEL_FOLDER']
     model_location = model_folder + f"model_state_{model_name}.pth"
     
     logger.info(f"\nModel name: \n\n{model_name}\n\n")
     logger.info(f"\nModel loaded from: \n\n{model_location}\n\n")
     logger.info(f"\nData loaded from: \n\n{path_to_data}\n\n")
 
-    model, config_model = initialize_model(p['MODEL_FOLDER'], p['MODELNAME'], p['DEVICE'], p['PRECISION'])
+    model, config_model = ModelFactory.initialize_model(params['MODEL_FOLDER'], 
+                                                        params['MODELNAME'], 
+                                                        params['DEVICE'], 
+                                                        params['PRECISION'])
     
     if config_model['TRAINING_STRATEGY']:
         model.training_phase = 'both'
@@ -48,27 +50,24 @@ def inference(p: dict):
                                              direction=config_model["DIRECTION"] if config_model["PROBLEM"] == 'kelvin' else None)
     dataset = DeepONetDataset(processed_data, transform=to_tensor_transform, output_keys=output_keys)
     
-    if p['INFERENCE_ON'] == 'train':
+    if params['INFERENCE_ON'] == 'train':
         indices_for_inference = config_model['TRAIN_INDICES']
-    elif p['INFERENCE_ON'] == 'val':
+    elif params['INFERENCE_ON'] == 'val':
         indices_for_inference = config_model['VAL_INDICES']
-    elif p['INFERENCE_ON'] == 'test':
+    elif params['INFERENCE_ON'] == 'test':
         indices_for_inference = config_model['TEST_INDICES']
     else:
         indices_for_inference = config_model['TRAIN_INDICES']
     
     inference_dataset = dataset[indices_for_inference]
     
-    # Get branch and trunk inputs.
     xb = inference_dataset['xb']  # shape: (N, d)
     xt = dataset.get_trunk()      # trunk features
 
-    # Get ground truth outputs.
     ground_truth = {}
     for key in output_keys:
         ground_truth[key] = inference_dataset[key]
     
-    # Initialize normalization functions.
     xb_scaler = ppr.Scaling(
         min_val=config_model['NORMALIZATION_PARAMETERS']['xb']['min'],
         max_val=config_model['NORMALIZATION_PARAMETERS']['xb']['max']
@@ -93,13 +92,12 @@ def inference(p: dict):
     if config_model['TRUNK_FEATURE_EXPANSION']:
         xt = ppr.trunk_feature_expansion(xt, config_model['TRUNK_EXPANSION_FEATURES_NUMBER'])
     
-    # Evaluation.
     logger.info("\n\n----------------- Starting inference... --------------\n\n")
     start_time = time.time()
     if config_model['TRAINING_STRATEGY'].lower() == 'two_step':
-        if p["PHASE"] == 'trunk':
+        if params["PHASE"] == 'trunk':
             preds = model(xt=xt)
-        elif p["PHASE"] == 'branch':
+        elif params["PHASE"] == 'branch':
             coefs, preds = model(xb=xb)
             preds = coefs
         else:
@@ -115,7 +113,6 @@ def inference(p: dict):
         preds = {output_keys[0]: preds[0]}
     elif len(output_keys) == 2 and not isinstance(preds, dict):
         preds = {k:v for k, v in zip(output_keys, preds)}
-
     
     if config_model['OUTPUT_NORMALIZATION']:
         preds_norm = {}

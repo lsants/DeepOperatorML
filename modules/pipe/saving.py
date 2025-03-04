@@ -3,10 +3,11 @@ import yaml
 import torch
 import logging
 import numpy as np
+import matplotlib.pyplot as plt
 
 logger = logging.getLogger(__name__)
 class Saver:
-    def __init__(self, model_name, model_folder=None, data_output_folder=None, figures_folder=None, full_logging=True):
+    def __init__(self, model_name: str, model_folder: str | None=None, data_output_folder: str | None=None, figures_folder: str | None=None, full_logging: bool=True):
         """
         Initializes the Saver with designated folders for models, data, and figures.
 
@@ -33,7 +34,7 @@ class Saver:
         }
         self.full_logging = full_logging
 
-    def __call__(self, phase=None, **kwargs):
+    def __call__(self, phase: str | None=None, **kwargs):
         """
         Saves various components based on provided keyword arguments.
 
@@ -57,7 +58,7 @@ class Saver:
                 else:
                     self.save_methods[key](value, phase=phase)
 
-    def set_logging(self, logging):
+    def set_logging(self, logging: bool) -> None:
         self.full_logging = logging
 
     def make_serializable(self, obj):
@@ -75,7 +76,7 @@ class Saver:
         else:
             return str(obj)
 
-    def save_checkpoint(self, model_state_dict, optimizer_state_dict, epoch, phase=None):
+    def save_checkpoint(self, model_state_dict, optimizer_state_dict, epoch, phase: str | None=None) -> None:
         filename = f'checkpoint_{self.name}_epoch_{epoch}.pth'
         model_path = self.make_output_dir(self.model_folder, filename)
         torch.save({
@@ -85,21 +86,21 @@ class Saver:
         }, model_path)
         logger.info(f"\nCheckpoint saved to:\n{model_path}\n")
 
-    def save_model(self, model_state, phase=None):
+    def save_model(self, model_state, phase: str | None=None) -> None:
         filename = f'model_state_{self.name}.pth'
         model_path = self.make_output_dir(self.model_folder, filename)
         torch.save(model_state, model_path)
         logger.info(f"\nModel saved to:\n{model_path}\n")
 
-    def save_model_info(self, model_info_dict, phase=None):
+    def save_model_info(self, model_info: dict, phase: str | None=None) -> None:
         filename = f'model_info_{self.name}.yaml'
         model_info_path = self.make_output_dir(self.data_output_folder, filename)
-        serializable_model_info = self.make_serializable(model_info_dict)
+        serializable_model_info = self.make_serializable(model_info)
         with open(model_info_path, 'w') as f:
             yaml.dump(serializable_model_info, f)
         logger.info(f"\nModel information saved to:\n{model_info_path}\n")
 
-    def save_indices(self, indices_dict, phase=None):
+    def save_indices(self, indices_dict, phase: str | None=None) -> None:
         filename = f'indices_{self.name}.yaml'
         indices_path = self.make_output_dir(self.data_output_folder, filename)
         with open(indices_path, 'w') as f:
@@ -107,24 +108,24 @@ class Saver:
         if self.full_logging:
             logger.info(f"\nIndices saved to:\n{indices_path}\n")
 
-    def save_norm_params(self, norm_params_dict, phase=None):
+    def save_norm_params(self, norm_params: dict, phase: str | None=None) -> None:
         filename = f'norm_params_{self.name}.yaml'
         norm_params_path = self.make_output_dir(self.data_output_folder, filename)
-        serializable_norm_params = self.make_serializable(norm_params_dict)
+        serializable_norm_params = self.make_serializable(norm_params)
         with open(norm_params_path, 'w') as f:
             yaml.dump(serializable_norm_params, f, indent=4)
         if self.full_logging:
             logger.info(f"\nNormalization parameters saved to:\n{norm_params_path}\n")
 
-    def save_history(self, history_dict, phase=None, filename_prefix=None):
+    def save_history(self, history: dict, phase: str | None=None, filename_prefix=None) -> None:
         filename = f'{filename_prefix or "history"}_{self.name}.txt'
         history_path = self.make_output_dir(self.data_output_folder, filename)
-        serializable_history = self.make_serializable(history_dict)
+        serializable_history = self.make_serializable(history)
         with open(history_path, 'w') as f:
             yaml.dump(serializable_history, f, indent=4)
             logger.info(f"\nTraining history saved to:\n{history_path}\n")
 
-    def save_plots(self, figure, phase=None, filename_prefix=None):
+    def save_plots(self, figure, phase: str | None=None, filename_prefix=None) -> None:
         prefix = f"{filename_prefix}_" if filename_prefix else ""
         filename = f'{prefix}plot_{self.name}.png'
         fig_path = self.make_output_dir(self.figures_folder, filename)
@@ -132,26 +133,26 @@ class Saver:
         if self.full_logging:
             logger.info(f"\nFigure saved to:\n{fig_path}\n")
 
-    def save_errors(self, errors_dict, phase=None):
+    def save_errors(self, errors: dict, phase: str | None=None) -> None:
         filename = f"{phase or 'default'}_errors_{self.name}.yaml"
         errors_path = self.make_output_dir(self.data_output_folder, filename)
-        errors_serializable = self.make_serializable(errors_dict)
+        errors_serializable = self.make_serializable(errors)
         with open(errors_path, "w") as f:
             yaml.dump(errors_serializable, f, indent=4)
         if self.full_logging:
             logger.info(f"\nErrors saved to:\n{errors_path}\n")
 
-    def save_time(self, time_dict, phase=None, filename_prefix=None):
+    def save_time(self, times: dict, phase: str | None=None, filename_prefix=None) -> None:
         prefix = f"{filename_prefix}_" if filename_prefix else ""
         filename = f"{phase or 'default'}_{prefix}time_{self.name}.yaml"
         time_path = self.make_output_dir(self.data_output_folder, filename)
-        time_serializable = self.make_serializable(time_dict)
+        time_serializable = self.make_serializable(times)
         with open(time_path, "w") as f:
             yaml.dump(time_serializable, f, indent=4)
         if self.full_logging:
             logger.info(f"\nTime information saved to:\n{time_path}\n")
 
-    def make_output_dir(self, folder, filename):
+    def make_output_dir(self, folder: str, filename: str) -> str:
         """Ensures that the output directory exists and returns the full file path."""
         if folder is None:
             raise ValueError(f"The specified folder for saving '{filename}' is undefined.")
