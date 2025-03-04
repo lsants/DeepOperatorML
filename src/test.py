@@ -1,5 +1,4 @@
 import logging
-import sys
 import numpy as np
 import matplotlib.pyplot as plt
 from tqdm.auto import tqdm
@@ -14,6 +13,7 @@ from .modules.pipe import preprocessing as ppr
 logger = logging.getLogger(__name__)
 
 def test_model(config_path: str, trained_model_config: dict | None=None) -> None:
+    # -------------------- Load params and initialize model ---------------------
     config = dir_functions.load_params(config_path)
     
     if trained_model_config:
@@ -26,6 +26,8 @@ def test_model(config_path: str, trained_model_config: dict | None=None) -> None
 
     model, preds, ground_truth, trunk_features, branch_features, config_model = inference(config)
     
+    # -------------------- Initialize saver ---------------------
+
     if trained_model_config:
         config_model['MODELNAME'] = trained_model_name
         config_model['MODEL_FOLDER'] = trained_model_folder
@@ -42,6 +44,8 @@ def test_model(config_path: str, trained_model_config: dict | None=None) -> None
     saver(time=config_model.get('INFERENCE_TIME', 0), time_prefix="inference")
 
     saver.set_logging(False) # Don't print saved paths for plots
+
+    # -------------------- Process data for plots ---------------------
 
     data_for_2D_plotting = ppr.postprocess_for_2D_plot(model=model, 
                                                        plot_config=config, 
@@ -62,9 +66,10 @@ def test_model(config_path: str, trained_model_config: dict | None=None) -> None
             idx = np.argmin(np.abs(data_for_2D_plotting["branch_features"][:, dim] - target))
             indices.append(idx)
         selected_indices[dim] = indices
-        logger.info(f"\nSelected indices for branch input dimension {dim}: {indices}\n")
-        logger.info(f"\nSelected values for branch input dimension {dim}: {data_for_2D_plotting['branch_features'][indices]}\n")
+        logger.info(f"\nSelected indices for {config_model['INPUT_FUNCTION_KEYS'][dim]}: {indices}\n")
+        logger.info(f"\nSelected values for {config_model['INPUT_FUNCTION_KEYS'][dim]}: {data_for_2D_plotting['branch_features'][indices]}\n")
 
+    # --------------------- Plotting fields & axes -----------------------
     if config.get('PLOT_FIELD', False):
         for dim, indices in tqdm(selected_indices.items(), colour='blue'):
             for count, idx in tqdm(enumerate(indices), colour='green'):
@@ -90,6 +95,7 @@ def test_model(config_path: str, trained_model_config: dict | None=None) -> None
                 # )
                 # saver(figure=fig_axis, figure_prefix=f"axis_dim{dim}_for_param_{param_val}")
 
+    # --------------------- Plotting basis -----------------------
     if config.get('PLOT_BASIS', False):
         for i in tqdm(range(1, config_model.get('BASIS_FUNCTIONS') + 1), colour='blue'):
             fig_mode = plot_basis_function(data_for_2D_plotting["coords_2D"], 
@@ -105,10 +111,4 @@ def test_model(config_path: str, trained_model_config: dict | None=None) -> None
     logger.info("\n----------------------- Plotting succesfully completed ------------------\n")
 
 if __name__ == "__main__":
-    # logging.basicConfig(
-    #     level=logging.INFO,
-    #     format="[%(asctime)s] [%(levelname)s] %(name)s: %(message)s",
-    #     datefmt="%d-%m-%Y %H:%M:%S",
-    #     stream=sys.stdout
-    # )
     test_model("./configs/config_test.yaml")

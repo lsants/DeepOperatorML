@@ -41,7 +41,6 @@ def train_model(config_path: str) -> dict[str, any]:
     params['TRAIN_INDICES'] = train_dataset.indices
     params['VAL_INDICES'] = val_dataset.indices
     params['TEST_INDICES'] = test_dataset.indices
-
     params['A_DIM'] = (params['BASIS_FUNCTIONS'], len(params['TRAIN_INDICES']))
 
     # ------------------------------ Setup data normalization ------------------------
