@@ -1,10 +1,12 @@
-import torch
+from typing import Callable, Optional
 import logging
+import torch
+import numpy as np
 
 logger = logging.getLogger(__name__)
 
 class DeepONetDataset(torch.utils.data.Dataset):
-    def __init__(self, data, transform=None, output_keys=None):
+    def __init__(self, data: dict[str, np.ndarray], transform: Optional[Callable[..., any]]=None, output_keys: Optional[list[str]] = None):
         """
         Args:
             data (dict): Dictionary containing the data.
@@ -12,15 +14,15 @@ class DeepONetDataset(torch.utils.data.Dataset):
                   - Branch inputs under the 'xb' key.
                   - Trunk inputs under the 'xt' key. Must be in meshgrid format: (n_coordinate_points, n_dimensions).
                   - Target outputs under keys specified in output_keys. Each output will be in a (N_input_functions, N_coordinate_points) format.
-            transform (callable, optional): Transformation applied to all fields.
+            transform (Callable, optional): Transformation applied to all fields.
             output_keys (list of str): List of keys for output fields. These keys must exist in data (e.g 'g_u').
         Raises:
             ValueError: If any required key is missing or if the outputs in data do not match the provided output_keys.
         """
 
-        self.branch = data['xb']
-        self.trunk = data['xt']
-        self.output_keys = output_keys
+        self.branch: np.ndarray = data['xb']
+        self.trunk: np.ndarray = data['xt']
+        self.output_keys: Optional[list[str]] = output_keys
 
         logger.info(f"\nShape of xb:\t{self.branch.shape}\n")
         logger.info(f"\nShape of xt:\t{self.trunk.shape}\n")
