@@ -157,3 +157,6 @@ cython_debug/
 
 # macosx file that escaped into the repo
 .DS_Store
+
+#temp .yaml file
+temp_config_*.yaml
