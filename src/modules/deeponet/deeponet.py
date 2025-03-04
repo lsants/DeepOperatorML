@@ -2,7 +2,7 @@
 import torch
 import logging
 from .training_strategies import TrainingStrategy
-from ..factories.network_factory import NetworkFactory
+from .factories.network_factory import NetworkFactory
 from .output_strategies.output_handling_base import OutputHandlingStrategy
 
 logger = logging.getLogger(__name__)

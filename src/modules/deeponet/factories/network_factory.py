@@ -1,5 +1,5 @@
 import torch
-from modules.deeponet.nn.network_architectures import NETWORK_ARCHITECTURES
+from ..nn.network_architectures import NETWORK_ARCHITECTURES
 
 class NetworkFactory:
     @staticmethod

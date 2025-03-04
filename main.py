@@ -3,8 +3,8 @@ import time
 import argparse 
 import yaml
 import logging
-from train import train_model
-from test import test_model
+from src import train_model
+from src import test_model
     
 logger = logging.getLogger(__name__)
 

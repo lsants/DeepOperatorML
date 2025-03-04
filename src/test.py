@@ -3,13 +3,13 @@ import sys
 import numpy as np
 import matplotlib.pyplot as plt
 from tqdm.auto import tqdm
-from modules.pipe.inference import inference
-from modules.pipe.saving import Saver
-from modules.plotting.plot_field import plot_2D_field
-from modules.plotting.plot_axis import plot_axis
-from modules.plotting.plot_basis import plot_basis_function
-from modules.utilities import dir_functions
-from modules.data_processing import preprocessing as ppr
+from .modules.pipe.inference import inference
+from .modules.pipe.saving import Saver
+from .modules.plotting.plot_field import plot_2D_field
+from .modules.plotting.plot_axis import plot_axis
+from .modules.plotting.plot_basis import plot_basis_function
+from .modules.utilities import dir_functions
+from .modules.data_processing import preprocessing as ppr
 
 logger = logging.getLogger(__name__)
 

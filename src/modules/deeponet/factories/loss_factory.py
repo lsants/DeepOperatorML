@@ -1,4 +1,4 @@
-from modules.deeponet.optimization.loss_fns import LOSS_FUNCTIONS
+from ..optimization.loss_fns import LOSS_FUNCTIONS
 
 class LossFactory:
     @staticmethod

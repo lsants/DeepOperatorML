@@ -2,8 +2,8 @@ import os
 import yaml
 import torch
 import warnings
-from ..utilities.config_utils import process_config
-from ..deeponet.deeponet import DeepONet
+from ...utilities.config_utils import process_config
+from ..deeponet import DeepONet
 from .activation_factory import ActivationFactory
 from .loss_factory import LossFactory
 # from factories.optimizer_factory import OptimizerFactory

@@ -1,9 +1,9 @@
 import time
 import torch
 import logging
-from modules.data_processing import preprocessing as ppr
-from modules.factories.model_factory import ModelFactory
-from modules.data_processing.deeponet_dataset import DeepONetDataset
+from ..data_processing import preprocessing as ppr
+from ..deeponet.factories.model_factory import ModelFactory
+from ..data_processing.deeponet_dataset import DeepONetDataset
 
 logger = logging.getLogger(__name__)
 

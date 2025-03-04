@@ -1,4 +1,4 @@
-from modules.deeponet.nn.activation_fns import ACTIVATION_MAP
+from ..nn.activation_fns import ACTIVATION_MAP
 
 class ActivationFactory:
     @staticmethod

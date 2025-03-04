@@ -1,12 +1,12 @@
 import torch
 import warnings
-from ..deeponet.training_strategies import (
+from ..training_strategies import (
     TrainingStrategy,
     StandardTrainingStrategy,
     TwoStepTrainingStrategy,
     PODTrainingStrategy
 )
-from ..deeponet.output_strategies import (
+from ..output_strategies import (
     SingleOutputStrategy,
     ShareBranchStrategy,
     ShareTrunkStrategy,
