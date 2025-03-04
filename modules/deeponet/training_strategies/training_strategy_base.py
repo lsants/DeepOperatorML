@@ -6,7 +6,7 @@ if TYPE_CHECKING:
 import torch
 
 class TrainingStrategy(ABC):
-    def __init__(self, loss_fn: callable, **kwargs) -> None:
+    def __init__(self, loss_fn: callable) -> None:
         self.loss_fn: callable = loss_fn
         self.phases: list[str] = ['default']
         self.current_phase: str = 'default'
@@ -121,29 +121,29 @@ class TrainingStrategy(ABC):
         for param in model.branch_network.parameters():
             param.requires_grad = True
 
-    def get_basis_callables(self, **kwargs) -> torch.Tensor:
+    def get_basis_functions(self, **kwargs) -> torch.Tensor:
         xt = kwargs.get('xt')
         model = kwargs.get('model')
         n = model.n_outputs
         N_model = model.output_strategy.trunk_output_size
-        N_trunk = model.n_basis_callables
+        N_trunk = model.n_basis_functions
 
         trunk_out = model.trunk_network(xt)
 
         if N_trunk > N_model:
-            basis_callables = torch.stack(
+            basis_functions = torch.stack(
                 [trunk_out[ : , i * N_model : (i + 1) * N_model ] for i in range(n)], dim=0)
         else:
-            basis_callables = trunk_out.unsqueeze(-1)
-            basis_callables = torch.transpose(basis_callables, 1, 0)
-        return basis_callables
+            basis_functions = trunk_out.unsqueeze(-1)
+            basis_functions = torch.transpose(basis_functions, 1, 0)
+        return basis_functions
 
     def get_coefficients(self, **kwargs) -> torch.Tensor:
         xb = kwargs.get('xb')
         model = kwargs.get('model')
         n = model.n_outputs
         N_model = model.output_strategy.branch_output_size
-        N_branch = model.n_basis_callables
+        N_branch = model.n_basis_functions
 
         branch_out = model.branch_network(xb)
 

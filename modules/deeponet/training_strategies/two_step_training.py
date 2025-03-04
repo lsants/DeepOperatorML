@@ -15,8 +15,8 @@ class TwoStepTrainingStrategy(TrainingStrategy):
         self.train_dataset_length = kwargs.get('train_dataset_length', None)
         self.device = device
         self.precision = precision
-        self.inference_mode = kwargs.get('inference', False)
-        if self.train_dataset_length is None and not self.inference_mode:
+        self.inference = kwargs.get('inference', False)
+        if self.train_dataset_length is None and not self.inference:
             logger.warning(
                 "Initializing the model without A matrix. Only do this if you're doing inference.")
         self.A = None
@@ -222,29 +222,34 @@ class TwoStepTrainingStrategy(TrainingStrategy):
         return branch_output.T
 
     def forward(self, model: 'DeepONet', xb: torch.Tensor | None=None, xt: torch.Tensor | None=None) -> torch.Tensor:
-        if self.current_phase == 'trunk':
-            input_branch = self.A
-            input_trunk = xt
-            return model.output_strategy.forward(model,
-                                                 data_branch=None,
-                                                 data_trunk=input_trunk,
-                                                 matrix_branch=input_branch,
-                                                 matrix_trunk=None)
-        elif self.current_phase == 'branch':
-            input_branch = xb
-            return model.output_strategy.forward(model,
-                                                 data_branch=input_branch,
-                                                 data_trunk=None,
-                                                 matrix_branch=None,
-                                                 matrix_trunk=None)
+        if not self.inference:
+            if self.current_phase == 'trunk':
+                input_branch = self.A
+                input_trunk = xt
+                return model.output_strategy.forward(model,
+                                                    data_branch=None,
+                                                    data_trunk=input_trunk,
+                                                    matrix_branch=input_branch,
+                                                    matrix_trunk=None)
+            elif self.current_phase == 'branch':
+                input_branch = xb
+                return model.output_strategy.forward(model,
+                                                    data_branch=input_branch,
+                                                    data_trunk=None,
+                                                    matrix_branch=None,
+                                                    matrix_trunk=None)
+            else:
+                raise ValueError("Invalid training phase.")
         else:
+            if self.trained_trunk is None:
+                raise ValueError("Calling inference on untrained model.")
             input_branch = xb
             input_trunk = self.trained_trunk
             return model.output_strategy.forward(model,
-                                                 data_branch=input_branch,
-                                                 data_trunk=None,
-                                                 matrix_branch=None,
-                                                 matrix_trunk=input_trunk)
+                                                data_branch=input_branch,
+                                                data_trunk=None,
+                                                matrix_branch=None,
+                                                matrix_trunk=input_trunk)
 
     def get_basis_functions(self, **kwargs) -> torch.Tensor:
         trunk_outputs = self.trained_trunk

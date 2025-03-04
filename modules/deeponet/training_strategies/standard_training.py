@@ -6,7 +6,7 @@ if TYPE_CHECKING:
 from .training_strategy_base import TrainingStrategy
 
 class StandardTrainingStrategy(TrainingStrategy):
-    def __init__(self, loss_fn):
+    def __init__(self, loss_fn, **kwargs):
         super().__init__(loss_fn)
         self.phases = ['default']
 

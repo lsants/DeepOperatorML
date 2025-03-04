@@ -10,7 +10,7 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 class PODTrainingStrategy(TrainingStrategy):
-    def __init__(self, loss_fn: callable, inference: bool, data: torch.Tensor | None=None, var_share: float | None=None) -> None:
+    def __init__(self, loss_fn: callable, inference: bool, data: torch.Tensor | None=None, var_share: float | None=None, **kwargs) -> None:
         super().__init__(loss_fn)
         self.data = data
         self.var_share = var_share
