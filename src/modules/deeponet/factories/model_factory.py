@@ -42,10 +42,10 @@ class ModelFactory:
         if trunk_arch == 'kan':
             trunk_config['degree'] = model_params.get('TRUNK_DEGREE')
 
-        output_strategy = StrategyFactory.get_output_strategy(model_params['OUTPUT_HANDLING'], 
+        output_handling = StrategyFactory.get_output_handling(model_params['OUTPUT_HANDLING'], 
                                                               model_params['OUTPUT_KEYS']
                                                               )
-        model_params['BASIS_CONFIG'] = output_strategy.BASIS_CONFIG
+        model_params['BASIS_CONFIG'] = output_handling.BASIS_CONFIG
 
         loss_function = LossFactory.get_loss_function(model_params['LOSS_FUNCTION'],
                                                                    model_params
@@ -61,7 +61,7 @@ class ModelFactory:
         model = DeepONet(
             branch_config=branch_config,
             trunk_config=trunk_config,
-            output_strategy=output_strategy,
+            output_handling=output_handling,
             training_strategy=training_strategy,
             n_outputs=len(model_params['OUTPUT_KEYS']),
             n_basis_functions=model_params['BASIS_FUNCTIONS']

@@ -43,7 +43,7 @@ overrides_list = [
      "COORDINATE_KEYS": ["r", "z"],
      "OUTPUT_KEYS": ["g_u_real", "g_u_imag"],
      "TRAINING_STRATEGY": "standard",
-     "OUTPUT_HANDLING": "split_networks",
+     "OUTPUT_HANDLING": "split_outputs",
      "TRUNK_DECOMPOSITION": "svd"},
 
     {"PROBLEM": "dynamic", # perfect
@@ -70,7 +70,7 @@ overrides_list = [
      "COORDINATE_KEYS": ["r", "z"],
      "OUTPUT_KEYS": ["g_u_real", "g_u_imag"],
      "TRAINING_STRATEGY": "two_step",
-     "OUTPUT_HANDLING": "split_networks",
+     "OUTPUT_HANDLING": "split_outputs",
      "TRUNK_DECOMPOSITION": "svd"},
 
 
@@ -98,7 +98,7 @@ overrides_list = [
      "COORDINATE_KEYS": ["r", "z"],
      "OUTPUT_KEYS": ["g_u_real", "g_u_imag"],
      "TRAINING_STRATEGY": "pod",
-     "OUTPUT_HANDLING": "split_networks",
+     "OUTPUT_HANDLING": "split_outputs",
      "TRUNK_DECOMPOSITION": "svd"},
 
 ]

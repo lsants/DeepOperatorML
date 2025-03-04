@@ -53,7 +53,7 @@ def process_config(config):
         model_name += "_single_basis"
     if "share_branch" in output_handling:
         model_name += "_mult_basis"
-    elif "split_networks" in output_handling:
+    elif "split_outputs" in output_handling:
         model_name += "_split"
 
     config["MODELNAME"] = model_name

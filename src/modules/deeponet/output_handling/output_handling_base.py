@@ -6,7 +6,7 @@ if TYPE_CHECKING:
 
 ## Intuition: # of networks determines which one is in the loop. size determines slicing
 
-class OutputHandlingStrategy(ABC):
+class OutputHandling(ABC):
     def __init__(self):
         self.branch_output_size = None
         self.trunk_output_size = None
@@ -32,16 +32,13 @@ class OutputHandlingStrategy(ABC):
         pass
 
     @abstractmethod
-    def configure_networks(self, model: 'DeepONet', branch_config: dict, trunk_config: dict, **kwargs):
+    def configure_components(self, model: "DeepONet", branch_component: object, trunk_component: object, branch_config: dict, trunk_config: dict, **kwargs) -> tuple:
         """
-        Configures the number and output sizes of the networks (branch and trunk).
-
-        Args:
-            model (DeepONet): The model instance.
-            branch_config (dict): Initial branch configuration.
-            trunk_config (dict): Initial trunk configuration.
-
+        Uses the provided branch and trunk configuration dictionaries (augmented by training strategy info)
+        to create and adjust the networks. This method can also use additional data (e.g. POD basis)
+        to update the configurations and even replace the trunk component if needed.
+        
         Returns:
-            tuple: (list of branch networks, list of trunk networks)
+            tuple: (branch_component, trunk_component)
         """
         pass

@@ -6,23 +6,23 @@ from ..training_strategies import (
     TwoStepTrainingStrategy,
     PODTrainingStrategy
 )
-from ..output_strategies import (
+from ..output_handling import (
     SingleOutputStrategy,
     ShareBranchStrategy,
     ShareTrunkStrategy,
-    SplitNetworksStrategy,
-    OutputHandlingStrategy
+    SplitOutputsStrategy,
+    OutputHandling
 )
 
 class StrategyFactory:
     @staticmethod
-    def get_output_strategy(strategy_name: str, output_keys: list) -> OutputHandlingStrategy:
+    def get_output_handling(strategy_name: str, output_keys: list) -> OutputHandling:
         strategy_name_lower = strategy_name.lower()
         output_stategy_mapping = {
                 'single_output': SingleOutputStrategy,
                 'share_branch': ShareBranchStrategy,
                 'share_trunk': ShareTrunkStrategy,
-                'split_networks': SplitNetworksStrategy,
+                'split_outputs': SplitOutputsStrategy,
         }
         if strategy_name_lower not in output_stategy_mapping:
             raise ValueError(f"Unsupported OUTPUT_HANDLING strategy: {strategy_name_lower}.")
