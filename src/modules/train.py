@@ -2,13 +2,14 @@ import os
 import time
 import torch
 import logging
-from .modules.pipe.saving import Saver
-from .modules.utilities import dir_functions
-from .modules.pipe.training import TrainingLoop
-from .modules.pipe import preprocessing as ppr
-from .modules.deeponet.factories.model_factory import ModelFactory
-from .modules.data_processing.compose_transformations import Compose
-from .modules.data_processing.deeponet_dataset import DeepONetDataset
+
+from modules.pipe.saving import Saver
+from modules.utilities import dir_functions
+from modules.pipe.training import TrainingLoop
+from src.modules.pipe import preprocessing as ppr
+from modules.factories.model_factory import ModelFactory
+from modules.data_processing.compose_transformations import Compose
+from modules.data_processing.deeponet_dataset import DeepONetDataset
 
 logger = logging.getLogger(__name__)
 

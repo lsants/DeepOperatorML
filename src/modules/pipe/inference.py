@@ -1,7 +1,7 @@
 import time
 import torch
 import logging
-from ..data_processing import preprocessing as ppr
+from . import preprocessing as ppr
 from ..deeponet.factories.model_factory import ModelFactory
 from ..data_processing.deeponet_dataset import DeepONetDataset
 

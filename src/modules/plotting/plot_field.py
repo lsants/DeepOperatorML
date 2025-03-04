@@ -1,7 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.colors as colors
-from ..data_processing.preprocessing import format_param
+from ..pipe.preprocessing import format_param
 
 def plot_2D_field(coords, truth_field=None, pred_field=None, param_value=None, param_labels=None):
     """

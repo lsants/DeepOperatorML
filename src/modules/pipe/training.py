@@ -4,7 +4,7 @@ import logging
 from tqdm.auto import tqdm
 from ..pipe.saving import Saver
 from .store_ouptuts import HistoryStorer
-from ..data_processing import preprocessing as ppr
+from . import preprocessing as ppr
 from ..deeponet.deeponet import DeepONet
 from ..plotting.plot_training import plot_training, align_epochs
 from ..deeponet.training_strategies import (
