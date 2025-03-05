@@ -21,15 +21,17 @@ class ShareTrunkHandling(OutputHandling):
         return 'single'
 
     def configure_components(self, model: 'DeepONet', branch_config: dict, trunk_config: dict, **kwargs) -> tuple:
+        processed_trunk_config = self.config_basis(model, trunk_config)
+
         n_basis_functions = model.n_basis_functions
         trunk_output_size = n_basis_functions
         branch_output_size = n_basis_functions * model.n_outputs
 
-        branch, trunk = self.create_components(model, branch_config, trunk_config, branch_output_size, trunk_output_size)
+        branch, trunk = self.create_components(model, branch_config, processed_trunk_config, branch_output_size, trunk_output_size)
 
         logger.info(f"ShareTrunkHandling: Computed trunk output size: {trunk_output_size}")
         logger.info(f"ShareTrunkHandling: Computed branch output size: {branch_output_size}")
-        logger.info(f"ShareTrunkHandling: Trunk layers: {pprint_layer_dict(trunk_config.get('layers', []))}")
+        logger.info(f"ShareTrunkHandling: Trunk layers: {pprint_layer_dict(processed_trunk_config.get('layers', []))}")
         logger.info(f"ShareTrunkHandling: Branch layers: {pprint_layer_dict(branch_config.get('layers', []))}")
 
         return branch, trunk

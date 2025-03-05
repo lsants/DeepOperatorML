@@ -1,6 +1,8 @@
 # File: src/modules/deeponet/training_strategies/pod_training_strategy.py
 import torch
 from .training_strategy_base import TrainingStrategy
+from .helpers import PODBasisHelper
+from ..components.pod_trunk import PODTrunk
 from ..deeponet import DeepONet
 import logging
 
@@ -19,6 +21,9 @@ class PODTrainingStrategy(TrainingStrategy):
     def __init__(self, loss_fn: callable, inference: bool, **kwargs) -> None:
         super().__init__(loss_fn)
         self.inference = inference
+        if not self.inference:
+            self.pod_helper = PODBasisHelper(data=kwargs.get('data'), var_share=kwargs.get('var_share'))
+        self.pod_trunk = kwargs.get('pod_trunk')
     
     def prepare_training(self, model: DeepONet, **kwargs) -> None:
         """
@@ -26,7 +31,7 @@ class PODTrainingStrategy(TrainingStrategy):
         as a fixed tensor (i.e. the basis functions have been computed by the output strategy).
         """
         # Optionally verify that model.trunk has the expected attribute or type.
-        if not hasattr(model.trunk, "get_basis"):
+        if not isinstance(model.trunk, PODTrunk):
             raise ValueError("The trunk component is not configured correctly for POD training.")
         logger.info("PODTrainingStrategy: Model trunk is configured for POD.")
     
@@ -38,11 +43,11 @@ class PODTrainingStrategy(TrainingStrategy):
         # Here, xt may be None because the trunk's forward (or get_basis) returns the fixed tensor.
         branch_out = model.branch.forward(xb)
         trunk_out = model.trunk.forward()
-        dot_product = model.output_handling.forward(model, data_branch=branch_out, data_trunk=trunk_out)
+        dot_product = model.output_handling.forward(model, branch_out=branch_out, trunk_out=trunk_out)
         if model.output_handling.BASIS_CONFIG == 'single':
             output = tuple(x + model.trunk.mean for x in dot_product)
         else:
-            output = tuple(dot_product[i] + model.trunk.mean[i : i + 1] for i in range(model.n_outputs))
+            output = tuple(dot_product[i] + model.trunk.mean.flatten(start_dim=0, end_dim=1)[i : i + 1] for i in range(model.n_outputs))
         return output
     
     def compute_loss(self, outputs: tuple[torch.Tensor], batch: dict[str, torch.Tensor], model: DeepONet, params: dict, **kwargs) -> float:
@@ -68,13 +73,7 @@ class PODTrainingStrategy(TrainingStrategy):
     
     def get_trunk_config(self, base_trunk_config: dict) -> dict:
         config = base_trunk_config.copy()
-        if self.inference:
-            config["type"] = "data"
-            if self.basis is None or self.mean is None:
-                raise ValueError("PODTrainingStrategy: Pretrained trunk tensor not available in inference mode.")
-            config["data"] = self.pretrained_trunk_tensor
-        else:
-            config["type"] = "trainable"
+        config["type"] = "data"
         return config
 
     def get_branch_config(self, base_branch_config: dict) -> dict:

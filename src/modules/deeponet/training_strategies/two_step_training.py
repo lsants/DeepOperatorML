@@ -37,8 +37,8 @@ class TwoStepTrainingStrategy(TrainingStrategy):
 
     def forward(self, model: "DeepONet", xb: torch.Tensor | None = None, xt: torch.Tensor | None = None, **kwargs) -> tuple[torch.Tensor]:
         branch_out, trunk_out = self.two_step_helper.compute_outputs(model, xb, xt, self.current_phase)
-        if self.current_phase == 'branch':
-            if branch_out.shape[1] > model.n_outputs: # If there are multiple branches (cols of A = n * number of basis functions), break A into a tuple containing n matrices
+        if not self.inference and self.current_phase == 'branch':
+            if branch_out.shape[1] > model.n_basis_functions: # If there are multiple branches (cols of A = n * number of basis functions), break A into a tuple containing n matrices
                 slice_size = branch_out.shape[1] // model.n_outputs
                 slices = [branch_out[:, i * slice_size : (i + 1) * slice_size] for i in range(model.n_outputs)]
                 outputs = tuple(slices)

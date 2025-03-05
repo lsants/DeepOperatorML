@@ -17,16 +17,13 @@ class ShareBranchHandling(OutputHandling):
         return 'multiple'
 
     def configure_components(self, model, branch_config: dict, trunk_config: dict, **kwargs) -> tuple:
+        processed_trunk_config = self.config_basis(model, trunk_config)
+
         n_basis_functions = model.n_basis_functions
         trunk_output_size = n_basis_functions * model.n_outputs
         branch_output_size = n_basis_functions
-       
-        branch, trunk = self.create_components(model, branch_config, trunk_config, branch_output_size, trunk_output_size)
 
-        logger.debug(f"ShareBranchHandling: Computed trunk output size: {trunk_output_size}")
-        logger.debug(f"ShareBranchHandling: Computed branch output size: {branch_output_size}")
-        logger.debug(f"ShareBranchHandling: Trunk layers: {pprint_layer_dict(trunk_config.get('layers', []))}")
-        logger.debug(f"ShareBranchHandling: Branch layers: {pprint_layer_dict(branch_config.get('layers', []))}")
+        branch, trunk = self.create_components(model, branch_config, processed_trunk_config, branch_output_size, trunk_output_size)
 
         return branch, trunk
     

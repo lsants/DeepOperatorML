@@ -44,6 +44,12 @@ class StrategyFactory:
                                         data=data, 
                                         var_share=var_share, 
                                         inference=inference)
+            else:
+                return PODTrainingStrategy(loss_fn=loss_fn, 
+                                        data=data, 
+                                        var_share=var_share, 
+                                        inference=inference,
+                                        pod_trunk=kwargs.get('pod_trunk'))
         elif strategy_name_lower == 'two_step':
             train_dataset_length = len(data['xb']) if data and 'xb' in data else None
             if train_dataset_length is None:

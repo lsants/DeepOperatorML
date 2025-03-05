@@ -53,7 +53,7 @@ class PODBasisHelper:
             n_modes = self._prepare_multiple_basis(model, **kwargs)
         else:
             raise ValueError(f"Unknown basis_config '{basis_config}'. Expected 'single' or 'multiple'.")
-        return n_modes
+        return n_modes, self.pod_basis, self.mean_functions
 
     def _prepare_single_basis(self, model: "DeepONet", **kwargs) -> int:
         """
@@ -89,7 +89,6 @@ class PODBasisHelper:
         
         model.register_buffer("pod_basis", self.pod_basis)
         model.register_buffer("mean_functions", self.mean_functions)
-        model.n_basis_functions = n_modes
         return n_modes
 
     def _prepare_multiple_basis(self, model: "DeepONet", **kwargs) -> int:
@@ -117,11 +116,12 @@ class PODBasisHelper:
             explained_variance_ratio = torch.cumsum(S**2, dim=0) / torch.linalg.norm(S)**2
             n_modes = (explained_variance_ratio < self.var_share).sum().item() + 1
             modes_per_output.append(n_modes)
-            pod_basis_list.append(U[:, :n_modes])
+            pod_basis_list.append(U)
             mean_functions_list.append(mean)
-        
+
         n_modes = max(modes_per_output)
         truncated_bases = [basis[:, : n_modes] for basis in pod_basis_list]
+
         self.pod_basis = torch.cat(truncated_bases, dim=-1)  # shape: (features, n_modes * num_outputs)
         self.mean_functions = torch.stack(mean_functions_list, dim=0)  # shape: (num_outputs, features)
         
@@ -130,5 +130,4 @@ class PODBasisHelper:
         
         model.register_buffer("pod_basis", self.pod_basis)
         model.register_buffer("mean_functions", self.mean_functions)
-        model.n_basis_functions = n_modes
-        return n_modes, self.pod_basis, self.mean_functions
+        return n_modes

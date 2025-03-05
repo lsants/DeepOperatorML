@@ -45,13 +45,16 @@ class TwoStepHelper:
         Returns:
             A tuple (branch_out, trunk_out).
         """
-        if phase == "trunk":
-            trunk_out = model.trunk.forward(xt)
-            branch_out = self.A
-            return branch_out, trunk_out 
-        elif phase == "branch":
-            branch_out = model.branch.forward(xb)
-            return branch_out, ...
+        if not model.training_strategy.inference:
+            if phase == "trunk":
+                trunk_out = model.trunk.forward(xt)
+                branch_out = self.A
+                return branch_out, trunk_out 
+            elif phase == "branch":
+                branch_out = model.branch.forward(xb)
+                return branch_out, ...
+            else:
+                raise ValueError("Invalid training phase.")
         else:
             trunk_out = model.trunk.forward(xt)
             branch_out = model.branch.forward(xb)
@@ -75,23 +78,25 @@ class TwoStepHelper:
         Returns:
             The computed loss (a float).
         """
-        if phase == "trunk":
-            targets = tuple(batch[key] for key in params["OUTPUT_KEYS"])
-            return loss_fn(targets, outputs)
-        elif phase == "branch":
-            K = model.n_basis_functions
-            n = model.n_outputs
-            R = self.decomposition_helper.R
-            if R is None:
-                raise ValueError("TwoStepHelper: R matrix is not available; ensure trunk phase decomposition is complete.")
-            # If there are multiple trunks (size of R = n * number of basis functions), merge the A matrix
-            if R.shape[0] == R.shape[1] == n * K:
-                blocks = [R[i * K : (i + 1) * K , i * K : (i + 1) * K] for i in range(n)]
-                R = torch.cat(blocks, dim=1)
-            targets = tuple(model.output_handling.forward(model, branch_out=self.A, trunk_out=R))
-            return loss_fn(targets, outputs)
+        if not model.training_strategy.inference:
+            if phase == "trunk":
+                targets = tuple(batch[key] for key in params["OUTPUT_KEYS"])
+                return loss_fn(targets, outputs)
+            elif phase == "branch":
+                K = model.n_basis_functions
+                n = model.n_outputs
+                R = self.decomposition_helper.R
+                if R is None:
+                    raise ValueError("TwoStepHelper: R matrix is not available; ensure trunk phase decomposition is complete.")
+                # If there are multiple trunks (size of R = n * number of basis functions), merge the A matrix
+                if R.shape[0] == R.shape[1] == n * K:
+                    blocks = [R[i * K : (i + 1) * K , i * K : (i + 1) * K] for i in range(n)]
+                    R = torch.cat(blocks, dim=1)
+                targets = tuple(model.output_handling.forward(model, branch_out=self.A, trunk_out=R))
+                return loss_fn(targets, outputs)
+            else:
+                raise ValueError("Invalid training phase.")
         else:
-            # Default to direct target-based computation.
             targets = tuple(batch[key] for key in params["OUTPUT_KEYS"])
             return loss_fn(targets, outputs)
 

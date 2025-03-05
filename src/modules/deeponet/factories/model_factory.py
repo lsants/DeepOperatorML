@@ -58,7 +58,9 @@ class ModelFactory:
             loss_function,
             data,
             model_params,
-            inference=kwargs.get('inference', False)
+            inference=kwargs.get('inference', False),
+            trained_trunk=kwargs.get('trained_trunk'),
+            pod_trunk=kwargs.get('pod_trunk')
         )
 
         model = DeepONet(
@@ -90,14 +92,20 @@ class ModelFactory:
         if training_strategy == 'two_step':
             model_params['TRAINED_TRUNK'] = checkpoint.get('trained_trunk')
             trained_trunk = checkpoint.get('trained_trunk')
-            print("KKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKK", trained_trunk)
+            model, _ = ModelFactory.create_model(model_params, 
+                                                 inference=True, 
+                                                 trained_trunk=trained_trunk
+                                                 )
         elif training_strategy == 'pod':
-            model.training_strategy.set_pod_data(
-                pod_basis=checkpoint.get('pod_basis'),
-                mean_functions=checkpoint.get('mean_functions')
-            )
+            saved_pod_trunk = {'basis': checkpoint.get('pod_basis'), 'mean': checkpoint.get('mean_functions')}
+            model, _ = ModelFactory.create_model(model_params, 
+                                                 inference=True, 
+                                                 pod_trunk=saved_pod_trunk
+                                                 )
 
-        model, _ = ModelFactory.create_model(model_params, inference=True, trained_trunk=trained_trunk)
+        else:
+            model, _ = ModelFactory.create_model(model_params, 
+                                                 inference=True)
         model.load_state_dict(checkpoint['model_state_dict'], strict=False)
 
 

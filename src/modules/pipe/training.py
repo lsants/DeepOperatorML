@@ -56,7 +56,7 @@ class TrainingLoop:
         """
 
         epochs_list = [self.params["TRUNK_TRAIN_EPOCHS"], self.params["BRANCH_TRAIN_EPOCHS"]] if isinstance(self.training_strategy, TwoStepTrainingStrategy) else [self.params["EPOCHS"]]
-        print()
+        
         if len(self.phases) != len(epochs_list):
             raise ValueError("TRAINING_PHASES and EPOCHS_PER_PHASE lengths do not match.")
 
@@ -84,7 +84,7 @@ class TrainingLoop:
 
                 loss = self.training_strategy.compute_loss(outputs, batch, self.model, self.params)
 
-                if epoch % 100 == 0 and epoch > 0:
+                if epoch % 1000 == 0 and epoch > 0:
                     logger.info(f"Loss: {loss:.2E}")
 
                 active_optimizer.zero_grad()
@@ -136,9 +136,9 @@ class TrainingLoop:
             val_loss = self.training_strategy.compute_loss(val_outputs, val_batch_processed, self.model, self.params)
             val_errors = self.training_strategy.compute_errors(val_outputs, val_batch_processed, self.model, self.params)
 
-        self.storer.store_epoch_train_errors(phase, val_loss.item())
-        for key in self.params['OUTPUT_KEYS']:
-            self.storer.store_epoch_val_errors(phase, val_errors[key])
+        self.storer.store_epoch_val_loss(phase, val_loss.item())
+        # for key in self.params['OUTPUT_KEYS']:
+        self.storer.store_epoch_val_errors(phase, val_errors)
 
     def _log_epoch_metrics(self, epoch: int, train_loss: float, train_errors: dict[str, list[float]], val_metrics: dict[str, list[float]]) -> None:
         output_errors_str = ", ".join([f"{key}: {train_errors.get(key, 0):.3E}" for key in self.params['OUTPUT_KEYS']])
@@ -157,6 +157,7 @@ class TrainingLoop:
         history = self.storer.get_history()
 
         valid_history = {phase: metrics for phase, metrics in history.items() if metrics.get('train_loss')}
+
 
         if not valid_history:
             raise ValueError("There's no history to save. There's an error somewhere when generating the history.")

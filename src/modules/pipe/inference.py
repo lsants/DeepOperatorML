@@ -4,6 +4,7 @@ import logging
 from . import preprocessing as ppr
 from ..deeponet.factories.model_factory import ModelFactory
 from ..data_processing.deeponet_dataset import DeepONetDataset
+from ..deeponet.training_strategies import TwoStepTrainingStrategy, PODTrainingStrategy
 
 logger = logging.getLogger(__name__)
 
@@ -91,10 +92,13 @@ def inference(params: dict):
     
     if config_model['TRUNK_FEATURE_EXPANSION']:
         xt = ppr.trunk_feature_expansion(xt, config_model['TRUNK_EXPANSION_FEATURES_NUMBER'])
+
+    # fixing expected number of basis functions
+    config_model['BASIS_FUNCTIONS'] = model.n_basis_functions
     
     logger.info("\n\n----------------- Starting inference... --------------\n\n")
     start_time = time.time()
-    if config_model['TRAINING_STRATEGY'].lower() == 'two_step':
+    if isinstance(model.training_strategy, TwoStepTrainingStrategy):
         if params["PHASE"] == 'trunk':
             preds = model(xt=xt)
         elif params["PHASE"] == 'branch':
@@ -102,7 +106,7 @@ def inference(params: dict):
             preds = coefs
         else:
             preds = model(xb=xb, xt=xt)
-    elif config_model['TRAINING_STRATEGY'] == 'pod':
+    elif isinstance(model.training_strategy, PODTrainingStrategy):
         preds = model(xb=xb)
     else:
         preds = model(xb=xb, xt=xt)

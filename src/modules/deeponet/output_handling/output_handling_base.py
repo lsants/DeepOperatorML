@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 import torch
+from ..training_strategies import PODTrainingStrategy
 from ..factories.network_factory import NetworkFactory
-from ...utilities.log_functions import pprint_layer_dict
 from ..factories.component_factory import branch_factory, trunk_factory
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
@@ -46,28 +46,43 @@ class OutputHandling(ABC):
         """
         pass
 
-    def create_components(self, model: "DeepONet", branch_config: dict, trunk_config: dict, branch_output_size: int, trunk_output_size: int, **kwargs) -> tuple["BaseBranch", "BaseTrunk"]:
-        if hasattr(model, "pod_basis") and model.pod_basis is not None: # NOT WORKING YEt
-            pod_helper = kwargs.get("pod_helper", None)
-            if pod_helper is not None:
-                n_modes, basis, mean = pod_helper.compute_modes(model, self.BASIS_CONFIG)
-            model.n_basis_functions = n_modes
+    def config_basis(self,  model: "DeepONet", trunk_config: dict):
+        if isinstance(model.training_strategy, PODTrainingStrategy):
             trunk_config["type"] = "data"
-            trunk_config["data"] = basis, mean
+            if not model.training_strategy.inference:
+                if hasattr(model.training_strategy, 'pod_helper'): # this should always be True
+                    n_modes, basis, mean = model.training_strategy.pod_helper.compute_modes(model, self.BASIS_CONFIG)
+                else:
+                    raise ValueError("POD Helper not initialized for training.")
+                model.n_basis_functions = n_modes
+                
+                trunk_config["data"] = {'basis': basis, 'mean': mean}
+            else:
+                trunk_config["data"] = model.training_strategy.pod_trunk
+                if self.BASIS_CONFIG == 'single':
+                    model.n_basis_functions = trunk_config["data"]["basis"].shape[-1]
+                else:
+                    model.n_basis_functions = trunk_config["data"]["basis"].shape[-1] // model.n_outputs
+                if not trunk_config["data"]:
+                    raise ValueError("Error! POD trunk not found.")
         else:
             trunk_config["type"] = trunk_config.get("type", "trainable")
-        
+        return trunk_config
+
+    def create_components(self, model: "DeepONet", branch_config: dict, trunk_config: dict, branch_output_size: int, trunk_output_size: int, **kwargs) -> tuple["BaseBranch", "BaseTrunk"]:
         branch_config = branch_config.copy()
         branch_config['layers'].append(branch_output_size)
         branch_config_for_module = branch_config.copy()
         branch_config_for_module.pop("type", None)
-        branch_config["module"] = NetworkFactory.create_network(branch_config_for_module)
+        if branch_config["type"] == 'trainable':
+            branch_config["module"] = NetworkFactory.create_network(branch_config_for_module)
 
         trunk_config = trunk_config.copy()
         trunk_config['layers'].append(trunk_output_size)
         trunk_config_for_module = trunk_config.copy()
         trunk_config_for_module.pop("type", None)
-        trunk_config["module"] = NetworkFactory.create_network(trunk_config_for_module)
+        if trunk_config["type"] == 'trainable':
+            trunk_config["module"] = NetworkFactory.create_network(trunk_config_for_module)
 
         trunk = trunk_factory(trunk_config)
         branch = branch_factory(branch_config)
