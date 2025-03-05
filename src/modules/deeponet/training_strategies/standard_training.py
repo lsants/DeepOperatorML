@@ -19,23 +19,22 @@ class StandardTrainingStrategy(TrainingStrategy):
         config["type"] = "trainable"
         return config
 
-    def prepare_training(self, model: DeepONet, **kwargs) -> None:
-        # For standard training, ensure that all parameters are trainable.
+    def prepare_training(self, model: 'DeepONet', **kwargs) -> None:
         for param in model.trunk.parameters():
             param.requires_grad = True
         for param in model.branch.parameters():
             param.requires_grad = True
 
-    def forward(self, model: DeepONet, xb: torch.Tensor=None, xt: torch.Tensor=None, **kwargs) -> tuple[torch.Tensor]:
+    def forward(self, model: 'DeepONet', xb: torch.Tensor=None, xt: torch.Tensor=None, **kwargs) -> tuple[torch.Tensor]:
         branch_out = model.branch.forward(xb)
         trunk_out = model.trunk.forward(xt)
-        return model.output_strategy.forward(model, branch_out=branch_out, trunk_out=trunk_out)
+        return model.output_handling.forward(model, branch_out=branch_out, trunk_out=trunk_out)
 
-    def compute_loss(self, outputs, batch, model: DeepONet, params, **kwargs) -> float:
+    def compute_loss(self, outputs, batch, model: 'DeepONet', params, **kwargs) -> float:
         targets = tuple(batch[key] for key in params["OUTPUT_KEYS"])
         return self.loss_fn(targets, outputs)
 
-    def compute_errors(self, outputs, batch, model: DeepONet, params, **kwargs) -> Dict[str, Any]:
+    def compute_errors(self, outputs, batch, model: 'DeepONet', params, **kwargs) -> Dict[str, Any]:
         errors = {}
         error_norm = params.get("ERROR_NORM", 2)
         targets = {k: v for k, v in batch.items() if k in params["OUTPUT_KEYS"]}

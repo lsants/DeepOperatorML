@@ -1,30 +1,39 @@
 import torch
-import torch.nn as nn
-from base_branch import BaseBranch
+from .base_branch import BaseBranch
 
-class TrainableBranch(BaseBranch):
-    def __init__(self, module: nn.Module):
+class TrainableBranch(BaseBranch,  torch.nn.Module):
+    def __init__(self, module: torch.nn.Module):
         """
         A branch implemented as a trainable neural network.
         """
+        super().__init__()
         self.module = module
 
     def __str__(self):
         def get_layer_sizes(module):
-            first_layer = next(iter(module.children()))
-            if hasattr(first_layer, 'in_features'):
-                input_size = first_layer.in_features
-            elif hasattr(first_layer, 'in_channels'):
-                input_size = first_layer.in_channels
+            children = list(module.children())
+            if len(children) == 0:
+        # Use the module itself if no children exist.
+                target = module
+            else:
+                target = children[0]
+            if hasattr(target, 'in_features'):
+                input_size = target.in_features
+            elif hasattr(target, 'in_channels'):
+                input_size = target.in_channels
             else:
                 raise ValueError("Could not determine input size of the first layer.")
-            last_layer = list(module.children())[-1]
-            if hasattr(last_layer, 'out_features'):
-                output_size = last_layer.out_features
-            elif hasattr(last_layer, 'out_channels'):
-                output_size = last_layer.out_channels
+            
+            if len(children) == 0:
+                target = module
             else:
-                raise ValueError("Could not determine output size of the last layer.")
+                target = children[-1]
+            if hasattr(target, 'out_features'):
+                output_size = target.out_features
+            elif hasattr(target, 'out_channels'):
+                output_size = target.out_channels
+            else:
+                raise ValueError("Could not determine output size of the module.")
             return input_size, output_size
         input_size, output_size = get_layer_sizes(self.module)
         

@@ -1,12 +1,13 @@
 import torch
 import torch.nn as nn
-from base_trunk import BaseTrunk
+from .base_trunk import BaseTrunk
 
-class TrainableTrunk(BaseTrunk):
-    def __init__(self, module: nn.Module):
+class TrainableTrunk(BaseTrunk, torch.nn.Module):
+    def __init__(self, module: torch.nn.Module):
         """
         A trunk that is a trainable neural network.
         """
+        super().__init__()
         self.module = module
 
     def __str__(self):

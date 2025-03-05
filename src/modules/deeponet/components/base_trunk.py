@@ -1,7 +1,5 @@
 import torch
-import torch.nn as nn
 from abc import ABC, abstractmethod
-from typing import Any, Dict, Optional
 
 class BaseTrunk(ABC):
     @abstractmethod

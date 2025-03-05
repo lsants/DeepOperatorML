@@ -1,14 +1,8 @@
 from .deeponet import DeepONet
-from .output_handling import (
-    OutputHandling,
-    ShareBranchHandling,
-    ShareTrunkHandling,
-    SingleOutputHandling,
-    SplitOutputsHandling
-)
-from .training_strategies import (
-    TrainingStrategy,
-    StandardTrainingStrategy,
-    TwoStepTrainingStrategy,
-    PODTrainingStrategy
-)
+
+from . import components
+from . import factories
+from . import nn
+from . import optimization
+from . import output_handling
+from . import training_strategies

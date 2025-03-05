@@ -28,6 +28,9 @@ class PODBasisHelper:
         self.pod_basis = pod_basis
         self.mean_functions = mean_functions
 
+    def get_pod_data(self) -> tuple[torch.Tensor]:
+        return self.pod_basis, self.mean_functions
+
     def compute_modes(self, model: "DeepONet", basis_config: str, **kwargs) -> int:
         """
         Computes the POD modes based on the provided BASIS_CONFIG.
@@ -118,7 +121,7 @@ class PODBasisHelper:
             mean_functions_list.append(mean)
         
         n_modes = max(modes_per_output)
-        truncated_bases = [b[:, :n_modes] for b in pod_basis_list]
+        truncated_bases = [basis[:, : n_modes] for basis in pod_basis_list]
         self.pod_basis = torch.cat(truncated_bases, dim=-1)  # shape: (features, n_modes * num_outputs)
         self.mean_functions = torch.stack(mean_functions_list, dim=0)  # shape: (num_outputs, features)
         
@@ -128,4 +131,4 @@ class PODBasisHelper:
         model.register_buffer("pod_basis", self.pod_basis)
         model.register_buffer("mean_functions", self.mean_functions)
         model.n_basis_functions = n_modes
-        return n_modes
+        return n_modes, self.pod_basis, self.mean_functions

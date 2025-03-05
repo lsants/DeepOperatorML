@@ -5,7 +5,7 @@ import logging
 logger = logging.getLogger(__name__)
 
 class TwoStepHelper:
-    def __init__(self, decomposition_helper, A: torch.nn.Parameter | None = None):
+    def __init__(self, decomposition_helper, device: str, precision: torch.dtype):
         """
         Initializes the TwoStepHelper.
         
@@ -14,9 +14,18 @@ class TwoStepHelper:
             A (optional): A matrix parameter used in the branch phase.
         """
         self.decomposition_helper = decomposition_helper
-        self.A = A
+        self.device = device
+        self.precision = precision
+        self.A = None
 
-    def compute_outputs(self, model, xb: torch.Tensor | None, xt: torch.Tensor | None, phase: str) -> tuple:
+    def set_A_matrix(self, branch_batch_size: int, branch_output_size: int):
+        A_dims = (branch_batch_size, branch_output_size)
+        self.A = torch.nn.Parameter(torch.randn(A_dims).to(device=self.device, 
+                                                           dtype=self.precision)
+                                    )
+        torch.nn.init.kaiming_uniform_(self.A)
+
+    def compute_outputs(self, model, xb: torch.Tensor | None, xt: torch.Tensor | None, phase: str) -> tuple[torch.Tensor]:
         """
         Computes trunk and branch outputs based on the current phase.
         
@@ -34,18 +43,19 @@ class TwoStepHelper:
             phase: Current phase ("trunk" or "branch").
         
         Returns:
-            A tuple (trunk_out, branch_out).
+            A tuple (branch_out, trunk_out).
         """
         if phase == "trunk":
             trunk_out = model.trunk.forward(xt)
             branch_out = self.A
+            return branch_out, trunk_out 
         elif phase == "branch":
-            trunk_out = model.trunk.forward(xt)
-            branch_out = model.get_branch_output(xb)
+            branch_out = model.branch.forward(xb)
+            return branch_out, ...
         else:
             trunk_out = model.trunk.forward(xt)
-            branch_out = model.get_branch_output(xb)
-        return trunk_out, branch_out
+            branch_out = model.branch.forward(xb)
+            return branch_out, trunk_out 
 
     def compute_loss(self, outputs: tuple, batch: dict[str, torch.Tensor], model, params: dict, phase: str, loss_fn: callable) -> float:
         """
@@ -70,18 +80,15 @@ class TwoStepHelper:
             return loss_fn(targets, outputs)
         elif phase == "branch":
             K = model.n_basis_functions
+            n = model.n_outputs
             R = self.decomposition_helper.R
             if R is None:
                 raise ValueError("TwoStepHelper: R matrix is not available; ensure trunk phase decomposition is complete.")
-            # If R is computed in two blocks (2*K x 2*K), merge them.
-            if R.shape[0] == 2 * K and R.shape[1] == 2 * K:
-                R_first = R[:K, :K]
-                R_second = R[K:, K:]
-                R = torch.cat((R_first, R_second), dim=1)
-            # Here, instead of calling output_handling.forward to generate targets,
-            # we assume that in branch phase, synthetic targets are computed by directly combining A and R.
-            # For example, we might define:
-            targets = torch.matmul(R, self.A).T  # Adjust as needed based on your fusion logic.
+            # If there are multiple trunks (size of R = n * number of basis functions), merge the A matrix
+            if R.shape[0] == R.shape[1] == n * K:
+                blocks = [R[i * K : (i + 1) * K , i * K : (i + 1) * K] for i in range(n)]
+                R = torch.cat(blocks, dim=1)
+            targets = tuple(model.output_handling.forward(model, branch_out=self.A, trunk_out=R))
             return loss_fn(targets, outputs)
         else:
             # Default to direct target-based computation.
@@ -107,11 +114,13 @@ class TwoStepHelper:
             R = self.decomposition_helper.R
             if R is None:
                 raise ValueError("TwoStepHelper: R matrix is not available for error computation in branch phase.")
-            if R.shape[0] == 2 * K and R.shape[1] == 2 * K:
-                R_first = R[:K, :K]
-                R_second = R[K:, K:]
+            # If there are multiple trunks (size of R = n * number of basis functions), merge the A matrix: (this should ideally be refactored into a function that works for n > 2)
+            if R.shape[0] == model.n_outputs * K and R.shape[1] == model.n_outputs * K:
+                R_first = R[ : K, : K]
+                R_second = R[K : , K : ]
                 R = torch.cat((R_first, R_second), dim=1)
-            targets = torch.matmul(R, self.A).T  # Synthetic targets.
+            # If there are multiple branches (cols of A = n * number of basis functions), break A into a tuple containing n matrices
+            targets = tuple(model.output_handling.forward(model, branch_out=self.A, trunk_out=R))
             for key, target, pred in zip(params["OUTPUT_KEYS"], targets, outputs):
                 norm_t = torch.linalg.vector_norm(target, ord=error_norm)
                 norm_e = torch.linalg.vector_norm(target - pred, ord=error_norm)
@@ -124,12 +133,11 @@ class TwoStepHelper:
                 errors[key] = (norm_e / norm_t).item() if norm_t > 0 else float("inf")
         return errors
 
-    def compute_pretrained_trunk(self, model, trunk_input: torch.Tensor) -> torch.Tensor:
+    def compute_trained_trunk(self, model, params: dict, trunk_input: torch.Tensor) -> torch.Tensor:
         """
         Computes the pretrained trunk tensor from trunk_input using the model's trunk and the decomposition helper.
         """
-        trunk_output = model.trunk(trunk_input)
-        pretrained = self.decomposition_helper.decompose(trunk_output)
+        pretrained = self.decomposition_helper.decompose(model, params, trunk_input)
         return pretrained
 
     def after_epoch(self, epoch: int, model, params: dict, **kwargs) -> None:
@@ -137,4 +145,4 @@ class TwoStepHelper:
         Optional hook to perform operations after each epoch.
         """
         # This could include logging, monitoring convergence, etc.
-        logger.info(f"TwoStepHelper: Epoch {epoch} completed.")
+        # logger.info(f"TwoStepHelper: Epoch {epoch} completed.")

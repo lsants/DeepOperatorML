@@ -1,6 +1,5 @@
 import torch
 from abc import ABC, abstractmethod
-from base_branch import BaseBranch
 
 class BaseBranch(ABC):
     @abstractmethod

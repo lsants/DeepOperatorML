@@ -3,13 +3,13 @@ import torch
 import logging
 from typing import TYPE_CHECKING, Any, Dict, Tuple, Optional
 if TYPE_CHECKING:
-    from .output_handling import OutputHandling
-    from .training_strategies import TrainingStrategy
+    from .output_handling.output_handling_base import OutputHandling
+    from .training_strategies.training_strategy_base import TrainingStrategy
 
 logger = logging.getLogger(__name__)
 
 class DeepONet(torch.nn.Module):
-    def __init__(self, base_branch_config: dict, base_trunk_config: dict, output_handling: OutputHandling, training_strategy: TrainingStrategy, n_outputs: int, n_basis_functions: int, **kwargs) -> None:
+    def __init__(self, base_branch_config: dict, base_trunk_config: dict, output_handling: 'OutputHandling', training_strategy: 'TrainingStrategy', n_outputs: int, n_basis_functions: int, **kwargs) -> None:
         """Initializes the DeepONet model with specified strategies.
 
         Args:
@@ -24,8 +24,8 @@ class DeepONet(torch.nn.Module):
         super(DeepONet, self).__init__()
         self.n_outputs: int = n_outputs
         self.n_basis_functions: int = n_basis_functions
-        self.output_handling: OutputHandling = output_handling
-        self.training_strategy: TrainingStrategy = training_strategy
+        self.output_handling: 'OutputHandling' = output_handling
+        self.training_strategy: 'TrainingStrategy' = training_strategy
 
         trunk_config = self.training_strategy.get_trunk_config(base_trunk_config)
         branch_config = self.training_strategy.get_branch_config(base_branch_config)
@@ -37,12 +37,4 @@ class DeepONet(torch.nn.Module):
         self.training_strategy.prepare_training(self, **kwargs)
 
     def forward(self, xb: torch.Tensor | None=None, xt: torch.Tensor | None=None) -> tuple[torch.Tensor]:
-        """
-        For a given input batch, compute branch and trunk outputs. If trunk input is not provided,
-        the trunk is expected to return its fixed basis (via get_basis()).
-        The training strategy then fuses these outputs appropriately.
-        """
-        branch_out = self.branch.forward(xb) if xb is not None else None
-        # If no trunk input is provided, assume the trunk returns its stored basis.
-        trunk_out = self.trunk.forward(xt) if xt is not None else self.trunk.get_basis()
-        return self.training_strategy.forward(self, xb=branch_out, xt=trunk_out)
+        return self.training_strategy.forward(self, xb=xb, xt=xt)

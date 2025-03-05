@@ -1,42 +1,95 @@
+# File: src/modules/deeponet/helpers/optimizer_scheduler_manager.py
 import torch
 import logging
-from ...deeponet import DeepONet
-from typing import Any, Dict, Tuple, Optional
-from training_strategy_base import TrainingStrategy
+from typing import Dict, Any
+from ...factories.optimizer_factory import OptimizerFactory
 
+logger = logging.getLogger(__name__)
 
-class OptimizerSchedulerHelper:
-    def get_optimizers(self, model: DeepONet, params: Dict[str, Any], A: Optional[torch.nn.Parameter]) -> Dict[str, torch.optim.Optimizer]:
-        """Creates separate optimizers for trunk and branch networks."""
-        trunk_params = list(model.trunk_network.parameters())
-        if A is not None:
-            trunk_params.append(A)
-        optimizers = {
-            'trunk': torch.optim.Adam(
-                trunk_params,
-                lr=params.get('TRUNK_LEARNING_RATE'),
-                weight_decay=params.get('L2_REGULARIZATION', 0)
-            ),
-            'branch': torch.optim.Adam(
-                model.branch_network.parameters(),
-                lr=params.get('BRANCH_LEARNING_RATE'),
-                weight_decay=params.get('L2_REGULARIZATION', 0)
+class OptimizerSchedulerManager:
+    def __init__(self, config: Dict[str, Any], model: torch.nn.Module):
+        """
+        Initializes the manager based on a schedule defined in the configuration.
+        
+        The config is expected to contain an "OPTIMIZER_SCHEDULE" key that is a list of dictionaries.
+        Each dictionary should contain:
+            - "epochs": integer, the epoch threshold (upper bound) for this optimizer setting.
+            - "optimizer": string, the name of the optimizer (e.g. "adam").
+            - Other optimizer parameters (like "LEARNING_RATE", "L2_REGULARIZATION", etc.)
+            - Optionally, "lr_scheduler": dict with keys "step_size" and "gamma".
+        
+        If "OPTIMIZER_SCHEDULE" is not provided, a single optimizer is used.
+        """
+        self.schedule = config.get("OPTIMIZER_SCHEDULE", None)
+        self.optimizer_schedule = []
+        self.model = model 
+        if self.schedule is not None:
+            # Assume the schedule list is sorted by the "epochs" threshold.
+            for item in self.schedule:
+                optimizer_params = {
+                    "LEARNING_RATE": item.get("LEARNING_RATE"),
+                    "L2_REGULARIZATION": item.get("L2_REGULARIZATION", 0)
+                }
+                optimizer = OptimizerFactory.get_optimizer(
+                    item.get("optimizer", "adam"),
+                    list(model.parameters()),
+                    optimizer_params
+                )
+                scheduler = None
+                if "lr_scheduler" in item and item["lr_scheduler"]:
+                    scheduler = torch.optim.lr_scheduler.StepLR(
+                        optimizer,
+                        step_size=item["lr_scheduler"].get("step_size"),
+                        gamma=item["lr_scheduler"].get("gamma")
+                    )
+                self.optimizer_schedule.append({
+                    "EPOCHS": item["EPOCHS"],
+                    "OPTIMIZER": optimizer,
+                    "SCHEDULER": scheduler
+                })
+            logger.info("OptimizerSchedulerManager: Multiple optimizer schedule configured.")
+        else:
+            optimizer_params = {
+                "LEARNING_RATE": config.get("LEARNING_RATE"),
+                "L2_REGULARIZATION": config.get("L2_REGULARIZATION", 0)
+            }
+            optimizer = OptimizerFactory.get_optimizer(
+                config.get("OPTIMIZER", "adam"),
+                list(model.parameters()),
+                optimizer_params
             )
-        }
-        return optimizers
+            scheduler = None
+            if config.get("LR_SCHEDULING", False):
+                scheduler = torch.optim.lr_scheduler.StepLR(
+                    optimizer,
+                    step_size=config.get("SCHEDULER_STEP_SIZE"),
+                    gamma=config.get("SCHEDULER_GAMMA")
+                )
+            self.optimizer_schedule.append({
+                "epochs": float("inf"),
+                "optimizer": optimizer,
+                "scheduler": scheduler
+            })
+            logger.info("OptimizerSchedulerManager: Single optimizer configured.")
 
-    def get_schedulers(self, optimizers: Dict[str, torch.optim.Optimizer], params: Dict[str, Any]) -> Dict[str, Any]:
-        """Creates learning rate schedulers for trunk and branch optimizers if enabled."""
-        schedulers = {}
-        if params.get("LR_SCHEDULING", False):
-            schedulers['trunk'] = torch.optim.lr_scheduler.StepLR(
-                optimizers['trunk'],
-                step_size=params.get('TRUNK_SCHEDULER_STEP_SIZE'),
-                gamma=params.get('TRUNK_SCHEDULER_GAMMA')
-            )
-            schedulers['branch'] = torch.optim.lr_scheduler.StepLR(
-                optimizers['branch'],
-                step_size=params.get('BRANCH_SCHEDULER_STEP_SIZE'),
-                gamma=params.get('BRANCH_SCHEDULER_GAMMA')
-            )
-        return schedulers
+    def get_active_optimizer(self, current_epoch: int) -> Dict[str, torch.optim.Optimizer]:
+        """
+        Returns the optimizer that should be active at the current epoch.
+        """
+        for entry in self.optimizer_schedule:
+            if current_epoch < entry["EPOCHS"]:
+                return {"active": entry["OPTIMIZER"]}
+        return {"active": self.optimizer_schedule[-1]["OPTIMIZER"]}
+
+    def get_active_scheduler(self, current_epoch: int) -> Dict[str, Any]:
+        """
+        Returns the scheduler that should be active at the current epoch.
+        """
+        for entry in self.optimizer_schedule:
+            if current_epoch < entry["EPOCHS"]:
+                return {"active": entry["SCHEDULER"]}
+        return {"active": self.optimizer_schedule[-1]["SCHEDULER"]}
+
+    def step_scheduler(self, scheduler: torch.optim.lr_scheduler._LRScheduler) -> None:
+        if scheduler is not None:
+            scheduler.step()

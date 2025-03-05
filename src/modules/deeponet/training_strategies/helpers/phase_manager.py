@@ -8,7 +8,6 @@ logger = logging.getLogger(__name__)
 
 class PhaseManager:
     def __init__(self) -> None:
-        # Only two phases are used in training.
         self.current_phase = 'trunk'
 
     def prepare_phase(self, model: 'DeepONet') -> None:
@@ -28,17 +27,17 @@ class PhaseManager:
         logger.info(f"Training phase updated to: {self.current_phase}")
 
     def _freeze_trunk(self, model: 'DeepONet') -> None:
-        for param in model.trunk_network.parameters():
+        for param in model.trunk.parameters():
             param.requires_grad = False
 
     def _unfreeze_trunk(self, model: 'DeepONet') -> None:
-        for param in model.trunk_network.parameters():
+        for param in model.trunk.parameters():
             param.requires_grad = True
 
     def _freeze_branch(self, model: 'DeepONet') -> None:
-        for param in model.branch_network.parameters():
+        for param in model.branch.parameters():
             param.requires_grad = False
 
     def _unfreeze_branch(self, model: 'DeepONet') -> None:
-        for param in model.branch_network.parameters():
+        for param in model.branch.parameters():
             param.requires_grad = True

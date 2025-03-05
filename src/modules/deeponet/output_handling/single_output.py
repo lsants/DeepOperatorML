@@ -1,7 +1,6 @@
 import logging
 import torch
 from .output_handling_base import OutputHandling
-from ..factories.component_factory import branch_factory, trunk_factory
 from ...utilities.log_functions import pprint_layer_dict
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
@@ -20,29 +19,12 @@ class SingleOutputHandling(OutputHandling):
     def BASIS_CONFIG(self):
         return 'single'
     
-    def configure_components(self, model, branch_config: dict, trunk_config: dict, **kwargs) -> tuple:
-        if hasattr(model, "pod_basis") and model.pod_basis is not None:
-            pod_helper = kwargs.get("pod_helper", None)
-            if pod_helper is not None:
-                n_modes = pod_helper.compute_modes(model)
-            model.n_basis_functions = n_modes
-            trunk_config["type"] = "fixed"
-            trunk_config["fixed_tensor"] = model.pod_basis
-        else:
-            trunk_config["type"] = trunk_config.get("type", "trainable")
-
+    def configure_components(self, model: 'DeepONet', branch_config: dict, trunk_config: dict, **kwargs) -> tuple:
         n_basis_functions = model.n_basis_functions
         trunk_output_size = n_basis_functions
         branch_output_size = n_basis_functions
 
-        trunk_config = trunk_config.copy()
-        trunk_config['layers'].append(trunk_output_size)
-
-        branch_config = branch_config.copy()
-        branch_config['layers'].append(branch_output_size)
-
-        trunk = model.trunk_factory(trunk_config)
-        branch = model.branch_factory(branch_config)
+        branch, trunk = self.create_components(model, branch_config, trunk_config, branch_output_size, trunk_output_size)
 
         logger.debug(f"SingleOutputHandling: Computed trunk output size: {trunk_output_size}")
         logger.debug(f"SingleOutputHandling: Computed branch output size: {branch_output_size}")
@@ -51,12 +33,12 @@ class SingleOutputHandling(OutputHandling):
 
         return branch, trunk
     
-def forward(self, model: DeepONet, trunk_out: torch.Tensor, branch_out: torch.Tensor) -> tuple[torch.Tensor]: 
-    """
-    For SingleOutputHandling, a single aggregated output is produced by directly multiplying
-    the trunk and branch outputs.
-    """
-    output = torch.matmul(trunk_out, branch_out).T
-    return (output,)
+    def forward(self, model: 'DeepONet', branch_out: torch.Tensor, trunk_out: torch.Tensor) -> tuple[torch.Tensor]: 
+        """
+        For SingleOutputHandling, a single aggregated output is produced by directly multiplying
+        the trunk and branch outputs.
+        """
+        output = torch.matmul(trunk_out, branch_out.T).T
+        return (output,)
 
 

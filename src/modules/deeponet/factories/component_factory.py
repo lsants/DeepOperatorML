@@ -5,14 +5,14 @@ from ..components import (
     TrainableBranch,
     TrainableTrunk,
     PretrainedTrunk,
-    FixedTensorTrunk,
+    PODTrunk,
 )
 
 def trunk_factory(config: Dict[str, Any]) -> BaseTrunk:
     """
     Creates a trunk instance based on configuration.
     Expected keys:
-      - 'type': one of ['trainable', 'pretrained', 'fixed']
+      - 'type': one of ['trainable', 'pretrained', 'data']
       - Depending on type, the config should include 'module' or 'fixed_tensor'
     """
     trunk_type = config.get("type", "trainable")
@@ -20,8 +20,8 @@ def trunk_factory(config: Dict[str, Any]) -> BaseTrunk:
         return TrainableTrunk(config["module"])
     elif trunk_type == "pretrained":
         return PretrainedTrunk(config["fixed_tensor"])
-    elif trunk_type == "fixed":
-        return FixedTensorTrunk(config["fixed_tensor"])
+    elif trunk_type == "data":
+        return PODTrunk(**config["data"])
     else:
         raise ValueError(f"Unknown trunk type: {trunk_type}")
 

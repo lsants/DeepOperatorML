@@ -1,13 +1,13 @@
 import torch
-import torch.nn as nn
-from base_trunk import BaseTrunk
+from .base_trunk import BaseTrunk
 
-class PretrainedTrunk(BaseTrunk):
+class PretrainedTrunk(BaseTrunk, torch.nn.Module):
     def __init__(self, trained_tensor: torch.Tensor):
         """
         A trunk that is represented by a pre-trained Tensor(e.g., trunk network was trained separetely).
         """
-        self.trained_tensor = trained_tensor
+        super().__init__()
+        self.register_buffer("trained_tensor", trained_tensor)
 
     def __str__(self):
         input_size, output_size = self.trained_tensor.shape

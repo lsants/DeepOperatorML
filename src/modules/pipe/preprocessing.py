@@ -509,7 +509,7 @@ def postprocess_for_2D_plot(model: DeepONet, plot_config: dict[str, any], model_
     truth_field = process_outputs_to_plot_format(truth_field, coords_tuple)
     pred_field = process_outputs_to_plot_format(pred_field, coords_tuple)
 
-    trunk_output = model.training_strategy.get_basis_functions(xt=trunk_features, model=model)
+    trunk_output = model.trunk.forward(trunk_features).T # (coords, n_basis)
     # branch_output = model.training_strategy.get_coefficients(xb=branch_features, model=model)
     basis_modes = process_outputs_to_plot_format(trunk_output, coords_tuple, basis=True)
     # coeff_modes = process_outputs_to_plot_format(branch_output, branch_tuple, basis=True) # Need to implement a 'plot coeffs' function for the future
