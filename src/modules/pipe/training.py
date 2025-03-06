@@ -81,7 +81,7 @@ class TrainingLoop:
             best_val_loss = float('inf')
 
             phase_start = time.time()
-            for epoch in tqdm(range(phase_epochs), desc=f"Phase: {phase}", colour="green"):
+            for epoch in tqdm(range(phase_epochs), desc=f"Phase: {phase}", colour=self.params.get("STANDARD_PROGRESS_BAR_COLOR", 'blue')):
                 active_optimizer = self.optimizer_manager.get_active_optimizer(epoch)["active"]
                 active_scheduler = self.optimizer_manager.get_active_scheduler(epoch)["active"]
 
