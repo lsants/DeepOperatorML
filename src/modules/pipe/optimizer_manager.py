@@ -2,7 +2,7 @@
 import torch
 import logging
 from typing import Dict, Any
-from ...factories.optimizer_factory import OptimizerFactory
+from ..deeponet.factories.optimizer_factory import OptimizerFactory
 
 logger = logging.getLogger(__name__)
 
@@ -24,7 +24,6 @@ class OptimizerSchedulerManager:
         self.optimizer_schedule = []
         self.model = model 
         if self.schedule is not None:
-            # Assume the schedule list is sorted by the "epochs" threshold.
             for item in self.schedule:
                 optimizer_params = {
                     "LEARNING_RATE": item.get("LEARNING_RATE"),
@@ -36,11 +35,11 @@ class OptimizerSchedulerManager:
                     optimizer_params
                 )
                 scheduler = None
-                if "lr_scheduler" in item and item["lr_scheduler"]:
+                if "LR_SCHEDULER" in item and item["LR_SCHEDULER"]:
                     scheduler = torch.optim.lr_scheduler.StepLR(
                         optimizer,
-                        step_size=item["lr_scheduler"].get("step_size"),
-                        gamma=item["lr_scheduler"].get("gamma")
+                        step_size=item["LR_SCHEDULER"].get("STEP_SIZE"),
+                        gamma=item["LR_SCHEDULER"].get("GAMMA")
                     )
                 self.optimizer_schedule.append({
                     "EPOCHS": item["EPOCHS"],

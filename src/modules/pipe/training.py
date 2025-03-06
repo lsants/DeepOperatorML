@@ -55,7 +55,10 @@ class TrainingLoop:
          - Logs metrics via HistoryStorer.
         """
 
-        epochs_list = [self.params["TRUNK_TRAIN_EPOCHS"], self.params["BRANCH_TRAIN_EPOCHS"]] if isinstance(self.training_strategy, TwoStepTrainingStrategy) else [self.params["EPOCHS"]]
+        if isinstance(self.training_strategy, TwoStepTrainingStrategy):
+            epochs_list = [self.params["TRUNK_TRAIN_EPOCHS"], self.params["BRANCH_TRAIN_EPOCHS"]]
+        else:
+            epochs_list = [self.params["EPOCHS"]]
         
         if len(self.phases) != len(epochs_list):
             raise ValueError("TRAINING_PHASES and EPOCHS_PER_PHASE lengths do not match.")
@@ -69,7 +72,10 @@ class TrainingLoop:
             logger.info(f"Starting phase '{phase}' for {phase_epochs} epochs.")
             
             self.training_strategy.update_training_phase(phase)
-            self.training_strategy.prepare_for_phase(self.model, model_params=self.params, train_batch=ppr.prepare_batch(train_batch, self.params))
+            self.training_strategy.prepare_for_phase(self.model, 
+                                                     model_params=self.params, 
+                                                     train_batch=ppr.prepare_batch(train_batch, self.params)
+                                                     )
             
             best_train_loss = float('inf')
             best_val_loss = float('inf')
@@ -84,14 +90,14 @@ class TrainingLoop:
 
                 loss = self.training_strategy.compute_loss(outputs, batch, self.model, self.params)
 
-                if epoch % 1000 == 0 and epoch > 0:
+                if epoch % 10 == 0 and epoch > 0:
                     logger.info(f"Loss: {loss:.2E}")
 
                 active_optimizer.zero_grad()
                 loss.backward()
                 active_optimizer.step()
-                if active_scheduler:
-                    active_scheduler.step()
+                if active_scheduler is not None:
+                    self.optimizer_manager.step_scheduler(active_scheduler)
                 
                 errors = self.training_strategy.compute_errors(outputs, batch, self.model, self.params)
                 self.storer.store_epoch_train_loss(phase, loss.item())
@@ -137,7 +143,6 @@ class TrainingLoop:
             val_errors = self.training_strategy.compute_errors(val_outputs, val_batch_processed, self.model, self.params)
 
         self.storer.store_epoch_val_loss(phase, val_loss.item())
-        # for key in self.params['OUTPUT_KEYS']:
         self.storer.store_epoch_val_errors(phase, val_errors)
 
     def _log_epoch_metrics(self, epoch: int, train_loss: float, train_errors: dict[str, list[float]], val_metrics: dict[str, list[float]]) -> None:
