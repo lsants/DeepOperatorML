@@ -8,7 +8,7 @@ MODEL_FOLDER: ./models/
 # ------------------------- Dataset parameters ---------------
 PROBLEM: dynamic
 
-INPUT_FUNCTION_KEYS: # F, mu, nu if Kelvin ; delta if dynamic (xb for now)
+INPUT_FUNCTION_KEYS: # F, mu, nu if Kelvin ; delta if dynamic with fixed material
 -  delta
 
 COORDINATE_KEYS:
@@ -26,13 +26,11 @@ PRECISION: float32
 DEVICE: cpu
 SEED: 42
 
-LOSS_FUNCTION: mse
 TRAINING_STRATEGY: standard
-EPOCHS_PER_PHASE: [10000]
 OUTPUT_HANDLING: split_outputs
 BASIS_FUNCTIONS: 40
 BRANCH_ARCHITECTURE: resnet
-BRANCH_ACTIVATION: relu
+BRANCH_ACTIVATION: leaky_relu
 BRANCH_DEGREE: 8
 BRANCH_HIDDEN_LAYERS:
     - 100 
@@ -43,7 +41,7 @@ BRANCH_HIDDEN_LAYERS:
     - 100 
 
 TRUNK_ARCHITECTURE: resnet
-TRUNK_ACTIVATION: relu
+TRUNK_ACTIVATION: leaky_relu
 TRUNK_DEGREE: 8
 TRUNK_HIDDEN_LAYERS:
     - 100 
@@ -53,6 +51,7 @@ TRUNK_HIDDEN_LAYERS:
     - 100 
     - 100 
 
+LOSS_FUNCTION: mse
 INPUT_NORMALIZATION: true # allow to pick between min max and std 
 OUTPUT_NORMALIZATION: false
 TRUNK_FEATURE_EXPANSION: 10
