@@ -61,7 +61,7 @@ class TrainingLoop:
             epochs_list = [self.params["EPOCHS"]]
         
         if len(self.phases) != len(epochs_list):
-            raise ValueError("TRAINING_PHASES and EPOCHS_PER_PHASE lengths do not match.")
+            raise ValueError("List of epochs don't match number of training phases.")
 
         best_model_checkpoint = None
 
