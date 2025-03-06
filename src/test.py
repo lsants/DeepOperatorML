@@ -72,7 +72,7 @@ def test_model(config_path: str, trained_model_config: dict | None=None) -> None
     # --------------------- Plotting fields & axes -----------------------
     if config.get('PLOT_FIELD', False):
         for dim, indices in tqdm(selected_indices.items(), colour='blue'):
-            for count, idx in tqdm(enumerate(indices), colour='green'):
+            for count, idx in tqdm(enumerate(indices), colour=config['PLOT_FIELD_BAR_COLOR']):
                 param_val = tuple(data_for_2D_plotting["branch_features"][idx])
                 fig_field = plot_2D_field(
                     coords=data_for_2D_plotting["coords_2D"],
@@ -98,7 +98,7 @@ def test_model(config_path: str, trained_model_config: dict | None=None) -> None
     # --------------------- Plotting basis -----------------------
     n_basis = min(config_model.get('BASIS_FUNCTIONS'), len(data_for_2D_plotting["basis_functions_2D"]))
     if config.get('PLOT_BASIS', False):
-        for i in tqdm(range(1, n_basis + 1), colour='blue'):
+        for i in tqdm(range(1, n_basis + 1), colour=config['PLOT_BASIS_BAR_COLOR']):
             fig_mode = plot_basis_function(data_for_2D_plotting["coords_2D"], 
                                         data_for_2D_plotting["basis_functions_2D"][i - 1],
                                         index=i,
