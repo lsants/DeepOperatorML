@@ -1,12 +1,11 @@
 import time
 import torch
 import logging
-from typing import Dict, Any, Optional
 from tqdm.auto import tqdm
 from ..pipe.saving import Saver
 from .store_outputs import HistoryStorer
-from . import preprocessing as ppr
 from ..deeponet.deeponet import DeepONet
+from ..data_processing import batching as bt
 from ..plotting.plot_training import plot_training, align_epochs
 from ..deeponet.training_strategies.helpers import OptimizerSchedulerManager
 from ..deeponet.training_strategies import (
@@ -74,7 +73,7 @@ class TrainingLoop:
             self.training_strategy.update_training_phase(phase)
             self.training_strategy.prepare_for_phase(self.model, 
                                                      model_params=self.params, 
-                                                     train_batch=ppr.prepare_batch(train_batch, self.params)
+                                                     train_batch=bt.prepare_batch(train_batch, self.params)
                                                      )
             
             best_train_loss = float('inf')
@@ -85,7 +84,7 @@ class TrainingLoop:
                 active_optimizer = self.optimizer_manager.get_active_optimizer(epoch)["active"]
                 active_scheduler = self.optimizer_manager.get_active_scheduler(epoch)["active"]
 
-                batch = ppr.prepare_batch(train_batch, self.params)
+                batch = bt.prepare_batch(train_batch, self.params)
                 outputs = self.model(batch["xb"], batch["xt"])
 
                 loss = self.training_strategy.compute_loss(outputs, batch, self.model, self.params)
@@ -136,7 +135,7 @@ class TrainingLoop:
         if isinstance(self.training_strategy, TwoStepTrainingStrategy):
             return
         self.model.eval()
-        val_batch_processed = ppr.prepare_batch(val_batch, self.params)
+        val_batch_processed = bt.prepare_batch(val_batch, self.params)
         with torch.no_grad():
             val_outputs = self.model(val_batch_processed['xb'], val_batch_processed['xt'])
             val_loss = self.training_strategy.compute_loss(val_outputs, val_batch_processed, self.model, self.params)

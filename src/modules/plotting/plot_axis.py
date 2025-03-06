@@ -1,6 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
-from ..pipe.preprocessing import format_param
+from .plot_utils import format_param
 
 def plot_axis(coords, truth_field, pred_field, param_value, axis=None,
                         non_dim_plot=True, rotated=False, coord_labels=None):

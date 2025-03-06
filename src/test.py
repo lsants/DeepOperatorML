@@ -1,14 +1,14 @@
 import logging
 import numpy as np
-import matplotlib.pyplot as plt
 from tqdm.auto import tqdm
-from .modules.pipe.inference import inference
+import matplotlib.pyplot as plt
 from .modules.pipe.saving import Saver
-from .modules.plotting.plot_field import plot_2D_field
-from .modules.plotting.plot_axis import plot_axis
-from .modules.plotting.plot_basis import plot_basis_function
 from .modules.utilities import dir_functions
-from .modules.pipe import preprocessing as ppr
+from .modules.pipe.inference import inference
+from .modules.plotting.plot_axis import plot_axis
+from .modules.plotting.plot_field import plot_2D_field
+from .modules.plotting.plot_basis import plot_basis_function
+from .modules.plotting.plot_utils import postprocess_for_2D_plot
 
 logger = logging.getLogger(__name__)
 
@@ -47,7 +47,7 @@ def test_model(config_path: str, trained_model_config: dict | None=None) -> None
 
     # -------------------- Process data for plots ---------------------
 
-    data_for_2D_plotting = ppr.postprocess_for_2D_plot(model=model, 
+    data_for_2D_plotting = postprocess_for_2D_plot(model=model, 
                                                        plot_config=config, 
                                                        model_config=config_model, 
                                                        branch_features=branch_features, 

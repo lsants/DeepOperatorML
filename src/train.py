@@ -5,9 +5,10 @@ import logging
 from .modules.pipe.saving import Saver
 from .modules.utilities import dir_functions
 from .modules.pipe.training import TrainingLoop
-from .modules.pipe import preprocessing as ppr
+from .modules.data_processing import batching as bt
+from .modules.data_processing import data_loader as dtl
 from .modules.deeponet.factories.model_factory import ModelFactory
-from .modules.data_processing.compose_transformations import Compose
+from .modules.data_processing.transforms import Compose, ToTensor
 from .modules.data_processing.deeponet_dataset import DeepONetDataset
 
 logger = logging.getLogger(__name__)
@@ -22,13 +23,13 @@ def train_model(config_path: str) -> dict[str, any]:
 
     # ---------------------------- Load dataset ----------------------
 
-    to_tensor_transform = ppr.ToTensor(dtype=getattr(torch, params['PRECISION']), device=params['DEVICE'])
+    to_tensor_transform = ToTensor(dtype=getattr(torch, params['PRECISION']), device=params['DEVICE'])
 
     transformations = Compose([
         to_tensor_transform
     ])
 
-    processed_data = ppr.preprocess_npz_data(params['DATAFILE'], 
+    processed_data = dtl.preprocess_npz_data(params['DATAFILE'], 
                                             params["INPUT_FUNCTION_KEYS"], 
                                             params["COORDINATE_KEYS"],
                                             direction=params["DIRECTION"] if params["PROBLEM"] == 'kelvin' else None)
@@ -45,7 +46,7 @@ def train_model(config_path: str) -> dict[str, any]:
 
     # ------------------------------ Setup data normalization ------------------------
 
-    params["NORMALIZATION_PARAMETERS"] = ppr.get_norm_params(train_dataset, params)
+    params["NORMALIZATION_PARAMETERS"] = dtl.get_norm_params(train_dataset, params)
 
     # ------------------------------------ Initialize model -----------------------------
 
@@ -82,8 +83,8 @@ def train_model(config_path: str) -> dict[str, any]:
 
     # ---------------------------------- Batching data -------------------------------------
 
-    train_batch = ppr.get_single_batch(dataset, train_dataset.indices, params)
-    val_batch = ppr.get_single_batch(dataset, val_dataset.indices, params) if params.get('VAL_PERC', 0) > 0 else None
+    train_batch = bt.get_single_batch(dataset, train_dataset.indices, params)
+    val_batch = bt.get_single_batch(dataset, val_dataset.indices, params) if params.get('VAL_PERC', 0) > 0 else None
 
     # ----------------------------------------- Train loop ---------------------------------
     start_time = time.time()

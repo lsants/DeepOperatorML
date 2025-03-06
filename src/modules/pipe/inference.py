@@ -1,7 +1,10 @@
 import time
 import torch
 import logging
-from . import preprocessing as ppr
+from ..data_processing import transforms
+from ..data_processing.scaling import Scaling
+from ..data_processing import data_loader as dtl
+from ..data_processing.transforms import ToTensor
 from ..deeponet.factories.model_factory import ModelFactory
 from ..data_processing.deeponet_dataset import DeepONetDataset
 from ..deeponet.training_strategies import TwoStepTrainingStrategy, PODTrainingStrategy
@@ -42,10 +45,10 @@ def inference(params: dict):
 
     evaluator = TestEvaluator(model, config_model['ERROR_NORM'])
     
-    to_tensor_transform = ppr.ToTensor(dtype=getattr(torch, precision), device=device)
+    to_tensor_transform = ToTensor(dtype=getattr(torch, precision), device=device)
     output_keys = config_model["OUTPUT_KEYS"]
 
-    processed_data = ppr.preprocess_npz_data(path_to_data, 
+    processed_data = dtl.preprocess_npz_data(path_to_data, 
                                              config_model["INPUT_FUNCTION_KEYS"], 
                                              config_model["COORDINATE_KEYS"], 
                                              direction=config_model["DIRECTION"] if config_model["PROBLEM"] == 'kelvin' else None)
@@ -69,17 +72,17 @@ def inference(params: dict):
     for key in output_keys:
         ground_truth[key] = inference_dataset[key]
     
-    xb_scaler = ppr.Scaling(
+    xb_scaler = Scaling(
         min_val=config_model['NORMALIZATION_PARAMETERS']['xb']['min'],
         max_val=config_model['NORMALIZATION_PARAMETERS']['xb']['max']
     )
-    xt_scaler = ppr.Scaling(
+    xt_scaler = Scaling(
         min_val=config_model['NORMALIZATION_PARAMETERS']['xt']['min'],
         max_val=config_model['NORMALIZATION_PARAMETERS']['xt']['max']
     )
     output_scalers = {}
     for key in output_keys:
-        output_scalers[key] = ppr.Scaling(
+        output_scalers[key] = Scaling(
             min_val=config_model['NORMALIZATION_PARAMETERS'][key]['min'],
             max_val=config_model['NORMALIZATION_PARAMETERS'][key]['max']
         )
@@ -91,7 +94,7 @@ def inference(params: dict):
         ground_truth_norm = {key: output_scalers[key].normalize(ground_truth[key]) for key in output_keys}
     
     if config_model['TRUNK_FEATURE_EXPANSION']:
-        xt = ppr.trunk_feature_expansion(xt, config_model['TRUNK_FEATURE_EXPANSION'])
+        xt = transforms.trunk_feature_expansion(xt, config_model['TRUNK_FEATURE_EXPANSION'])
 
     # fixing expected number of basis functions
     config_model['BASIS_FUNCTIONS'] = model.n_basis_functions
