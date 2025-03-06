@@ -6,7 +6,7 @@ import numpy as np
 logger = logging.getLogger(__name__)
 
 class DeepONetDataset(torch.utils.data.Dataset):
-    def __init__(self, data: dict[str, np.ndarray], transform: Optional[Callable[..., any]]=None, output_keys: Optional[list[str]] = None):
+    def __init__(self, data: dict[str, np.ndarray], transform: Optional[Callable[..., any]]=None, output_keys: Optional[list[str]]=None) -> None:
         """
         Args:
             data (dict): Dictionary containing the data.
