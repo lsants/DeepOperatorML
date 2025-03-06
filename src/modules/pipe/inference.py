@@ -91,7 +91,7 @@ def inference(params: dict):
         ground_truth_norm = {key: output_scalers[key].normalize(ground_truth[key]) for key in output_keys}
     
     if config_model['TRUNK_FEATURE_EXPANSION']:
-        xt = ppr.trunk_feature_expansion(xt, config_model['TRUNK_EXPANSION_FEATURES_NUMBER'])
+        xt = ppr.trunk_feature_expansion(xt, config_model['TRUNK_FEATURE_EXPANSION'])
 
     # fixing expected number of basis functions
     config_model['BASIS_FUNCTIONS'] = model.n_basis_functions

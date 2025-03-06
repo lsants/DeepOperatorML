@@ -271,9 +271,9 @@ def prepare_batch(batch: dict[str, torch.Tensor], params: dict[str, any]) -> dic
         else:
             processed_batch[key] = batch[key].to(dtype=dtype, device=device)
 
-    if params['TRUNK_FEATURE_EXPANSION']:
+    if params['TRUNK_FEATURE_EXPANSION'] > 0:
         processed_batch['xt'] = trunk_feature_expansion(
-            processed_batch['xt'], params['TRUNK_EXPANSION_FEATURES_NUMBER']
+            processed_batch['xt'], params['TRUNK_FEATURE_EXPANSION']
         )
 
     return processed_batch
@@ -465,7 +465,7 @@ def postprocess_for_2D_plot(model: DeepONet, plot_config: dict[str, any], model_
     )
     xt_plot = trunk_features
     if model_config['TRUNK_FEATURE_EXPANSION']:
-        xt_plot = xt_plot[:, : xt_plot.shape[-1] // (1 + 2 * model_config['TRUNK_EXPANSION_FEATURES_NUMBER'])]
+        xt_plot = xt_plot[:, : xt_plot.shape[-1] // (1 + 2 * model_config['TRUNK_FEATURE_EXPANSION'])]
     if model_config['INPUT_NORMALIZATION']:
         xt_plot = xt_scaler.denormalize(xt_plot)
 

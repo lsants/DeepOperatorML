@@ -21,8 +21,8 @@ class ModelFactory:
         data = kwargs.get('train_data')
 
         trunk_input_size = len(model_params['COORDINATE_KEYS'])
-        if model_params.get('TRUNK_FEATURE_EXPANSION', False):
-            trunk_input_size += 2 * len(model_params['COORDINATE_KEYS']) * model_params['TRUNK_EXPANSION_FEATURES_NUMBER']
+        if model_params.get('TRUNK_FEATURE_EXPANSION', 0) > 0:
+            trunk_input_size += 2 * len(model_params['COORDINATE_KEYS']) * model_params['TRUNK_FEATURE_EXPANSION']
 
         branch_config = {
             'architecture': model_params['BRANCH_ARCHITECTURE'],
