@@ -1,7 +1,7 @@
 import logging
 import torch
 from .output_handling_base import OutputHandling
-from ..training_strategies import TwoStepTrainingStrategy
+from ..training_strategies import TwoStepTrainingStrategy, PODTrainingStrategy
 from ....exceptions import InvalidStrategyCombinationError
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
@@ -18,10 +18,15 @@ class ShareBranchHandling(OutputHandling):
         return 'multiple'
 
     def configure_components(self, model, branch_config: dict, trunk_config: dict, **kwargs) -> tuple:
-        if isinstance(model.training_strategy, TwoStepTrainingStrategy):
+        if isinstance(model.training_strategy, TwoStepTrainingStrategy) or isinstance(model.training_strategy, PODTrainingStrategy):
             raise InvalidStrategyCombinationError(
-                "ShareBranchHandling is incompatible with TwoStepTrainingStrategy.",
-                "Please choose a different output handling or training strategy."
+                strategy=model.training_strategy,
+                handling='ShareBranchHandling',
+                reason=(
+                    "The fixed trunk restricts the optimization problem "
+                    "(a single branch representation is insufficient to fit the solution space)."
+                ),
+                suggestion="Please choose a different output handling."
             )
             
         processed_trunk_config = self.config_basis(model, trunk_config)
