@@ -80,7 +80,7 @@ class PODBasisHelper:
             raise ValueError("Variance share must be provided for POD basis computation.")
         n_modes = (explained_variance_ratio < variance_share).sum().item() + 1
         
-        basis = U[:, :n_modes]  # shape (features, n_modes)
+        basis = U[ : , : n_modes]  # shape (features, n_modes)
         self.pod_basis = basis
         self.mean_functions = mean  # shape (1, features)
         

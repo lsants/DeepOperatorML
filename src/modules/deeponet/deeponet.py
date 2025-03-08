@@ -1,7 +1,7 @@
 # modules/model/deeponet.py
 import torch
 import logging
-from typing import TYPE_CHECKING, Any, Dict, Tuple, Optional
+from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from .output_handling.output_handling_base import OutputHandling
     from .training_strategies.training_strategy_base import TrainingStrategy
