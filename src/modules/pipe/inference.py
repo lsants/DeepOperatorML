@@ -1,29 +1,38 @@
 import time
 import torch
+import numpy
 import logging
 from ..data_processing import transforms
 from ..data_processing.scaling import Scaling
 from ..data_processing import data_loader as dtl
-from ..data_processing.transforms import ToTensor
+from ..data_processing.transforms import ToTensor, Rescale
 from ..deeponet.factories.model_factory import ModelFactory
 from ..data_processing.deeponet_dataset import DeepONetDataset
 from ..deeponet.training_strategies import TwoStepTrainingStrategy, PODTrainingStrategy
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
+    from ..deeponet import DeepONet
 
 logger = logging.getLogger(__name__)
 
 class TestEvaluator:
-    def __init__(self, model, error_norm):
+    def __init__(self, model: 'DeepONet', error_norm: int | float) -> None:
         self.model = model
         self.error_norm = error_norm
 
-    def __call__(self, g_u, pred):
+    def __call__(self, g_u: torch.Tensor, pred: torch.Tensor) -> numpy.ndarray:
         self.model.eval()
         with torch.no_grad():
             test_error = torch.linalg.vector_norm((pred - g_u), ord=self.error_norm)\
                         / torch.linalg.vector_norm(g_u, ord=self.error_norm)
         return test_error.detach().cpu().numpy()
 
-def inference(params: dict):
+def inference(params: dict[str, any]) -> tuple['DeepONet', 
+                                               dict[str, torch.Tensor], 
+                                               dict[str, torch.Tensor], 
+                                               torch.Tensor, 
+                                               torch.Tensor, 
+                                               dict[str, any]]:
     path_to_data = params['DATAFILE']
     precision = params['PRECISION']
     device = params['DEVICE']
@@ -98,6 +107,8 @@ def inference(params: dict):
 
     # fixing expected number of basis functions
     config_model['BASIS_FUNCTIONS'] = model.n_basis_functions
+
+    rescale = Rescale(factor=config_model['BASIS_FUNCTIONS'], config=config_model['RESCALING'])
     
     logger.info("\n\n----------------- Starting inference... --------------\n\n")
     start_time = time.time()
@@ -113,6 +124,9 @@ def inference(params: dict):
         preds = model(xb=xb)
     else:
         preds = model(xb=xb, xt=xt)
+        
+    preds = tuple(rescale.inverse(pred) for pred in preds)
+    
     end_time = time.time()
     inference_time = end_time - start_time
     
@@ -124,12 +138,10 @@ def inference(params: dict):
     if config_model['OUTPUT_NORMALIZATION']:
         preds_norm = {}
         for key in output_keys:
-            preds_norm[key] = output_scalers[key].normalize(preds[key])
+            preds_norm[key], preds[key] = preds[key], output_scalers[key].denormalize(preds[key])
         errors_norm = {}
         for key in output_keys:
             errors_norm[key] = evaluator(ground_truth_norm[key], preds_norm[key])
-        for key in output_keys:
-            preds[key] = output_scalers[key].denormalize(preds_norm[key])
         config_model['ERRORS_NORMED'] = errors_norm
     else:
         errors_norm = {}
