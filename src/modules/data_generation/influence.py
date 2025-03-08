@@ -1,6 +1,6 @@
-from ctypes import CDLL, c_double, c_long, POINTER, byref
-import platform
 import os
+import platform
+from ctypes import CDLL, c_double, c_long, POINTER, byref
 
 def influence(c11_val, c12_val, c13_val, c33_val, c44_val,
                dens_val, damp_val,
@@ -20,7 +20,7 @@ def influence(c11_val, c12_val, c13_val, c33_val, c44_val,
     else:
         raise OSError('Unsupported operating system')
     
-    lib_path = os.path.join('./modules/data_generation/', lib_name)
+    lib_path = os.path.join('./modules/data_generation/libs/', lib_name)
     
     lib = CDLL(lib_path)
 
