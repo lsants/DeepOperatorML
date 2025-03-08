@@ -16,7 +16,7 @@ class TwoStepTrainingStrategy(TrainingStrategy):
         self.inference = inference
         self.phase_manager = PhaseManager()
         self.decomposition_helper = DecompositionHelper()
-        self.two_step_helper = TwoStepHelper(self.decomposition_helper, kwargs['device'], getattr(torch, kwargs['precision']))
+        self.two_step_helper = TwoStepHelper(self.decomposition_helper, kwargs['device'], kwargs['precision'])
         self.A_dims = kwargs.get('train_dataset_length'),
         self.A = None
         self.current_phase = self.phase_manager.current_phase  # initially "trunk"
