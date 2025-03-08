@@ -1,19 +1,16 @@
 import os
 import yaml
 import torch
-import warnings
-from typing import Dict, Any, Tuple
 from ..deeponet import DeepONet
+from .loss_factory import LossFactory
+from .strategy_factory import StrategyFactory
 from .activation_factory import ActivationFactory
 from ...utilities.config_utils import process_config
-from .loss_factory import LossFactory
-from .optimizer_factory import OptimizerFactory
-from ..factories.network_factory import NetworkFactory
-from .strategy_factory import StrategyFactory
+from ...data_processing.transforms import Compose, Rescale
 
 class ModelFactory:
     @staticmethod
-    def create_model(model_params: Dict[str, Any], **kwargs) -> Tuple[DeepONet, str]:
+    def create_model(model_params: dict[str, any], **kwargs) -> tuple[DeepONet, str]:
         model_params = process_config(model_params)
         if 'MODELNAME' not in model_params or not model_params['MODELNAME']:
             raise ValueError("MODELNAME is missing in the configuration.")
@@ -52,15 +49,19 @@ class ModelFactory:
         model_params['BASIS_CONFIG'] = output_handling.BASIS_CONFIG
 
         loss_function = LossFactory.get_loss_function(model_params['LOSS_FUNCTION'], model_params)
+        transforms = Compose([
+            Rescale(factor=model_params["BASIS_FUNCTIONS"], config=model_params["RESCALING"])
+        ])
 
         training_strategy = StrategyFactory.get_training_strategy(
             model_params.get('TRAINING_STRATEGY'),
             loss_function,
             data,
             model_params,
+            transform=transforms,
             inference=kwargs.get('inference', False),
             trained_trunk=kwargs.get('trained_trunk'),
-            pod_trunk=kwargs.get('pod_trunk')
+            pod_trunk=kwargs.get('pod_trunk'),
         )
 
         model = DeepONet(
@@ -73,7 +74,6 @@ class ModelFactory:
         ).to(model_params['DEVICE'], dtype=getattr(torch, model_params['PRECISION']))
 
         return model, model_name
-
     
     @staticmethod
     def initialize_model(model_folder: str, model_name: str, device: str, precision: str) -> tuple[DeepONet, dict[str, any]]:

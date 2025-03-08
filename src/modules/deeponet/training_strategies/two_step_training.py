@@ -1,6 +1,6 @@
 import torch
 import logging
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional, Callable
 from .training_strategy_base import TrainingStrategy  
 from .helpers import DecompositionHelper, PhaseManager, TwoStepHelper
 from ..components import PretrainedTrunk, TwoStepTrunk
@@ -11,12 +11,12 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 class TwoStepTrainingStrategy(TrainingStrategy):
-    def __init__(self, loss_fn: callable, inference: bool = False, **kwargs):
-        super().__init__(loss_fn)
+    def __init__(self, loss_fn: callable, inference: bool = False, output_transform: Optional[Callable] = None,**kwargs):
+        super().__init__(loss_fn, output_transform)
         self.inference = inference
         self.phase_manager = PhaseManager()
         self.decomposition_helper = DecompositionHelper()
-        self.two_step_helper = TwoStepHelper(self.decomposition_helper, kwargs['device'], kwargs['precision'])
+        self.two_step_helper = TwoStepHelper(self.decomposition_helper, kwargs['device'], getattr(torch, kwargs['precision']))
         self.A_dims = kwargs.get('train_dataset_length'),
         self.A = None
         self.current_phase = self.phase_manager.current_phase  # initially "trunk"

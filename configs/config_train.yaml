@@ -55,6 +55,7 @@ LOSS_FUNCTION: mse
 INPUT_NORMALIZATION: true # allow to pick between min max and std 
 OUTPUT_NORMALIZATION: false
 TRUNK_FEATURE_EXPANSION: 10
+RESCALING: none # p = number of basis functions. Can be none, 1/p or 1/sqrt(p)
 
 # ------------------- Parameters for vanilla training ------------------
 LEARNING_RATE: 0.001
@@ -66,7 +67,7 @@ TEST_PERC: 0.1
 ERROR_NORM: 2
 STANDARD_PROGRESS_BAR_COLOR: 'green'
 OPTIMIZER_SCHEDULE: 
-    - EPOCHS: 4000
+    - EPOCHS: 5000
       OPTIMIZER: adam
       LEARNING_RATE: 0.001
       L2_REGULARIZATION: 0.00001
@@ -83,7 +84,7 @@ OPTIMIZER_SCHEDULE:
 VAR_SHARE: 0.999
 
 # ------------------- Parameters for two step training ------------------
-TRUNK_TRAIN_EPOCHS: 40
+TRUNK_TRAIN_EPOCHS: 1000
 BRANCH_TRAIN_EPOCHS: 1000
 
 TRUNK_DECOMPOSITION: svd

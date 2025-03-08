@@ -104,11 +104,6 @@ def inference(params: dict[str, any]) -> tuple['DeepONet',
     
     if config_model['TRUNK_FEATURE_EXPANSION']:
         xt = transforms.trunk_feature_expansion(xt, config_model['TRUNK_FEATURE_EXPANSION'])
-
-    # fixing expected number of basis functions
-    config_model['BASIS_FUNCTIONS'] = model.n_basis_functions
-
-    rescale = Rescale(factor=config_model['BASIS_FUNCTIONS'], config=config_model['RESCALING'])
     
     logger.info("\n\n----------------- Starting inference... --------------\n\n")
     start_time = time.time()
@@ -125,7 +120,6 @@ def inference(params: dict[str, any]) -> tuple['DeepONet',
     else:
         preds = model(xb=xb, xt=xt)
         
-    preds = tuple(rescale.inverse(pred) for pred in preds)
     
     end_time = time.time()
     inference_time = end_time - start_time

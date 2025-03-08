@@ -2,10 +2,10 @@ import numpy as np
 import torch
 
 class Compose:
-    def __init__(self, transforms):
+    def __init__(self, transforms: list[callable]) -> None:
         self.transforms = transforms
 
-    def __call__(self, sample):
+    def __call__(self, sample: any) -> any:
         for transform in self.transforms:
             sample = transform(sample)
         return sample
@@ -19,6 +19,33 @@ class ToTensor:
         tensor = torch.tensor(sample, dtype=self.dtype, device=self.device)
         return tensor
     
+class Rescale:
+    def __init__(self, factor: float, config: str) -> None:
+        """Rescaling DeepONet outputs (Nov. 2021, Fair comparison. Lu Lu, Karniadakis)
+
+        Args:
+            factor (float): Scaling factor (usually a function of the number of basis functions 'p')
+            config (str): Function used for scaling. If 'none', scale by 1 (identity).
+        """
+        self.config = config
+        self.factor = self.get_factor(factor, self.config)
+
+    def __call__(self, sample: torch.Tensor) -> torch.Tensor:
+        return self.factor * sample
+    
+    def inverse(self, sample: torch.Tensor) -> torch.Tensor:
+        return sample / self.factor
+    
+    def get_factor(self, factor: float, config: dict[str, float]) -> float:
+        scales_config = {
+            'none': 1,
+            '1/p': 1 / factor,
+            '1/sqrt(p)' : 1 / factor ** (0.5)
+        }
+        return scales_config[config]
+    
+    def update_scale_factor(self, new_scale_factor: float) -> None:
+        self.factor = self.get_factor(new_scale_factor, self.config)
 
 def trunk_feature_expansion(xt: torch.Tensor, n_exp_features: int) -> torch.Tensor:
     expansion_features = [xt]

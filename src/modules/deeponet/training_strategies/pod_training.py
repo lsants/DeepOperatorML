@@ -1,10 +1,11 @@
 # File: src/modules/deeponet/training_strategies/pod_training_strategy.py
+import logging
 import torch
-from .training_strategy_base import TrainingStrategy
+from ..deeponet import DeepONet
 from .helpers import PODBasisHelper
 from ..components.pod_trunk import PODTrunk
-from ..deeponet import DeepONet
-import logging
+from .training_strategy_base import TrainingStrategy
+from ...data_processing.transforms import Compose, Rescale
 
 logger = logging.getLogger(__name__)
 
@@ -18,8 +19,8 @@ class PODTrainingStrategy(TrainingStrategy):
       - Computing the loss and error based on the final prediction.
       - Operating in a single-phase (no phase switching needed).
     """
-    def __init__(self, loss_fn: callable, inference: bool, **kwargs) -> None:
-        super().__init__(loss_fn)
+    def __init__(self, loss_fn: callable, inference: bool, output_transform: Compose = None,**kwargs) -> None:
+        super().__init__(loss_fn, output_transform)
         self.inference = inference
         if not self.inference:
             self.pod_helper = PODBasisHelper(data=kwargs.get('data'), var_share=kwargs.get('var_share'))
@@ -30,10 +31,15 @@ class PODTrainingStrategy(TrainingStrategy):
         For POD, preparation may include verifying that the trunk has been reconfigured
         as a fixed tensor (i.e. the basis functions have been computed by the output strategy).
         """
-        # Optionally verify that model.trunk has the expected attribute or type.
+        
         if not isinstance(model.trunk, PODTrunk):
             raise ValueError("The trunk component is not configured correctly for POD training.")
         logger.info("PODTrainingStrategy: Model trunk is configured for POD.")
+        
+        p_scale_factor = model.n_basis_functions
+        
+        if self.output_transform is not None:
+            self.update_output_rescaling(p_scale_factor)
     
     def forward(self, model: DeepONet, xb: torch.Tensor | None = None, xt: torch.Tensor | None = None, **kwargs) -> torch.Tensor:
         """
@@ -48,6 +54,8 @@ class PODTrainingStrategy(TrainingStrategy):
             output = tuple(x + model.trunk.mean for x in dot_product)
         else:
             output = tuple(dot_product[i] + model.trunk.mean.flatten(start_dim=0, end_dim=1)[i : i + 1] for i in range(model.n_outputs))
+        if self.output_transform is not None:
+            output = tuple(self.output_transform(i) for i in output)
         return output
     
     def compute_loss(self, outputs: tuple[torch.Tensor], batch: dict[str, torch.Tensor], model: DeepONet, params: dict, **kwargs) -> float:
@@ -81,6 +89,15 @@ class PODTrainingStrategy(TrainingStrategy):
         config["type"] = "trainable"
         return config
     
+    def update_output_rescaling(self, new_factor: float) -> None:
+        for transform in self.output_transform.transforms:
+                if isinstance(transform, Rescale):
+                    transform.update_scale_factor(new_factor)
+                    logger.info(f"PODTrainingStrategy: Succesfully set scaling to {transform.config} = {transform.factor}.")
+                    break
+        else:
+            raise ValueError("No Rescale transform found in 'output_transform.")
+
     def update_training_phase(self, phase: str) -> None:
         # For single-phase, simply log that POD uses a default phase.
         logger.info("StandardTrainingStrategy: Using single-phase training.")

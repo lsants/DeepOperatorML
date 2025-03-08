@@ -1,14 +1,16 @@
+import torch
 from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING, Any, Dict, Tuple, Optional
+from ...data_processing.transforms import Compose
+from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from modules.deeponet.deeponet import DeepONet
 
-import torch
 
 class TrainingStrategy(ABC):
-    def __init__(self, loss_fn: callable) -> None:
+    def __init__(self, loss_fn: callable, output_transform: Compose | None = None) -> None:
         self.loss_fn: callable = loss_fn
         self.inference: bool = False
+        self.output_transform: Compose | None = output_transform
 
     @abstractmethod
     def prepare_training(self, model: 'DeepONet', **kwargs) -> None:
@@ -22,8 +24,8 @@ class TrainingStrategy(ABC):
     @abstractmethod
     def forward(self, 
                 model: 'DeepONet', 
-                xb: Optional[torch.Tensor] = None, 
-                xt: Optional[torch.Tensor] = None,
+                xb: torch.Tensor = None, 
+                xt: torch.Tensor = None,
                 **kwargs
         ) -> tuple[torch.Tensor]:
         """
@@ -35,10 +37,10 @@ class TrainingStrategy(ABC):
     
     @abstractmethod
     def compute_loss(self, 
-                     outputs: Tuple[torch.Tensor], 
-                     batch: Dict[str, torch.Tensor], 
+                     outputs: tuple[torch.Tensor], 
+                     batch: dict[str, torch.Tensor], 
                      model: 'DeepONet', 
-                     params: Dict[str, Any], 
+                     params: dict[str, any], 
                      **kwargs
     ) -> float:
         """
@@ -48,19 +50,19 @@ class TrainingStrategy(ABC):
 
     @abstractmethod
     def compute_errors(self, 
-                       outputs: Tuple[torch.Tensor], 
-                       batch: Dict[str, torch.Tensor], 
+                       outputs: tuple[torch.Tensor], 
+                       batch: dict[str, torch.Tensor], 
                        model: 'DeepONet', 
-                       params: Dict[str, Any], 
+                       params: dict[str, any], 
                        **kwargs
-    ) -> Dict[str, Any]:
+    ) -> dict[str, any]:
         """
         Computes error metrics for evaluation.
         """
         pass
 
     @abstractmethod
-    def get_branch_config(self, base_branch_config: Dict[str, Any]) -> Dict[str, Any]:
+    def get_branch_config(self, base_branch_config: dict[str, any]) -> dict[str, any]:
         """
         Returns an updated branch configuration dictionary.
         This method merges strategy-specific parameters into the base_branch_config.
@@ -68,7 +70,7 @@ class TrainingStrategy(ABC):
         pass
 
     @abstractmethod
-    def get_trunk_config(self, base_trunk_config: Dict[str, Any]) -> Dict[str, Any]:
+    def get_trunk_config(self, base_trunk_config: dict[str, any]) -> dict[str, any]:
         """
         Returns an updated trunk configuration dictionary.
         This method merges strategy-specific parameters into the base_trunk_config.
@@ -88,5 +90,5 @@ class TrainingStrategy(ABC):
     def prepare_for_phase(self, model, **kwargs) -> None:
         pass
 
-    def after_epoch(self, epoch: int, model, params: Dict[str, Any], **kwargs) -> None:
+    def after_epoch(self, epoch: int, model, params: dict[str, any], **kwargs) -> None:
         pass

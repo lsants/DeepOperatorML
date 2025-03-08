@@ -35,8 +35,12 @@ def process_config(config):
         model_name += "_" + problem
     training_strategy = config["TRAINING_STRATEGY"]
     model_name += "_" + f"{config['BASIS_FUNCTIONS']}_basis"
-    if training_strategy:
-        model_name += "_" + training_strategy.lower()
+    if config["RESCALING"] != 'none':
+        if config["RESCALING"] == '1/sqrt(p)':
+            model_name += '_' + 'rescaled_by_inv(sqrt(n_basis))'
+        if config["RESCALING"] == '1/p':
+            model_name += '_' + 'rescaled_by_inv(n_basis)'
+    model_name += "_" + training_strategy.lower()
     if training_strategy == 'two_step':
         model_name += '_' + config['TRUNK_DECOMPOSITION']
     if config["LOSS_FUNCTION"] != 'mse':
