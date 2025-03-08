@@ -96,7 +96,10 @@ def test_model(config_path: str, trained_model_config: dict | None=None) -> None
                 # saver(figure=fig_axis, figure_prefix=f"axis_dim{dim}_for_param_{param_val}")
 
     # --------------------- Plotting basis -----------------------
-    n_basis = min(config_model.get('BASIS_FUNCTIONS'), len(data_for_2D_plotting["basis_functions_2D"]))
+    if len(data_for_2D_plotting["basis_functions_2D"]) < config_model.get('BASIS_FUNCTION'):
+        n_basis = len(data_for_2D_plotting["basis_functions_2D"])
+    else:
+        n_basis = config_model.get('BASIS_FUNCTIONS')
     if config.get('PLOT_BASIS', False):
         for i in tqdm(range(1, n_basis + 1), colour=config['PLOT_BASIS_BAR_COLOR']):
             fig_mode = plot_basis_function(data_for_2D_plotting["coords_2D"], 
