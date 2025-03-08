@@ -1,7 +1,8 @@
 import logging
 import torch
 from .output_handling_base import OutputHandling
-from ...utilities.log_functions import pprint_layer_dict
+from ..training_strategies import TwoStepTrainingStrategy
+from ....exceptions import InvalidStrategyCombinationError
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from modules.deeponet.deeponet import DeepONet
@@ -17,6 +18,12 @@ class ShareBranchHandling(OutputHandling):
         return 'multiple'
 
     def configure_components(self, model, branch_config: dict, trunk_config: dict, **kwargs) -> tuple:
+        if isinstance(model.training_strategy, TwoStepTrainingStrategy):
+            raise InvalidStrategyCombinationError(
+                "ShareBranchHandling is incompatible with TwoStepTrainingStrategy.",
+                "Please choose a different output handling or training strategy."
+            )
+            
         processed_trunk_config = self.config_basis(model, trunk_config)
 
         n_basis_functions = model.n_basis_functions
