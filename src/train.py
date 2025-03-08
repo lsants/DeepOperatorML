@@ -97,4 +97,4 @@ def train_model(config_path: str) -> dict[str, any]:
     return model_info
 
 if __name__ == "__main__":
-    train_model("./configs/config_train.yaml")
+    train_model("./configs/training/config_train.yaml")

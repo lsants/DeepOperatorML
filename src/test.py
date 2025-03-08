@@ -115,4 +115,4 @@ def test_model(config_path: str, trained_model_config: dict | None=None) -> None
     logger.info("\n----------------------- Plotting succesfully completed ------------------\n")
 
 if __name__ == "__main__":
-    test_model("./configs/config_test.yaml")
+    test_model("./configs/inference/config_test.yaml")

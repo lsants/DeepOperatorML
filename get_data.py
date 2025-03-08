@@ -4,6 +4,8 @@ import yaml
 import numpy as np
 import argparse
 import logging
+from src.modules.data_generation.data_generation_kelvin import KelvinsProblemDeterministic
+from src.modules.data_generation.data_generation_dynamic_fixed_material import DynamicFixedMaterialProblem
 
 logging.basicConfig(
     level=logging.INFO,
@@ -11,8 +13,6 @@ logging.basicConfig(
     datefmt="%d-%m-%Y %H:%M:%S",
     stream=sys.stdout
 )
-from modules.data_generation.data_generation_dynamic_fixed_material import DynamicFixedMaterialProblem
-from modules.data_generation.data_generation_kelvin import KelvinsProblemDeterministic
 
 logger = logging.getLogger(__name__)
 
@@ -100,4 +100,4 @@ def gen_data(config_path: str):
 
 if __name__ == "__main__":
 
-    gen_data("./configs/config_data_generation.yaml")
+    gen_data("./configs/generation/config_data_generation.yaml")
