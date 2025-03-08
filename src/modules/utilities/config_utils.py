@@ -34,8 +34,13 @@ def process_config(config):
     if problem:
         model_name += "_" + problem
     training_strategy = config["TRAINING_STRATEGY"]
-    if training_strategy:
-        model_name += "_" + training_strategy.lower()
+    model_name += "_" + f"{config['BASIS_FUNCTIONS']}_basis"
+    if config["RESCALING"] != 'none':
+        if config["RESCALING"] == '1/sqrt(p)':
+            model_name += '_' + 'rescaled_by_inv(sqrt(n_basis))'
+        if config["RESCALING"] == '1/p':
+            model_name += '_' + 'rescaled_by_inv(n_basis)'
+    model_name += "_" + training_strategy.lower()
     if training_strategy == 'two_step':
         model_name += '_' + config['TRUNK_DECOMPOSITION']
     if config["LOSS_FUNCTION"] != 'mse':
@@ -46,14 +51,15 @@ def process_config(config):
         model_name += "_out"
     if config.get("INPUT_NORMALIZATION", False) or config.get("OUTPUT_NORMALIZATION", False):
         model_name += "_norm"
-    if config.get("TRUNK_FEATURE_EXPANSION", False):
-        model_name += "_trunkexp"
+    if config.get("TRUNK_FEATURE_EXPANSION", 0) > 0:
+        feature_expansions = config["TRUNK_FEATURE_EXPANSION"]
+        model_name += f"_{feature_expansions}_trunk_exp_fts"
     output_handling = config["OUTPUT_HANDLING"].lower()
     if "share_trunk" in output_handling:
         model_name += "_single_basis"
     if "share_branch" in output_handling:
         model_name += "_mult_basis"
-    elif "split_networks" in output_handling:
+    elif "split_outputs" in output_handling:
         model_name += "_split"
 
     config["MODELNAME"] = model_name

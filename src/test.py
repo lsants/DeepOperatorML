@@ -1,14 +1,14 @@
 import logging
 import numpy as np
-import matplotlib.pyplot as plt
 from tqdm.auto import tqdm
-from .modules.pipe.inference import inference
+import matplotlib.pyplot as plt
 from .modules.pipe.saving import Saver
-from .modules.plotting.plot_field import plot_2D_field
-from .modules.plotting.plot_axis import plot_axis
-from .modules.plotting.plot_basis import plot_basis_function
 from .modules.utilities import dir_functions
-from .modules.pipe import preprocessing as ppr
+from .modules.pipe.inference import inference
+from .modules.plotting.plot_axis import plot_axis
+from .modules.plotting.plot_field import plot_2D_field
+from .modules.plotting.plot_basis import plot_basis_function
+from .modules.plotting.plot_utils import postprocess_for_2D_plot
 
 logger = logging.getLogger(__name__)
 
@@ -47,7 +47,7 @@ def test_model(config_path: str, trained_model_config: dict | None=None) -> None
 
     # -------------------- Process data for plots ---------------------
 
-    data_for_2D_plotting = ppr.postprocess_for_2D_plot(model=model, 
+    data_for_2D_plotting = postprocess_for_2D_plot(model=model, 
                                                        plot_config=config, 
                                                        model_config=config_model, 
                                                        branch_features=branch_features, 
@@ -72,7 +72,7 @@ def test_model(config_path: str, trained_model_config: dict | None=None) -> None
     # --------------------- Plotting fields & axes -----------------------
     if config.get('PLOT_FIELD', False):
         for dim, indices in tqdm(selected_indices.items(), colour='blue'):
-            for count, idx in tqdm(enumerate(indices), colour='green'):
+            for count, idx in tqdm(enumerate(indices), colour=config['PLOT_FIELD_BAR_COLOR']):
                 param_val = tuple(data_for_2D_plotting["branch_features"][idx])
                 fig_field = plot_2D_field(
                     coords=data_for_2D_plotting["coords_2D"],
@@ -96,8 +96,9 @@ def test_model(config_path: str, trained_model_config: dict | None=None) -> None
                 # saver(figure=fig_axis, figure_prefix=f"axis_dim{dim}_for_param_{param_val}")
 
     # --------------------- Plotting basis -----------------------
+    n_basis = min(config_model.get('BASIS_FUNCTIONS'), len(data_for_2D_plotting["basis_functions_2D"]))
     if config.get('PLOT_BASIS', False):
-        for i in tqdm(range(1, config_model.get('BASIS_FUNCTIONS') + 1), colour='blue'):
+        for i in tqdm(range(1, n_basis + 1), colour=config['PLOT_BASIS_BAR_COLOR']):
             fig_mode = plot_basis_function(data_for_2D_plotting["coords_2D"], 
                                         data_for_2D_plotting["basis_functions_2D"][i - 1],
                                         index=i,

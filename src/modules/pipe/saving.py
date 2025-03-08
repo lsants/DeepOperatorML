@@ -34,29 +34,29 @@ class Saver:
         }
         self.full_logging = full_logging
 
-    def __call__(self, phase: str | None=None, **kwargs):
+    def __call__(self, **kwargs):
         """
         Saves various components based on provided keyword arguments.
 
         Args:
-            phase (str, optional): The current training phase (e.g., 'trunk', 'branch'). Defaults to None.
+            name (str, optional): The current name or phase (e.g., 'POD', trunk', 'branch'). Defaults to None.
             **kwargs: Arbitrary keyword arguments corresponding to components to save.
         """
         for key, value in kwargs.items():
             if key in self.save_methods:
                 if key == 'history':
-                    self.save_methods[key](value, phase=phase, filename_prefix=kwargs.get('history_prefix'))
+                    self.save_methods[key](value, filename_prefix=kwargs.get('history_prefix'))
                 elif key == 'figure':
-                    self.save_methods[key](value, phase=phase, filename_prefix=kwargs.get('figure_prefix'))
+                    self.save_methods[key](value, filename_prefix=kwargs.get('figure_prefix'))
                 elif key == 'time':
-                    self.save_methods[key](value, phase=phase, filename_prefix=kwargs.get('time_prefix'))
+                    self.save_methods[key](value, filename_prefix=kwargs.get('time_prefix'))
                 elif key == 'train_state':
                     self.save_methods[key](value['model_state_dict'],
                                            value['optimizer_state_dict'],
                                            value['epochs'],
-                                           phase=phase)
+                                        )
                 else:
-                    self.save_methods[key](value, phase=phase)
+                    self.save_methods[key](value)
 
     def set_logging(self, logging: bool) -> None:
         self.full_logging = logging
@@ -76,7 +76,7 @@ class Saver:
         else:
             return str(obj)
 
-    def save_checkpoint(self, model_state_dict, optimizer_state_dict, epoch, phase: str | None=None) -> None:
+    def save_checkpoint(self, model_state_dict, optimizer_state_dict, epoch) -> None:
         filename = f'checkpoint_{self.name}_epoch_{epoch}.pth'
         model_path = self.make_output_dir(self.model_folder, filename)
         torch.save({
@@ -86,13 +86,13 @@ class Saver:
         }, model_path)
         logger.info(f"\nCheckpoint saved to:\n{model_path}\n")
 
-    def save_model(self, model_state, phase: str | None=None) -> None:
+    def save_model(self, model_state,) -> None:
         filename = f'model_state_{self.name}.pth'
         model_path = self.make_output_dir(self.model_folder, filename)
         torch.save(model_state, model_path)
         logger.info(f"\nModel saved to:\n{model_path}\n")
 
-    def save_model_info(self, model_info: dict, phase: str | None=None) -> None:
+    def save_model_info(self, model_info: dict,) -> None:
         filename = f'model_info_{self.name}.yaml'
         model_info_path = self.make_output_dir(self.data_output_folder, filename)
         serializable_model_info = self.make_serializable(model_info)
@@ -100,7 +100,7 @@ class Saver:
             yaml.dump(serializable_model_info, f)
         logger.info(f"\nModel information saved to:\n{model_info_path}\n")
 
-    def save_indices(self, indices_dict, phase: str | None=None) -> None:
+    def save_indices(self, indices_dict,) -> None:
         filename = f'indices_{self.name}.yaml'
         indices_path = self.make_output_dir(self.data_output_folder, filename)
         with open(indices_path, 'w') as f:
@@ -108,7 +108,7 @@ class Saver:
         if self.full_logging:
             logger.info(f"\nIndices saved to:\n{indices_path}\n")
 
-    def save_norm_params(self, norm_params: dict, phase: str | None=None) -> None:
+    def save_norm_params(self, norm_params: dict,) -> None:
         filename = f'norm_params_{self.name}.yaml'
         norm_params_path = self.make_output_dir(self.data_output_folder, filename)
         serializable_norm_params = self.make_serializable(norm_params)
@@ -117,7 +117,7 @@ class Saver:
         if self.full_logging:
             logger.info(f"\nNormalization parameters saved to:\n{norm_params_path}\n")
 
-    def save_history(self, history: dict, phase: str | None=None, filename_prefix=None) -> None:
+    def save_history(self, history: dict, filename_prefix=None) -> None:
         filename = f'{filename_prefix or "history"}_{self.name}.txt'
         history_path = self.make_output_dir(self.data_output_folder, filename)
         serializable_history = self.make_serializable(history)
@@ -125,7 +125,7 @@ class Saver:
             yaml.dump(serializable_history, f, indent=4)
             logger.info(f"\nTraining history saved to:\n{history_path}\n")
 
-    def save_plots(self, figure, phase: str | None=None, filename_prefix=None) -> None:
+    def save_plots(self, figure, filename_prefix=None) -> None:
         prefix = f"{filename_prefix}_" if filename_prefix else ""
         filename = f'{prefix}plot_{self.name}.png'
         fig_path = self.make_output_dir(self.figures_folder, filename)
@@ -133,8 +133,8 @@ class Saver:
         if self.full_logging:
             logger.info(f"\nFigure saved to:\n{fig_path}\n")
 
-    def save_errors(self, errors: dict, phase: str | None=None) -> None:
-        filename = f"{phase or 'default'}_errors_{self.name}.yaml"
+    def save_errors(self, errors: dict,) -> None:
+        filename = f"errors_{self.name}.txt"
         errors_path = self.make_output_dir(self.data_output_folder, filename)
         errors_serializable = self.make_serializable(errors)
         with open(errors_path, "w") as f:
@@ -142,9 +142,9 @@ class Saver:
         if self.full_logging:
             logger.info(f"\nErrors saved to:\n{errors_path}\n")
 
-    def save_time(self, times: dict, phase: str | None=None, filename_prefix=None) -> None:
+    def save_time(self, times: dict, filename_prefix=None) -> None:
         prefix = f"{filename_prefix}_" if filename_prefix else ""
-        filename = f"{phase or 'default'}_{prefix}time_{self.name}.yaml"
+        filename = f"{prefix}time_{self.name}.txt"
         time_path = self.make_output_dir(self.data_output_folder, filename)
         time_serializable = self.make_serializable(times)
         with open(time_path, "w") as f:

@@ -7,6 +7,7 @@ ACTIVATION_MAP = {
     'leaky_relu': torch.nn.LeakyReLU(),
     'elu': torch.nn.ELU(),
     'gelu': torch.nn.GELU(),
+    'silu': torch.nn.SiLU(),
     'softplus': torch.nn.Softplus(),
     'identity': torch.nn.Identity()
 }

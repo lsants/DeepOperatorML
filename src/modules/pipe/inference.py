@@ -1,25 +1,38 @@
 import time
 import torch
+import numpy
 import logging
-from . import preprocessing as ppr
+from ..data_processing import transforms
+from ..data_processing.scaling import Scaling
+from ..data_processing import data_loader as dtl
+from ..data_processing.transforms import ToTensor, Rescale
 from ..deeponet.factories.model_factory import ModelFactory
 from ..data_processing.deeponet_dataset import DeepONetDataset
+from ..deeponet.training_strategies import TwoStepTrainingStrategy, PODTrainingStrategy
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
+    from ..deeponet import DeepONet
 
 logger = logging.getLogger(__name__)
 
 class TestEvaluator:
-    def __init__(self, model, error_norm):
+    def __init__(self, model: 'DeepONet', error_norm: int | float) -> None:
         self.model = model
         self.error_norm = error_norm
 
-    def __call__(self, g_u, pred):
+    def __call__(self, g_u: torch.Tensor, pred: torch.Tensor) -> numpy.ndarray:
         self.model.eval()
         with torch.no_grad():
             test_error = torch.linalg.vector_norm((pred - g_u), ord=self.error_norm)\
                         / torch.linalg.vector_norm(g_u, ord=self.error_norm)
         return test_error.detach().cpu().numpy()
 
-def inference(params: dict):
+def inference(params: dict[str, any]) -> tuple['DeepONet', 
+                                               dict[str, torch.Tensor], 
+                                               dict[str, torch.Tensor], 
+                                               torch.Tensor, 
+                                               torch.Tensor, 
+                                               dict[str, any]]:
     path_to_data = params['DATAFILE']
     precision = params['PRECISION']
     device = params['DEVICE']
@@ -41,10 +54,10 @@ def inference(params: dict):
 
     evaluator = TestEvaluator(model, config_model['ERROR_NORM'])
     
-    to_tensor_transform = ppr.ToTensor(dtype=getattr(torch, precision), device=device)
+    to_tensor_transform = ToTensor(dtype=getattr(torch, precision), device=device)
     output_keys = config_model["OUTPUT_KEYS"]
 
-    processed_data = ppr.preprocess_npz_data(path_to_data, 
+    processed_data = dtl.preprocess_npz_data(path_to_data, 
                                              config_model["INPUT_FUNCTION_KEYS"], 
                                              config_model["COORDINATE_KEYS"], 
                                              direction=config_model["DIRECTION"] if config_model["PROBLEM"] == 'kelvin' else None)
@@ -68,17 +81,17 @@ def inference(params: dict):
     for key in output_keys:
         ground_truth[key] = inference_dataset[key]
     
-    xb_scaler = ppr.Scaling(
+    xb_scaler = Scaling(
         min_val=config_model['NORMALIZATION_PARAMETERS']['xb']['min'],
         max_val=config_model['NORMALIZATION_PARAMETERS']['xb']['max']
     )
-    xt_scaler = ppr.Scaling(
+    xt_scaler = Scaling(
         min_val=config_model['NORMALIZATION_PARAMETERS']['xt']['min'],
         max_val=config_model['NORMALIZATION_PARAMETERS']['xt']['max']
     )
     output_scalers = {}
     for key in output_keys:
-        output_scalers[key] = ppr.Scaling(
+        output_scalers[key] = Scaling(
             min_val=config_model['NORMALIZATION_PARAMETERS'][key]['min'],
             max_val=config_model['NORMALIZATION_PARAMETERS'][key]['max']
         )
@@ -90,11 +103,11 @@ def inference(params: dict):
         ground_truth_norm = {key: output_scalers[key].normalize(ground_truth[key]) for key in output_keys}
     
     if config_model['TRUNK_FEATURE_EXPANSION']:
-        xt = ppr.trunk_feature_expansion(xt, config_model['TRUNK_EXPANSION_FEATURES_NUMBER'])
+        xt = transforms.trunk_feature_expansion(xt, config_model['TRUNK_FEATURE_EXPANSION'])
     
     logger.info("\n\n----------------- Starting inference... --------------\n\n")
     start_time = time.time()
-    if config_model['TRAINING_STRATEGY'].lower() == 'two_step':
+    if isinstance(model.training_strategy, TwoStepTrainingStrategy):
         if params["PHASE"] == 'trunk':
             preds = model(xt=xt)
         elif params["PHASE"] == 'branch':
@@ -102,10 +115,12 @@ def inference(params: dict):
             preds = coefs
         else:
             preds = model(xb=xb, xt=xt)
-    elif config_model['TRAINING_STRATEGY'] == 'pod':
+    elif isinstance(model.training_strategy, PODTrainingStrategy):
         preds = model(xb=xb)
     else:
         preds = model(xb=xb, xt=xt)
+        
+    
     end_time = time.time()
     inference_time = end_time - start_time
     
@@ -117,12 +132,10 @@ def inference(params: dict):
     if config_model['OUTPUT_NORMALIZATION']:
         preds_norm = {}
         for key in output_keys:
-            preds_norm[key] = output_scalers[key].normalize(preds[key])
+            preds_norm[key], preds[key] = preds[key], output_scalers[key].denormalize(preds[key])
         errors_norm = {}
         for key in output_keys:
             errors_norm[key] = evaluator(ground_truth_norm[key], preds_norm[key])
-        for key in output_keys:
-            preds[key] = output_scalers[key].denormalize(preds_norm[key])
         config_model['ERRORS_NORMED'] = errors_norm
     else:
         errors_norm = {}

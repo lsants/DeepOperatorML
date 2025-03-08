@@ -1,13 +1,12 @@
 import os
 import yaml
 import torch
-import warnings
-from ...utilities.config_utils import process_config
 from ..deeponet import DeepONet
-from .activation_factory import ActivationFactory
 from .loss_factory import LossFactory
-# from factories.optimizer_factory import OptimizerFactory
 from .strategy_factory import StrategyFactory
+from .activation_factory import ActivationFactory
+from ...utilities.config_utils import process_config
+from ...data_processing.transforms import Compose, Rescale
 
 class ModelFactory:
     @staticmethod
@@ -19,8 +18,8 @@ class ModelFactory:
         data = kwargs.get('train_data')
 
         trunk_input_size = len(model_params['COORDINATE_KEYS'])
-        if model_params.get('TRUNK_FEATURE_EXPANSION', False):
-            trunk_input_size += 2 * len(model_params['COORDINATE_KEYS']) * model_params['TRUNK_EXPANSION_FEATURES_NUMBER']
+        if model_params.get('TRUNK_FEATURE_EXPANSION', 0) > 0:
+            trunk_input_size += 2 * len(model_params['COORDINATE_KEYS']) * model_params['TRUNK_FEATURE_EXPANSION']
 
         branch_config = {
             'architecture': model_params['BRANCH_ARCHITECTURE'],
@@ -32,36 +31,43 @@ class ModelFactory:
         }
 
         branch_arch = model_params['BRANCH_ARCHITECTURE'].lower()
-        trunk_arch = model_params['TRUNK_ARCHITECTURE'].lower()
         if branch_arch in ['mlp', 'resnet', 'cnn']:
             branch_config['activation'] = ActivationFactory.get_activation(model_params.get('BRANCH_ACTIVATION'))
+        elif branch_arch == 'kan':
+            branch_config['degree'] = model_params.get('BRANCH_DEGREE')
+
+        trunk_arch = model_params['TRUNK_ARCHITECTURE'].lower()
         if trunk_arch in ['mlp', 'resnet', 'cnn']:
             trunk_config['activation'] = ActivationFactory.get_activation(model_params.get('TRUNK_ACTIVATION'))
-        if branch_arch == 'kan':
-            branch_config['degree'] = model_params.get('BRANCH_DEGREE')
-        if trunk_arch == 'kan':
+        elif trunk_arch == 'kan':
             trunk_config['degree'] = model_params.get('TRUNK_DEGREE')
 
-        output_strategy = StrategyFactory.get_output_strategy(model_params['OUTPUT_HANDLING'], 
-                                                              model_params['OUTPUT_KEYS']
-                                                              )
-        model_params['BASIS_CONFIG'] = output_strategy.BASIS_CONFIG
+        trunk_config.setdefault("type", "trainable")
+        branch_config.setdefault("type", "trainable")
 
-        loss_function = LossFactory.get_loss_function(model_params['LOSS_FUNCTION'],
-                                                                   model_params
-                                                                   )
+        output_handling = StrategyFactory.get_output_handling(model_params['OUTPUT_HANDLING'], model_params['OUTPUT_KEYS'])
+        model_params['BASIS_CONFIG'] = output_handling.BASIS_CONFIG
+
+        loss_function = LossFactory.get_loss_function(model_params['LOSS_FUNCTION'], model_params)
+        transforms = Compose([
+            Rescale(factor=model_params["BASIS_FUNCTIONS"], config=model_params["RESCALING"])
+        ])
+
         training_strategy = StrategyFactory.get_training_strategy(
             model_params.get('TRAINING_STRATEGY'),
             loss_function,
             data,
             model_params,
-            inference=kwargs['inference']
+            transform=transforms,
+            inference=kwargs.get('inference', False),
+            trained_trunk=kwargs.get('trained_trunk'),
+            pod_trunk=kwargs.get('pod_trunk'),
         )
 
         model = DeepONet(
-            branch_config=branch_config,
-            trunk_config=trunk_config,
-            output_strategy=output_strategy,
+            base_branch_config=branch_config,
+            base_trunk_config=trunk_config,
+            output_handling=output_handling,
             training_strategy=training_strategy,
             n_outputs=len(model_params['OUTPUT_KEYS']),
             n_basis_functions=model_params['BASIS_FUNCTIONS']
@@ -79,24 +85,29 @@ class ModelFactory:
 
         model_params['DEVICE'] = device
         model_params['PRECISION'] = precision
+        training_strategy = model_params.get('TRAINING_STRATEGY', '').lower()
 
         checkpoint = torch.load(model_path, map_location=device)
 
-        model, _ = ModelFactory.create_model(model_params, inference=True)
+        if training_strategy == 'two_step':
+            model_params['TRAINED_TRUNK'] = checkpoint.get('trained_trunk')
+            trained_trunk = checkpoint.get('trained_trunk')
+            model, _ = ModelFactory.create_model(model_params, 
+                                                 inference=True, 
+                                                 trained_trunk=trained_trunk
+                                                 )
+        elif training_strategy == 'pod':
+            saved_pod_trunk = {'basis': checkpoint.get('pod_basis'), 'mean': checkpoint.get('mean_functions')}
+            model, _ = ModelFactory.create_model(model_params, 
+                                                 inference=True, 
+                                                 pod_trunk=saved_pod_trunk
+                                                 )
+
+        else:
+            model, _ = ModelFactory.create_model(model_params, 
+                                                 inference=True)
         model.load_state_dict(checkpoint['model_state_dict'], strict=False)
 
-        training_strategy = model_params.get('TRAINING_STRATEGY', '').lower()
-        if training_strategy == 'two_step':
-            model.training_strategy.set_matrices(
-                Q=checkpoint.get('Q'),
-                R=checkpoint.get('R'),
-                T=checkpoint.get('T')
-            )
-        elif training_strategy == 'pod':
-            model.training_strategy.set_pod_data(
-                pod_basis=checkpoint.get('pod_basis'),
-                mean_functions=checkpoint.get('mean_functions')
-            )
 
         model.eval()
         return model, model_params

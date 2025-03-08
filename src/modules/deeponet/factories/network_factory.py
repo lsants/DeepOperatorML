@@ -11,8 +11,16 @@ class NetworkFactory:
         
         constructor = NETWORK_ARCHITECTURES[architecture_name]
 
-        required_params = {'layers', 'activation'}
+        required_params_by_arch = {
+            'mlp': {'layers', 'activation'},
+            'resnet': {'layers', 'activation'},
+            'cnn': {'layers', 'activation'}, 
+            'kan': {'layers', 'degree'},
+        }
+        
+        required_params = required_params_by_arch.get(architecture_name, {'layers', 'activation', 'degree'})
         for param in required_params:
             if param not in config:
                 raise ValueError(f"Missing required parameter '{param}' for architecture '{architecture_name}'.")
+        
         return constructor(**config)
