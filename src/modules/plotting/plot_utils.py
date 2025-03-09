@@ -104,8 +104,9 @@ def postprocess_for_2D_plot(model: 'DeepONet', plot_config: dict[str, any], mode
         branch_features = xb_scaler.denormalize(branch_features)
     branch_tuple = dtl.don_to_meshgrid(branch_features)
     branch_map = {k:v for k, v in zip(xb_keys, branch_tuple)}
-    processed_data["branch_features"] = np.array(branch_features)
     processed_data["branch_map"] = branch_map
+
+    processed_data["branch_features"] = np.array(branch_features)
 
     # -------------- Prepare trunk data --------------
 
@@ -160,7 +161,7 @@ def postprocess_for_2D_plot(model: 'DeepONet', plot_config: dict[str, any], mode
     pred_field = process_outputs_to_plot_format(pred_field, coords_tuple)
 
     trunk_output = model.trunk.forward(trunk_features).T # (coords, n_basis)
-    # branch_output = model.training_strategy.get_coefficients(xb=branch_features, model=model)
+    branch_output = model.branch.forward(branch_features).detach().cpu().numpy() # (input_functions, n_basis)
     basis_modes = process_outputs_to_plot_format(trunk_output, coords_tuple, basis=True)
     # coeff_modes = process_outputs_to_plot_format(branch_output, branch_tuple, basis=True) # Need to implement a 'plot coeffs' function for the future
     
@@ -189,6 +190,7 @@ def postprocess_for_2D_plot(model: 'DeepONet', plot_config: dict[str, any], mode
     processed_data["truth_field_2D"] = truth_field[tuple(truth_slicer)]
     processed_data["pred_field_2D"] = pred_field[tuple(pred_slicer)]
     processed_data["basis_functions_2D"] = basis_modes_sliced
+    processed_data["coefficients"] = branch_output
     
     logger.info(f"\nOutputs shape: {pred_field.shape}\n")
     logger.info(f"\n2D Outputs shape: {processed_data['pred_field_2D'].shape}\n")

@@ -31,10 +31,9 @@ def main() -> None:
 
     if not args.skip_train:
         model_info = train_model(args.train_config)
-        test_cfg["DATAFILE"] = train_cfg["DATAFILE"]
+        test_cfg["DATA_FILE"] = model_info["DATA_FILE"]
         test_cfg["MODEL_FOLDER"] = train_cfg["MODEL_FOLDER"]
-        test_cfg["MODELNAME"] = model_info["MODELNAME"]
-
+        test_cfg["MODEL_NAME"] = model_info["MODEL_NAME"]
 
     if not args.skip_test:
         if not args.skip_train:

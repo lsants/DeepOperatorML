@@ -17,57 +17,56 @@ def train_model(config_path: str) -> dict[str, any]:
 
     # --------------------------- Load params file ------------------------
 
-    params = dir_functions.load_params(config_path)
-    logger.info(f"Training data from:\n{params['DATAFILE']}\n")
-    torch.manual_seed(params['SEED'])
+    training_params = dir_functions.load_params(config_path)
+    logger.info(f"Training data from:\n{training_params['DATA_FILE']}\n")
+    torch.manual_seed(training_params['SEED'])
 
     # ---------------------------- Load dataset ----------------------
 
-    to_tensor_transform = ToTensor(dtype=getattr(torch, params['PRECISION']), device=params['DEVICE'])
+    to_tensor_transform = ToTensor(dtype=getattr(torch, training_params['PRECISION']), device=training_params['DEVICE'])
 
     transformations = Compose([
         to_tensor_transform
     ])
 
-    processed_data = dtl.preprocess_npz_data(params['DATAFILE'], 
-                                            params["INPUT_FUNCTION_KEYS"], 
-                                            params["COORDINATE_KEYS"],
-                                            direction=params["DIRECTION"] if params["PROBLEM"] == 'kelvin' else None)
+    processed_data = dtl.preprocess_npz_data(training_params['DATA_FILE'], 
+                                             training_params["INPUT_FUNCTION_KEYS"], 
+                                             training_params["COORDINATE_KEYS"],
+                                             direction=training_params["DIRECTION"] if training_params["PROBLEM"] == 'kelvin' else None)
     dataset = DeepONetDataset(processed_data, 
-                            transformations, 
-                            output_keys=params['OUTPUT_KEYS'])
+                              transformations, 
+                              output_keys=training_params['OUTPUT_KEYS'])
 
-    train_dataset, val_dataset, test_dataset = torch.utils.data.random_split(dataset, [params['TRAIN_PERC'], params['VAL_PERC'], params['TEST_PERC']])
+    train_dataset, val_dataset, test_dataset = torch.utils.data.random_split(dataset, [training_params['TRAIN_PERC'], training_params['VAL_PERC'], training_params['TEST_PERC']])
 
-    params['TRAIN_INDICES'] = train_dataset.indices
-    params['VAL_INDICES'] = val_dataset.indices
-    params['TEST_INDICES'] = test_dataset.indices
-    params['A_DIM'] = (params['BASIS_FUNCTIONS'], len(params['TRAIN_INDICES']))
+    training_params['TRAIN_INDICES'] = train_dataset.indices
+    training_params['VAL_INDICES'] = val_dataset.indices
+    training_params['TEST_INDICES'] = test_dataset.indices
 
     # ------------------------------ Setup data normalization ------------------------
 
-    params["NORMALIZATION_PARAMETERS"] = dtl.get_norm_params(train_dataset, params)
+    training_params["NORMALIZATION_PARAMETERS"] = dtl.get_norm_params(train_dataset, training_params)
 
     # ------------------------------------ Initialize model -----------------------------
 
     model, model_name = ModelFactory.create_model(
-        model_params=params,
+        model_params=training_params,
         train_data=train_dataset[:],
         inference=False
     )
 
     # ---------------------------- Outputs folder --------------------------------
 
-    params['MODELNAME'] = model_name
-    logger.info(f"\nData will be saved at:\n{params['MODEL_FOLDER']}\n\nFigure will be saved at:\n{params['IMAGES_FOLDER']}\n")
+    training_params['MODEL_NAME'] = model_name
+    logger.info(f"\nData will be saved at:\n{training_params['MODEL_FOLDER_TO_SAVE']}\n\nFigure will be saved at:\n{training_params['IMAGES_FOLDER_TO_SAVE']}\n")
 
     # ---------------------------------- Initializing classes for training  -------------------
 
     saver = Saver(
-        model_name=params['MODELNAME'], 
-        model_folder=params['MODEL_FOLDER'], 
-        data_output_folder=params['MODEL_FOLDER'], 
-        figures_folder=os.path.join(params["IMAGES_FOLDER"])
+        model_name=training_params['MODEL_NAME'], 
+        model_folder=training_params['MODEL_FOLDER_TO_SAVE'], 
+        data_output_folder=training_params['MODEL_FOLDER_TO_SAVE'], 
+        figures_folder=os.path.join(training_params["IMAGES_FOLDER_TO_SAVE"])
     )
 
     saver.set_logging(False)
@@ -78,13 +77,13 @@ def train_model(config_path: str) -> dict[str, any]:
         model=model,
         training_strategy=training_strategy,
         saver=saver,
-        params=params
+        params=training_params
     )
 
     # ---------------------------------- Batching data -------------------------------------
 
-    train_batch = bt.get_single_batch(dataset, train_dataset.indices, params)
-    val_batch = bt.get_single_batch(dataset, val_dataset.indices, params) if params.get('VAL_PERC', 0) > 0 else None
+    train_batch = bt.get_single_batch(dataset, train_dataset.indices, training_params)
+    val_batch = bt.get_single_batch(dataset, val_dataset.indices, training_params) if training_params.get('VAL_PERC', 0) > 0 else None
 
     # ----------------------------------------- Train loop ---------------------------------
     start_time = time.time()

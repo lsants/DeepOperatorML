@@ -16,11 +16,11 @@ logging.basicConfig(
 
 logger = logging.getLogger(__name__)
 
-BASE_CONFIG = 'configs/config_train.yaml'
+BASE_CONFIG = 'configs/training/config_train.yaml'
 
 overrides_list = [
     # {"PROBLEM": "dynamic", 
-    #  "DATAFILE" : "./data/raw/dynamic_displacements.npz",
+    #  "DATA_FILE" : "./data/raw/dynamic_displacements.npz",
     #  "INPUT_FUNCTION_KEYS" : ["delta"],
     #  "COORDINATE_KEYS" : ["r", "z"],
     #  "OUTPUT_KEYS" : ["g_u_real", "g_u_imag"],
@@ -30,7 +30,7 @@ overrides_list = [
     #  },
 
     # {"PROBLEM": "dynamic", 
-    #  "DATAFILE" : "./data/raw/dynamic_displacements.npz",
+    #  "DATA_FILE" : "./data/raw/dynamic_displacements.npz",
     #  "INPUT_FUNCTION_KEYS" : ["delta"],
     #  "COORDINATE_KEYS" : ["r", "z"],
     #  "OUTPUT_KEYS" : ["g_u_real", "g_u_imag"],
@@ -40,18 +40,27 @@ overrides_list = [
     #  },
 
     {"PROBLEM": "dynamic", 
-     "DATAFILE" : "./data/raw/dynamic_displacements.npz",
+     "DATA_FILE" : "./data/raw/dynamic_displacements.npz",
      "INPUT_FUNCTION_KEYS" : ["delta"],
      "COORDINATE_KEYS" : ["r", "z"],
      "OUTPUT_KEYS" : ["g_u_real", "g_u_imag"],
      "TRAINING_STRATEGY": "pod",
      "OUTPUT_HANDLING": "share_trunk",
-     "TRUNK_FEATURE_EXPANSION": 1
+     "TRUNK_DECOMPOSITION": 'qr'
      },
+
+    # {"PROBLEM": "dynamic", 
+    #  "DATA_FILE" : "./data/raw/dynamic_displacements.npz",
+    #  "INPUT_FUNCTION_KEYS" : ["delta"],
+    #  "COORDINATE_KEYS" : ["r", "z"],
+    #  "OUTPUT_KEYS" : ["g_u_real", "g_u_imag"],
+    #  "TRAINING_STRATEGY": "two_step",
+    #  "OUTPUT_HANDLING": "split_outputs",
+    #  "TRUNK_DECOMPOSITION": 'svd'
+    #  },
 
 
 ]
-
 
 def run_experiments():
     for i, overrides in enumerate(overrides_list, start=1):
@@ -72,7 +81,6 @@ def run_experiments():
                        temp_config_path], check=True)
 
         os.remove(temp_config_path)
-
 
 if __name__ == "__main__":
     run_experiments()

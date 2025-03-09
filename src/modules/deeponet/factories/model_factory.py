@@ -1,6 +1,7 @@
 import os
 import yaml
 import torch
+import logging
 from ..deeponet import DeepONet
 from .loss_factory import LossFactory
 from .strategy_factory import StrategyFactory
@@ -8,13 +9,15 @@ from .activation_factory import ActivationFactory
 from ...utilities.config_utils import process_config
 from ...data_processing.transforms import Compose, Rescale
 
+logger = logging.getLogger(__name__)
+
 class ModelFactory:
     @staticmethod
     def create_model(model_params: dict[str, any], **kwargs) -> tuple[DeepONet, str]:
         model_params = process_config(model_params)
-        if 'MODELNAME' not in model_params or not model_params['MODELNAME']:
-            raise ValueError("MODELNAME is missing in the configuration.")
-        model_name = model_params['MODELNAME']
+        if 'MODEL_NAME' not in model_params or not model_params['MODEL_NAME']:
+            raise ValueError("MODEL_NAME is missing in the configuration.")
+        model_name = model_params['MODEL_NAME']
         data = kwargs.get('train_data')
 
         trunk_input_size = len(model_params['COORDINATE_KEYS'])
@@ -80,34 +83,35 @@ class ModelFactory:
         model_path = os.path.join(model_folder, f"model_state_{model_name}.pth")
         config_path = os.path.join(model_folder, f"model_info_{model_name}.yaml")
 
-        with open(config_path, 'r') as file:
-            model_params = yaml.safe_load(file)
+        logger.info(f"\nModel name: \n\n{model_name}\n\n")
+        logger.info(f"\nModel loaded from: \n\n{model_path}\n\n")
 
-        model_params['DEVICE'] = device
-        model_params['PRECISION'] = precision
-        training_strategy = model_params.get('TRAINING_STRATEGY', '').lower()
+        with open(config_path, 'r') as file:
+            trained_model_config = yaml.safe_load(file)
+
+        trained_model_config['DEVICE'] = device
+        trained_model_config['PRECISION'] = precision
+        training_strategy = trained_model_config['TRAINING_STRATEGY'].lower()
 
         checkpoint = torch.load(model_path, map_location=device)
 
         if training_strategy == 'two_step':
-            model_params['TRAINED_TRUNK'] = checkpoint.get('trained_trunk')
             trained_trunk = checkpoint.get('trained_trunk')
-            model, _ = ModelFactory.create_model(model_params, 
+            model, _ = ModelFactory.create_model(trained_model_config, 
                                                  inference=True, 
                                                  trained_trunk=trained_trunk
                                                  )
         elif training_strategy == 'pod':
             saved_pod_trunk = {'basis': checkpoint.get('pod_basis'), 'mean': checkpoint.get('mean_functions')}
-            model, _ = ModelFactory.create_model(model_params, 
+            model, _ = ModelFactory.create_model(trained_model_config, 
                                                  inference=True, 
                                                  pod_trunk=saved_pod_trunk
                                                  )
-
         else:
-            model, _ = ModelFactory.create_model(model_params, 
+            model, _ = ModelFactory.create_model(trained_model_config, 
                                                  inference=True)
         model.load_state_dict(checkpoint['model_state_dict'], strict=False)
 
-
         model.eval()
-        return model, model_params
+
+        return model, trained_model_config

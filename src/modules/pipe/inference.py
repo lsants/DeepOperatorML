@@ -27,30 +27,24 @@ class TestEvaluator:
                         / torch.linalg.vector_norm(g_u, ord=self.error_norm)
         return test_error.detach().cpu().numpy()
 
-def inference(params: dict[str, any]) -> tuple['DeepONet', 
+def inference(test_config: dict[str, any]) -> tuple['DeepONet', 
                                                dict[str, torch.Tensor], 
                                                dict[str, torch.Tensor], 
                                                torch.Tensor, 
                                                torch.Tensor, 
                                                dict[str, any]]:
-    path_to_data = params['DATAFILE']
-    precision = params['PRECISION']
-    device = params['DEVICE']
-    model_name = params['MODELNAME']
-    model_folder = params['MODEL_FOLDER']
-    model_location = model_folder + f"model_state_{model_name}.pth"
+    path_to_data = test_config['DATA_FILE']
+    precision = test_config['PRECISION']
+    device = test_config['DEVICE']
+    model_name = test_config['MODEL_NAME']
+    model_folder = test_config['MODEL_FOLDER_TO_LOAD']
     
-    logger.info(f"\nModel name: \n\n{model_name}\n\n")
-    logger.info(f"\nModel loaded from: \n\n{model_location}\n\n")
     logger.info(f"\nData loaded from: \n\n{path_to_data}\n\n")
 
-    model, config_model = ModelFactory.initialize_model(params['MODEL_FOLDER'], 
-                                                        params['MODELNAME'], 
-                                                        params['DEVICE'], 
-                                                        params['PRECISION'])
-    
-    if config_model['TRAINING_STRATEGY']:
-        model.training_phase = 'both'
+    model, config_model = ModelFactory.initialize_model(model_folder, 
+                                                        model_name, 
+                                                        device, 
+                                                        precision)
 
     evaluator = TestEvaluator(model, config_model['ERROR_NORM'])
     
@@ -63,11 +57,11 @@ def inference(params: dict[str, any]) -> tuple['DeepONet',
                                              direction=config_model["DIRECTION"] if config_model["PROBLEM"] == 'kelvin' else None)
     dataset = DeepONetDataset(processed_data, transform=to_tensor_transform, output_keys=output_keys)
     
-    if params['INFERENCE_ON'] == 'train':
+    if test_config['INFERENCE_ON'] == 'train':
         indices_for_inference = config_model['TRAIN_INDICES']
-    elif params['INFERENCE_ON'] == 'val':
+    elif test_config['INFERENCE_ON'] == 'val':
         indices_for_inference = config_model['VAL_INDICES']
-    elif params['INFERENCE_ON'] == 'test':
+    elif test_config['INFERENCE_ON'] == 'test':
         indices_for_inference = config_model['TEST_INDICES']
     else:
         indices_for_inference = config_model['TRAIN_INDICES']
@@ -108,13 +102,7 @@ def inference(params: dict[str, any]) -> tuple['DeepONet',
     logger.info("\n\n----------------- Starting inference... --------------\n\n")
     start_time = time.time()
     if isinstance(model.training_strategy, TwoStepTrainingStrategy):
-        if params["PHASE"] == 'trunk':
-            preds = model(xt=xt)
-        elif params["PHASE"] == 'branch':
-            coefs, preds = model(xb=xb)
-            preds = coefs
-        else:
-            preds = model(xb=xb, xt=xt)
+        preds = model(xb=xb, xt=xt)
     elif isinstance(model.training_strategy, PODTrainingStrategy):
         preds = model(xb=xb)
     else:
