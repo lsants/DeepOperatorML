@@ -41,11 +41,8 @@ overrides_list = [
 
     {"PROBLEM": "dynamic", 
      "DATA_FILE" : "./data/raw/dynamic_displacements.npz",
-     "INPUT_FUNCTION_KEYS" : ["delta"],
-     "COORDINATE_KEYS" : ["r", "z"],
-     "OUTPUT_KEYS" : ["g_u_real", "g_u_imag"],
      "TRAINING_STRATEGY": "pod",
-     "OUTPUT_HANDLING": "share_trunk",
+     "OUTPUT_HANDLING": "split_outputs",
      "TRUNK_DECOMPOSITION": 'qr'
      },
 
