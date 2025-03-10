@@ -77,8 +77,9 @@ def train_model(config_path: str) -> dict[str, any]:
         model=model,
         training_strategy=training_strategy,
         saver=saver,
-        params=training_params
+        training_params=training_params
     )
+
 
     # ---------------------------------- Batching data -------------------------------------
 

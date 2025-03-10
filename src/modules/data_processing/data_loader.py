@@ -103,32 +103,21 @@ def get_norm_params(train_dataset: dict[str, torch.utils.data.Subset], params: d
     xb_min, xb_max = min_max_vals['xb']['min'], min_max_vals['xb']['max']
     xt_min, xt_max = min_max_vals['xt']['min'], min_max_vals['xt']['max']
 
-    normalize_branch = Scaling(min_val=xb_min, max_val=xb_max)
-    normalize_trunk = Scaling(min_val=xt_min, max_val=xt_max)
-
     normalization_parameters = {
         "xb": {
             "min": xb_min,
             "max": xb_max,
-            "normalize": normalize_branch.normalize,
-            "denormalize": normalize_branch.denormalize
         },
         "xt": {
             "min": xt_min,
             "max": xt_max,
-            "normalize": normalize_trunk.normalize,
-            "denormalize": normalize_trunk.denormalize
         }
-    }
-
+    }   
     for key in params['OUTPUT_KEYS']:
         key_min, key_max = min_max_vals[key]['min'], min_max_vals[key]['max']
-        scaling = Scaling(min_val=key_min, max_val=key_max)
         normalization_parameters[key] = {
             "min": key_min,
             "max": key_max,
-            "normalize": scaling.normalize,
-            "denormalize": scaling.denormalize
         }
     return normalization_parameters
 
