@@ -14,10 +14,6 @@ logger = logging.getLogger(__name__)
 class ModelFactory:
     @staticmethod
     def create_model(model_params: dict[str, any], **kwargs) -> tuple[DeepONet, str]:
-        model_params = process_config(model_params)
-        if 'MODEL_NAME' not in model_params or not model_params['MODEL_NAME']:
-            raise ValueError("MODEL_NAME is missing in the configuration.")
-        model_name = model_params['MODEL_NAME']
         data = kwargs.get('train_data')
 
         trunk_input_size = len(model_params['COORDINATE_KEYS'])
@@ -75,6 +71,13 @@ class ModelFactory:
             n_outputs=len(model_params['OUTPUT_KEYS']),
             n_basis_functions=model_params['BASIS_FUNCTIONS']
         ).to(model_params['DEVICE'], dtype=getattr(torch, model_params['PRECISION']))
+
+        model_params["BASIS_FUNCTIONS"] = model.n_basis_functions
+        
+        model_params = process_config(model_params)
+        if 'MODEL_NAME' not in model_params or not model_params['MODEL_NAME']:
+            raise ValueError("MODEL_NAME is missing in the configuration.")
+        model_name = model_params['MODEL_NAME']
 
         return model, model_name
     
