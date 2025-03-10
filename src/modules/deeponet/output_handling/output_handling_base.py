@@ -55,7 +55,6 @@ class OutputHandling(ABC):
                 else:
                     raise ValueError("POD Helper not initialized for training.")
                 model.n_basis_functions = n_modes
-                
                 trunk_config["data"] = {'basis': basis, 'mean': mean}
             else:
                 trunk_config["data"] = model.training_strategy.pod_trunk

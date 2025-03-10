@@ -34,7 +34,7 @@ class PODTrainingStrategy(TrainingStrategy):
         
         if not isinstance(model.trunk, PODTrunk):
             raise ValueError("The trunk component is not configured correctly for POD training.")
-        logger.info("PODTrainingStrategy: Model trunk is configured for POD.")
+        logger.debug("PODTrainingStrategy: Model trunk is configured for POD.")
         
         p_scale_factor = model.n_basis_functions
         
@@ -93,15 +93,14 @@ class PODTrainingStrategy(TrainingStrategy):
         for transform in self.output_transform.transforms:
                 if isinstance(transform, Rescale):
                     transform.update_scale_factor(new_factor)
-                    logger.info(f"PODTrainingStrategy: Succesfully set scaling to {transform.config} = {transform.factor}.")
+                    logger.debug(f"PODTrainingStrategy: Succesfully set scaling to {transform.config} = {transform.factor}.")
                     break
         else:
             raise ValueError("No Rescale transform found in 'output_transform.")
 
     def update_training_phase(self, phase: str) -> None:
-        # For single-phase, simply log that POD uses a default phase.
-        logger.info("StandardTrainingStrategy: Using single-phase training.")
-    
+        pass
+
     def prepare_for_phase(self, model: DeepONet, **kwargs) -> None:
         pass
     
