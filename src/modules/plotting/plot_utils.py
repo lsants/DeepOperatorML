@@ -1,15 +1,19 @@
+import torch
 import logging
 import numpy as np
-import torch
+import matplotlib.pyplot as plt
+from matplotlib import _pylab_helpers
 from ..data_processing.scaling import Scaling
 from ..data_processing import data_loader as dtl
+from matplotlib.patches import ConnectionPatch
+from mpl_toolkits.axes_grid1.inset_locator import inset_axes, mark_inset
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from modules.deeponet.deeponet import DeepONet
 
 logger = logging.getLogger(__name__)
 
-def process_outputs_to_plot_format(output: torch.Tensor, coords, basis: bool=False) -> np.ndarray:
+def process_outputs_to_plot_format(output: torch.Tensor, coords: tuple | list | np.ndarray) -> np.ndarray:
     """
     Reshapes the output from DeepONet into a meshgrid format for plotting.
     
@@ -37,15 +41,11 @@ def process_outputs_to_plot_format(output: torch.Tensor, coords, basis: bool=Fal
 
     if output.ndim == 2:
         N_branch, trunk_size = output.shape
-        if np.prod(grid_shape) != trunk_size and not basis:
+        if np.prod(grid_shape) != trunk_size:
             raise ValueError("Mismatch between trunk size and product of coordinate lengths.")
         reshaped = output.reshape(N_branch, *grid_shape, 1)
     elif output.ndim == 3:
-        if not basis:
-            N_branch, outputs, trunk_size = output.shape
-        else:
-            N_branch, trunk_size, outputs = output.shape
-
+        N_branch, outputs, trunk_size = output.shape
         if np.prod(grid_shape) != trunk_size:
                 raise ValueError("Mismatch between trunk size and product of coordinate lengths.")
         reshaped = output.reshape(N_branch, *grid_shape, outputs)
@@ -54,6 +54,38 @@ def process_outputs_to_plot_format(output: torch.Tensor, coords, basis: bool=Fal
         raise ValueError("Output must be either 2D or 3D.")
     
     return reshaped
+
+def process_basis_to_plot_format(basis: torch.Tensor, coords: tuple | list | np.ndarray, n_channels: int, basis_config: str) -> np.ndarray:
+    if isinstance(coords, (list, tuple)):
+        grid_shape = tuple(len(c) for c in coords)
+    else:
+        grid_shape = (len(coords),)
+
+    
+    basis = basis.detach().cpu().numpy()
+    trunk_output_size, trunk_batch_size = basis.shape
+    if np.prod(grid_shape) != trunk_batch_size:
+            raise ValueError("Mismatch between trunk size and product of coordinate lengths.")
+    intermediate_reshaping = basis.reshape(trunk_output_size, *grid_shape)
+    if basis_config == 'multiple':
+        modes_pre_concat = [intermediate_reshaping[ i * trunk_output_size // n_channels : (i + 1) * (trunk_output_size // n_channels), ... , None] for i in range(n_channels)]
+        basis_reshaped = np.concatenate(modes_pre_concat, axis=-1)
+    else:
+        modes_pre_concat = [intermediate_reshaping[ i * trunk_output_size : (i + 1) * trunk_output_size, ... , None] for i in range(n_channels)]
+        basis_reshaped = np.concatenate(modes_pre_concat, axis=0)
+
+    return basis_reshaped
+
+def process_coefficients_to_plot_format(coefficients: torch.Tensor, n_channels: int, output_handling: str) -> np.ndarray:
+    coefficients = coefficients.detach().cpu().numpy()
+    _, n_modes = coefficients.shape[0], coefficients.shape[1]
+    if output_handling in {'share_trunk', 'split_outputs'}:
+        intermediate_reshaping = [coefficients[ : , i * n_modes // n_channels : (i + 1) * (n_modes // n_channels), None] for i in range(n_channels)]
+    else:
+        intermediate_reshaping = [coefficients[ : , i * n_modes  : (i + 1) * n_modes, None] for i in range(n_channels)]
+    coefficients_reshaped = np.concatenate(intermediate_reshaping, axis=-1)
+    return coefficients_reshaped
+
 
 def format_param(param: dict[str, any], param_keys: list[str] | tuple | None=None) -> str:
     """
@@ -160,13 +192,10 @@ def postprocess_for_2D_plot(model: 'DeepONet', plot_config: dict[str, any], mode
     truth_field = process_outputs_to_plot_format(truth_field, coords_tuple)
     pred_field = process_outputs_to_plot_format(pred_field, coords_tuple)
 
-    trunk_output = model.trunk.forward(trunk_features).T # (coords, n_basis)
-    branch_output = model.branch.forward(branch_features).detach().cpu().numpy() # (input_functions, n_basis)
-    basis_modes = process_outputs_to_plot_format(trunk_output, coords_tuple, basis=True)
-    # coeff_modes = process_outputs_to_plot_format(branch_output, branch_tuple, basis=True) # Need to implement a 'plot coeffs' function for the future
-    
-    if basis_modes.ndim < 4:
-        basis_modes = np.expand_dims(basis_modes, axis=1)
+    trunk_output = model.trunk.forward(trunk_features).T 
+    branch_output = model.branch.forward(branch_features) 
+    basis_modes = process_basis_to_plot_format(trunk_output, coords_tuple, len(output_keys), basis_config=model_config["BASIS_CONFIG"]) # (n_basis, *coords, n_channels)
+    coefficients = process_coefficients_to_plot_format(branch_output, len(output_keys), output_handling=model_config['OUTPUT_HANDLING']) # (input_functions, n_basis, n_channels)
     
     if basis_modes.shape[0] > model_config.get('BASIS_FUNCTIONS'):
         split_1 = basis_modes[ : model_config.get('BASIS_FUNCTIONS')]
@@ -190,11 +219,36 @@ def postprocess_for_2D_plot(model: 'DeepONet', plot_config: dict[str, any], mode
     processed_data["truth_field_2D"] = truth_field[tuple(truth_slicer)]
     processed_data["pred_field_2D"] = pred_field[tuple(pred_slicer)]
     processed_data["basis_functions_2D"] = basis_modes_sliced
-    processed_data["coefficients"] = branch_output
+    processed_data["coefficients"] = coefficients
     
-    logger.info(f"\nOutputs shape: {pred_field.shape}\n")
-    logger.info(f"\n2D Outputs shape: {processed_data['pred_field_2D'].shape}\n")
-    logger.info(f"\n2D Truths shape: {processed_data['truth_field_2D'].shape}\n")
-    logger.info(f"\n2D Basis functions shape: {processed_data['basis_functions_2D'].shape}\n")
+    logger.debug(f"\nOutputs shape: {pred_field.shape}\n")
+    logger.debug(f"\n2D Outputs shape: {processed_data['pred_field_2D'].shape}\n")
+    logger.debug(f"\n2D Truths shape: {processed_data['truth_field_2D'].shape}\n")
+    logger.debug(f"\n2D Basis functions shape: {processed_data['basis_functions_2D'].shape}\n")
 
     return processed_data
+
+def get_modes_indices_to_highlight(abs_mean_coeffs: np.ndarray, n: int) -> np.ndarray:
+    n_channels = abs_mean_coeffs.shape[-1]
+    mode_indices = np.array([np.argpartition(abs_mean_coeffs[:,  j], -n)[-n : ] for j in range(n_channels)]).T
+    return np.sort(mode_indices, axis=0)
+
+def flip_sign_of_negative_modes(modes: np.ndarray, mean_coeffs: np.ndarray) -> np.ndarray:
+    inverted_modes = modes.copy() # (i, ..., j)
+    n_channels_basis, n_channels_coeffs = modes.shape[-1], mean_coeffs.shape[-1]
+    if n_channels_basis == n_channels_coeffs: # (n_basis = n_coeffs)
+        flip_sign_mask = mean_coeffs < 0 # (i, j)
+        n_dims_to_expand = inverted_modes.ndim - flip_sign_mask.ndim
+        dims_dummy_array = [1 for _ in range(n_dims_to_expand)]
+        flip_sign_mask_expanded = flip_sign_mask.reshape(inverted_modes.shape[0], *dims_dummy_array, inverted_modes.shape[-1])
+        inverted_modes *= np.where(flip_sign_mask_expanded, -1, 1)
+    else:
+        flip_sign_masks = np.array([mean_coeffs[..., i] < 0 for  i in  range(n_channels_coeffs)])
+        n_dims_to_expand = inverted_modes.ndim - flip_sign_masks.ndim
+        dims_dummy_array = [1 for _ in range(n_dims_to_expand)]
+        flip_sign_masks_expanded = [mask.reshape(inverted_modes.shape[0], *dims_dummy_array, inverted_modes.shape[-1]) for mask in flip_sign_masks]
+        final_mask = np.full((flip_sign_masks_expanded[0].shape), False, dtype=bool)
+        for mask in flip_sign_masks_expanded:
+            final_mask |= mask
+        inverted_modes *= np.where(final_mask, -1, 1)
+    return inverted_modes

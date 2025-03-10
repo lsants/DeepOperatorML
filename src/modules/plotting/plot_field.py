@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 import matplotlib.colors as colors
 from .plot_utils import format_param
 
-def plot_2D_field(coords, truth_field=None, pred_field=None, param_value=None, param_labels=None):
+def plot_2D_field(coords: dict[str, np.ndarray], truth_field: np.ndarray | None = None, pred_field: np.ndarray | None = None, **kwargs) -> plt.figure:
     """
     Plots a 2D contour field (or fields) on a specified plane.
     The function accepts a dictionary of coordinate arrays and an optional dictionary of labels.
@@ -85,7 +85,11 @@ def plot_2D_field(coords, truth_field=None, pred_field=None, param_value=None, p
     X, Y = np.meshgrid(coord1_full, coord2, indexing='ij')
     
     # Format parameter value.
+    param_value = kwargs['param_value']
+    param_labels = kwargs.get('param_labels')
     param_str = format_param(param_value, param_keys=param_labels)
+    labels = kwargs.get('label_mapping')
+    labels_real, labels_imag = labels[0], labels[1]
     
     # Determine axis labels.
     x_label, y_label = dim1, dim2
@@ -115,16 +119,25 @@ def plot_2D_field(coords, truth_field=None, pred_field=None, param_value=None, p
             norm_real = colors.Normalize(vmin=min(np.min(pred_real), np.min(truth_real)),
                                          vmax=max(np.max(pred_real), np.max(truth_real)))
             c0 = ax[0, 0].contourf(X, Y, pred_real, cmap='viridis', norm=norm_real)
-            ax[0, 0].set_title(f"Real Pred {param_str}")
+            if labels is not None:
+                ax[0, 0].set_title(f"{labels_real} Pred {param_str}")
+            else:
+                ax[0, 0].set_title(f"Real Pred {param_str}")
             ax[0, 0].set_xlabel(x_label)
             ax[0, 0].set_ylabel(y_label)
             
             c1 = ax[0, 1].contourf(X, Y, truth_real, cmap='viridis', norm=norm_real)
-            ax[0, 1].set_title(f"Real Label {param_str}")
+            if labels is not None:
+                ax[0, 1].set_title(f"{labels_real} Label {param_str}")
+            else:
+                ax[0, 1].set_title(f"Real Label {param_str}")
             ax[0, 1].set_xlabel(x_label)
             
             c2 = ax[0, 2].contourf(X, Y, np.abs(truth_real - pred_real), cmap='viridis')
-            ax[0, 2].set_title(f"Real Abs Error {param_str}")
+            if labels is not None:
+                ax[0, 2].set_title(f"Abs Error ({labels_real}) {param_str}")
+            else:
+                ax[0, 2].set_title(f"Real Abs Error {param_str}")
             ax[0, 2].set_xlabel(x_label)
             ax[0 , 2].invert_yaxis()
 
@@ -134,7 +147,10 @@ def plot_2D_field(coords, truth_field=None, pred_field=None, param_value=None, p
         else:
             field = pred_real if pred_field is not None else truth_real
             c0 = ax[0, 0].contourf(X, Y, field, cmap='viridis')
-            ax[0, 0].set_title(f"Real Field {param_str}")
+            if labels is not None:
+                ax[0, 0].set_title(f"{labels_real} {param_str}")
+            else:
+                ax[0, 0].set_title(f"Real Field {param_str}")
             ax[0, 0].set_xlabel(x_label)
             ax[0, 0].set_ylabel(y_label)
             fig.colorbar(c0, ax=ax[0, 0])
@@ -144,18 +160,28 @@ def plot_2D_field(coords, truth_field=None, pred_field=None, param_value=None, p
             norm_imag = colors.Normalize(vmin=min(np.min(pred_imag), np.min(truth_imag)),
                                          vmax=max(np.max(pred_imag), np.max(truth_imag)))
             c3 = ax[1, 0].contourf(X, Y, pred_imag, cmap='viridis', norm=norm_imag)
-            ax[1, 0].set_title(f"Imag Pred {param_str}")
+            if labels is not None:
+                ax[1, 0].set_title(f"{labels_imag} Pred {param_str}")
+            else:
+                ax[1, 0].set_title(f"Imag Pred {param_str}")
+
             ax[1, 0].set_xlabel(x_label)
             ax[1 , 0].invert_yaxis()
             ax[1, 0].set_ylabel(y_label)
             
             c4 = ax[1, 1].contourf(X, Y, truth_imag, cmap='viridis', norm=norm_imag)
-            ax[1, 1].set_title(f"Imag Label {param_str}")
+            if labels is not None:
+                ax[1, 1].set_title(f"{labels_imag} Label {param_str}")
+            else:
+                ax[1, 1].set_title(f"Imag Label {param_str}")
             ax[1, 1].set_xlabel(x_label)
             ax[1 , 1].invert_yaxis()
             
             c5 = ax[1, 2].contourf(X, Y, np.abs(truth_imag - pred_imag), cmap='viridis')
-            ax[1, 2].set_title(f"Imag Abs Error {param_str}")
+            if labels is not None:
+                ax[1, 2].set_title(f"Abs Error ({labels_imag}) {param_str}")
+            else:
+                ax[1, 2].set_title(f"Imag Abs Error {param_str}")
             ax[1, 2].set_xlabel(x_label)
             ax[1 , 2].invert_yaxis()
 
@@ -165,7 +191,10 @@ def plot_2D_field(coords, truth_field=None, pred_field=None, param_value=None, p
         else:
             field = pred_imag if pred_field is not None else truth_imag
             c3 = ax[1, 0].contourf(X, Y, field, cmap='viridis')
-            ax[1, 0].set_title(f"Imag Field {param_str}")
+            if labels is not None:
+                ax[1, 0].set_title(f"{labels_imag} {param_str}")
+            else:
+                ax[1, 0].set_title(f"Imag Field {param_str}")
             ax[1, 0].set_xlabel(x_label)
             ax[1 , 0].invert_yaxis()
             ax[1, 0].set_ylabel(y_label)

@@ -20,14 +20,15 @@ PLOT_AXIS: true
 PLOT_BASIS: true
 
 AXES_TO_PLOT:
-- r
-- z
+  - r
+  - z
 
 # Plot every X percentile (e.g every 10th percentile of the input functions)
 PLOT_PERCENTILES: 10
 
-INFERENCE_ON: test
+INFERENCE_ON: train
 SAMPLES_TO_PLOT: 5
 BASIS_TO_PLOT: all
+PRINCIPAL_MODES_TO_PLOT: 4
 PLOT_FIELD_BAR_COLOR: cyan
 PLOT_BASIS_BAR_COLOR: magenta

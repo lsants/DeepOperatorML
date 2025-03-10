@@ -74,6 +74,10 @@ def plot_basis_function(coords, basis, strategy, **kwargs):
         x_label, y_label = plot_dim1, plot_dim2
     
     title = f"Basis Functions ({strategy})"
+    if n_channels == 1:
+        label_mapping = ''
+    else:
+        label_mapping = kwargs.get('label_mapping')
     
     # Plot each channel in the basis function on the same row.
     ncols = n_channels
@@ -94,10 +98,12 @@ def plot_basis_function(coords, basis, strategy, **kwargs):
         axs[ch].invert_yaxis()
         axs[ch].set_xlabel(x_label, fontsize=12)
         axs[ch].set_ylabel(y_label, fontsize=12)
-        if not output_map:
-            axs[ch].set_title(f"Channel {ch+1}, vector {index}", fontsize=12)
+        if label_mapping is not None and label_mapping != '':
+            axs[ch].set_title(f"Channel {label_mapping[ch]}, vector {index}", fontsize=12)
+        elif label_mapping is not None:
+            axs[ch].set_title(f"Vector {index}", fontsize=12)
         else:
-            axs[ch].set_title(f"Channel {output_map[ch]}, vector {index}", fontsize=12)
+            axs[ch].set_title(f"Channel {ch+1}, vector {index}", fontsize=12)
 
         fig.colorbar(contour, ax=axs[ch])
     
