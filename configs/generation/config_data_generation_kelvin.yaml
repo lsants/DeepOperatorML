@@ -1,0 +1,28 @@
+DATA_FILENAME: ./data/raw/kelvin_displacements.npz
+
+SEED: 42
+
+# -------------------------- Static Problem (Kelvin) -----------------------
+
+N_MU_KELVIN: 10
+MU_MIN_KELVIN: 0.5
+MU_MAX_KELVIN: 3
+
+N_NU_KELVIN: 10
+NU_MIN_KELVIN: 0.1
+NU_MAX_KELVIN: 0.45
+
+N_F_KELVIN: 5
+F_MIN_KELVIN: 1
+F_MAX_KELVIN: 100
+
+N_X_KELVIN: 50
+N_Y_KELVIN: 1
+N_Z_KELVIN: 50
+X_MIN_KELVIN: 0.01
+X_MAX_KELVIN: 2
+Y_MIN_KELVIN: 0.01
+Y_MAX_KELVIN: 1
+Z_MIN_KELVIN: 0.1
+Z_MAX_KELVIN: 3
+LOAD_DIRECTION_KELVIN: z

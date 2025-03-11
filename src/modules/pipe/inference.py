@@ -41,30 +41,31 @@ def inference(test_config: dict[str, any]) -> tuple['DeepONet',
     
     logger.info(f"\nData loaded from: \n\n{path_to_data}\n\n")
 
-    model, config_model = ModelFactory.initialize_model(model_folder, 
+    model, trained_model_config = ModelFactory.initialize_model(model_folder, 
                                                         model_name, 
                                                         device, 
                                                         precision)
 
-    evaluator = TestEvaluator(model, config_model['ERROR_NORM'])
+    evaluator = TestEvaluator(model, trained_model_config['ERROR_NORM'])
     
     to_tensor_transform = ToTensor(dtype=getattr(torch, precision), device=device)
-    output_keys = config_model["OUTPUT_KEYS"]
+    output_keys = trained_model_config["OUTPUT_KEYS"]
 
     processed_data = dtl.preprocess_npz_data(path_to_data, 
-                                             config_model["INPUT_FUNCTION_KEYS"], 
-                                             config_model["COORDINATE_KEYS"], 
-                                             direction=config_model["DIRECTION"] if config_model["PROBLEM"] == 'kelvin' else None)
+                                             trained_model_config["INPUT_FUNCTION_KEYS"], 
+                                             trained_model_config["COORDINATE_KEYS"],
+                                             trained_model_config["BRANCH_PROCESSING_TYPE"],
+                                             direction=trained_model_config["DIRECTION"] if trained_model_config["PROBLEM"] == 'kelvin' else None)
     dataset = DeepONetDataset(processed_data, transform=to_tensor_transform, output_keys=output_keys)
     
     if test_config['INFERENCE_ON'] == 'train':
-        indices_for_inference = config_model['TRAIN_INDICES']
+        indices_for_inference = trained_model_config['TRAIN_INDICES']
     elif test_config['INFERENCE_ON'] == 'val':
-        indices_for_inference = config_model['VAL_INDICES']
+        indices_for_inference = trained_model_config['VAL_INDICES']
     elif test_config['INFERENCE_ON'] == 'test':
-        indices_for_inference = config_model['TEST_INDICES']
+        indices_for_inference = trained_model_config['TEST_INDICES']
     else:
-        indices_for_inference = config_model['TRAIN_INDICES']
+        indices_for_inference = trained_model_config['TRAIN_INDICES']
     
     inference_dataset = dataset[indices_for_inference]
     
@@ -76,28 +77,28 @@ def inference(test_config: dict[str, any]) -> tuple['DeepONet',
         ground_truth[key] = inference_dataset[key]
     
     xb_scaler = Scaling(
-        min_val=config_model['NORMALIZATION_PARAMETERS']['xb']['min'],
-        max_val=config_model['NORMALIZATION_PARAMETERS']['xb']['max']
+        min_val=trained_model_config['NORMALIZATION_PARAMETERS']['xb']['min'],
+        max_val=trained_model_config['NORMALIZATION_PARAMETERS']['xb']['max']
     )
     xt_scaler = Scaling(
-        min_val=config_model['NORMALIZATION_PARAMETERS']['xt']['min'],
-        max_val=config_model['NORMALIZATION_PARAMETERS']['xt']['max']
+        min_val=trained_model_config['NORMALIZATION_PARAMETERS']['xt']['min'],
+        max_val=trained_model_config['NORMALIZATION_PARAMETERS']['xt']['max']
     )
     output_scalers = {}
     for key in output_keys:
         output_scalers[key] = Scaling(
-            min_val=config_model['NORMALIZATION_PARAMETERS'][key]['min'],
-            max_val=config_model['NORMALIZATION_PARAMETERS'][key]['max']
+            min_val=trained_model_config['NORMALIZATION_PARAMETERS'][key]['min'],
+            max_val=trained_model_config['NORMALIZATION_PARAMETERS'][key]['max']
         )
     
-    if config_model['INPUT_NORMALIZATION']:
+    if trained_model_config['INPUT_NORMALIZATION']:
         xb = xb_scaler.normalize(xb)
         xt = xt_scaler.normalize(xt)
-    if config_model['OUTPUT_NORMALIZATION']:
+    if trained_model_config['OUTPUT_NORMALIZATION']:
         ground_truth_norm = {key: output_scalers[key].normalize(ground_truth[key]) for key in output_keys}
     
-    if config_model['TRUNK_FEATURE_EXPANSION']:
-        xt = transforms.trunk_feature_expansion(xt, config_model['TRUNK_FEATURE_EXPANSION'])
+    if trained_model_config['TRUNK_FEATURE_EXPANSION']:
+        xt = transforms.trunk_feature_expansion(xt, trained_model_config['TRUNK_FEATURE_EXPANSION'])
     
     logger.info("\n\n----------------- Starting inference... --------------\n\n")
     start_time = time.time()
@@ -117,14 +118,14 @@ def inference(test_config: dict[str, any]) -> tuple['DeepONet',
     elif len(output_keys) == 2 and not isinstance(preds, dict):
         preds = {k:v for k, v in zip(output_keys, preds)}
     
-    if config_model['OUTPUT_NORMALIZATION']:
+    if trained_model_config['OUTPUT_NORMALIZATION']:
         preds_norm = {}
         for key in output_keys:
             preds_norm[key], preds[key] = preds[key], output_scalers[key].denormalize(preds[key])
         errors_norm = {}
         for key in output_keys:
             errors_norm[key] = evaluator(ground_truth_norm[key], preds_norm[key])
-        config_model['ERRORS_NORMED'] = errors_norm
+        trained_model_config['ERRORS_NORMED'] = errors_norm
     else:
         errors_norm = {}
     
@@ -133,10 +134,10 @@ def inference(test_config: dict[str, any]) -> tuple['DeepONet',
     for key in output_keys:
         errors[key] = evaluator(ground_truth[key], preds[key])
         logger.info(f"Test error for {key} (physical): {errors[key]:.2%}")
-        if config_model['OUTPUT_NORMALIZATION']:
+        if trained_model_config['OUTPUT_NORMALIZATION']:
             logger.info(f"Test error for {key} (normalized): {errors_norm[key]:.2%}")
     
-    config_model['ERRORS_PHYSICAL'] = errors
-    config_model['INFERENCE_TIME'] = inference_time
+    trained_model_config['ERRORS_PHYSICAL'] = errors
+    trained_model_config['INFERENCE_TIME'] = inference_time
     
-    return model, preds, ground_truth, xt, xb, config_model
+    return model, preds, ground_truth, xt, xb, trained_model_config

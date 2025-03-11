@@ -32,6 +32,7 @@ def train_model(config_path: str) -> dict[str, any]:
     processed_data = dtl.preprocess_npz_data(training_params['DATA_FILE'], 
                                              training_params["INPUT_FUNCTION_KEYS"], 
                                              training_params["COORDINATE_KEYS"],
+                                             training_params["BRANCH_PROCESSING_TYPE"],
                                              direction=training_params["DIRECTION"] if training_params["PROBLEM"] == 'kelvin' else None)
     dataset = DeepONetDataset(processed_data, 
                               transformations, 

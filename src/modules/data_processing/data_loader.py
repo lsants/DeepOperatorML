@@ -2,8 +2,9 @@ import torch
 import numpy as np
 from .scaling import Scaling
 from .deeponet_dataset import DeepONetDataset
+from .process_branch_input import branch_processing_map
 
-def preprocess_npz_data(npz_filename: str, input_function_keys: list[str], coordinate_keys: list[str], **kwargs) -> dict[str, torch.Tensor]:
+def preprocess_npz_data(npz_filename: str, input_function_keys: list[str], coordinate_keys: list[str], branch_processing_strategy: str, **kwargs) -> dict[str, torch.Tensor]:
     """
     Loads data from an npz file and groups the input functions and coordinates into tuples
     called 'xb' and 'xt' suitable for creating the PyTorch dataset.
@@ -34,12 +35,8 @@ def preprocess_npz_data(npz_filename: str, input_function_keys: list[str], coord
     data = np.load(npz_filename, allow_pickle=True)
     
     input_funcs = [data[key] for key in input_function_keys]
-    sensor_mesh = np.meshgrid(*input_funcs, indexing='ij')
-    xb = np.column_stack([m.flatten() for m in sensor_mesh])
+    xb = branch_processing_map[branch_processing_strategy]().compute_xb(input_funcs)
 
-    if xb.ndim == 1:
-        xb = xb.reshape(len(xb), -1)
-    
     coords = [data[name] for name in coordinate_keys]
     coord_mesh = np.meshgrid(*coords, indexing='ij')
     xt = np.column_stack([m.flatten() for m in coord_mesh])

@@ -1,5 +1,5 @@
 #  ----------------------Location of .npz data file ----------------
-DATA_FILE: ./data/raw/dynamic_displacements.npz
+DATA_FILE: ./data/raw/dynamic_homogeneous_displacements.npz
 
 # ------------------------------ Paths ------------------------
 # Model location
@@ -8,10 +8,21 @@ MODEL_FOLDER: ./models/
 OUTPUT_FOLDER_TO_SAVE: ./data/output/
 
 # ------------------------- Dataset parameters ---------------
-PROBLEM: dynamic
+PROBLEM: dynamic_homogeneous_material
 
-INPUT_FUNCTION_KEYS: # F, mu, nu if Kelvin ; delta if dynamic with fixed material
-  -  delta
+INPUT_FUNCTION_KEYS: # delta for dynamuc
+  - E
+  - nu
+  - rho
+  - omega
+
+INPUT_FUNCTION_LABELS:
+  - E
+  - ν
+  - ρ
+  - ω
+
+BRANCH_PROCESSING_TYPE: stack
 
 COORDINATE_KEYS:
   - r
@@ -32,8 +43,8 @@ PRECISION: float32
 DEVICE: cpu
 SEED: 42
 
-TRAINING_STRATEGY: pod
-OUTPUT_HANDLING: share_trunk
+TRAINING_STRATEGY: two_step
+OUTPUT_HANDLING: split_outputs
 BASIS_FUNCTIONS: 100
 BRANCH_ARCHITECTURE: resnet
 BRANCH_ACTIVATION: silu
@@ -65,7 +76,7 @@ RESCALING: none # p = number of basis functions. Can be none, 1/p or 1/sqrt(p)
 
 # ------------------- Parameters for vanilla training ------------------
 LEARNING_RATE: 0.001
-EPOCHS: 500
+EPOCHS: 10000
 BATCH_SIZE: 50
 TRAIN_PERC: 0.8
 VAL_PERC: 0.1
@@ -90,7 +101,7 @@ OPTIMIZER_SCHEDULE:
 VAR_SHARE: 0.95
 
 # ------------------- Parameters for two step training ------------------
-TRUNK_TRAIN_EPOCHS: 100
-BRANCH_TRAIN_EPOCHS: 500
+TRUNK_TRAIN_EPOCHS: 20000
+BRANCH_TRAIN_EPOCHS: 20000
 
 TRUNK_DECOMPOSITION: svd

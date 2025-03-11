@@ -1,8 +1,8 @@
-DATA_FILENAME: ./data/raw/displacements.npz
+DATA_FILENAME: ./data/raw/dynamic_homogeneous_displacements.npz
 
 SEED: 42
 
-# ---------------------- Influence function dynamic problem -----------------
+# ---------------------- Influence function dynamic single material problem -----------------
 
 N_R: 40                   # Mesh points for r coordinate
 N_Z: 40                   # Mesh points for z coordinate
@@ -20,11 +20,13 @@ Z_SOURCE: 0             # Position of source load in z axis [m]
 L_SOURCE: 0             # Dimension of source load in z axis [m]
 R_SOURCE: 2             # Dimension of source load in r axis [m]
 
-E: 25E+09              # Young Modulus [Pa]
-NU: 2.42277267E-01         # Poisson's ratio
+E_MIN: 1.0E+07              # Min. Young Modulus [Pa]
+E_MAX: 2.0E+11              # Max. Young Modulus [Pa]
+NU_MIN: 0.2         # Min. Poisson's ratio
+NU_MAX: 0.4         # Max. Poisson's ratio
+DENS_MIN: 1.0E+03    # Min. Density [Kg.m-3]
+DENS_MAX: 8.0E+03    # Max. Density [Kg.m-3]
 DAMP: 0.01             # Damping factor
-DENS: 1.73511990E+03    # Density [Kg.m-3]
-
 
 COMPONENT: 1            # uzz :  1
                         # urz :  2
@@ -48,28 +50,3 @@ BVPTYPE: 2              # loadinfullspace :   1
                         # loadinhalfspace :   3
                         # cylinderload :      4
                         # anularload :        5
-
-# -------------------------- Static Problem (Kelvin) -----------------------
-
-N_MU_KELVIN: 10
-MU_MIN_KELVIN: 0.5
-MU_MAX_KELVIN: 3
-
-N_NU_KELVIN: 10
-NU_MIN_KELVIN: 0.1
-NU_MAX_KELVIN: 0.45
-
-N_F_KELVIN: 5
-F_MIN_KELVIN: 1
-F_MAX_KELVIN: 100
-
-N_X_KELVIN: 50
-N_Y_KELVIN: 1
-N_Z_KELVIN: 50
-X_MIN_KELVIN: 0.01
-X_MAX_KELVIN: 2
-Y_MIN_KELVIN: 0.01
-Y_MAX_KELVIN: 1
-Z_MIN_KELVIN: 0.1
-Z_MAX_KELVIN: 3
-LOAD_DIRECTION_KELVIN: z
