@@ -88,8 +88,8 @@ class TrainingLoop:
 
                 loss = self.training_strategy.compute_loss(outputs, batch, self.model, self.training_params)
 
-                # if epoch % 10 == 0 and epoch > 0:
-                #     logger.info(f"Loss: {loss:.2E}")
+                if epoch % 100 == 0 and epoch > 0:
+                    logger.info(f"Loss: {loss:.2E}")
 
                 active_optimizer.zero_grad()
                 loss.backward()
