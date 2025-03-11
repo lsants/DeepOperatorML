@@ -80,8 +80,8 @@ class TrainingLoop:
 
             phase_start = time.time()
             for epoch in tqdm(range(phase_epochs), desc=f"Phase: {phase}", colour=self.training_params.get("STANDARD_PROGRESS_BAR_COLOR", 'blue')):
-                active_optimizer = self.optimizer_manager.get_active_optimizer(epoch)["active"]
-                active_scheduler = self.optimizer_manager.get_active_scheduler(epoch)["active"]
+                active_optimizer = self.optimizer_manager.get_active_optimizer(epoch, phase)["active"]
+                active_scheduler = self.optimizer_manager.get_active_scheduler(epoch, phase)["active"]
 
                 batch = bt.prepare_batch(train_batch, self.training_params)
                 outputs = self.model(batch["xb"], batch["xt"])

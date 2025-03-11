@@ -71,7 +71,7 @@ TRUNK_HIDDEN_LAYERS:
 LOSS_FUNCTION: mse
 INPUT_NORMALIZATION: true # allow to pick between min max and std 
 OUTPUT_NORMALIZATION: false
-TRUNK_FEATURE_EXPANSION: 2
+TRUNK_FEATURE_EXPANSION: 20
 RESCALING: none # p = number of basis functions. Can be none, 1/p or 1/sqrt(p)
 
 # ------------------- Parameters for vanilla training ------------------
@@ -83,19 +83,18 @@ VAL_PERC: 0.1
 TEST_PERC: 0.1
 ERROR_NORM: 2
 STANDARD_PROGRESS_BAR_COLOR: 'green'
-OPTIMIZER_SCHEDULE: 
-  - EPOCHS: 50000
+GLOBAL_OPTIMIZER_SCHEDULE:
+  - EPOCHS: 5000
     OPTIMIZER: adam
     LEARNING_RATE: 0.001
     L2_REGULARIZATION: 0.00001
-  - EPOCHS: 50000
+  - EPOCHS: 5000
     OPTIMIZER: adam
     LEARNING_RATE: 0.0001
     L2_REGULARIZATION: 0.00001
     LR_SCHEDULER:
       STEP_SIZE: 7000
       GAMMA: 0.7
-
 
 # ------------------- Parameters for POD training ----------------------
 VAR_SHARE: 0.95
@@ -105,3 +104,33 @@ TRUNK_TRAIN_EPOCHS: 50000
 BRANCH_TRAIN_EPOCHS: 50000
 
 TRUNK_DECOMPOSITION: svd
+
+PHASE_OPTIMIZER_SCHEDULE:
+  trunk:
+    - EPOCHS: 10000
+      OPTIMIZER: adam
+      LEARNING_RATE: 0.001
+      L2_REGULARIZATION: 0.00001
+    - EPOCHS: 20000
+      OPTIMIZER: adam
+      LEARNING_RATE: 0.001
+      L2_REGULARIZATION: 0.00001
+      LR_SCHEDULER:
+        STEP_SIZE: 5000
+        GAMMA: 0.7
+    - EPOCHS: 20000
+      OPTIMIZER: adam
+      LEARNING_RATE: 0.0001
+      L2_REGULARIZATION: 0.00001
+  branch:
+    - EPOCHS: 25000
+      OPTIMIZER: adam
+      LEARNING_RATE: 0.001
+      L2_REGULARIZATION: 0.00001
+      LR_SCHEDULER:
+        STEP_SIZE: 5000
+        GAMMA: 0.5
+    - EPOCHS: 25000
+      OPTIMIZER: adam
+      LEARNING_RATE: 0.00001
+      L2_REGULARIZATION: 0.00001
