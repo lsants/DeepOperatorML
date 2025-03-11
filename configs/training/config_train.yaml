@@ -40,7 +40,7 @@ DIRECTION: 2
 
 # ------------------- Model architecture ------------------
 PRECISION: float32
-DEVICE: cpu
+DEVICE: cuda
 SEED: 42
 
 TRAINING_STRATEGY: two_step
