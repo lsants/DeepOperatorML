@@ -32,10 +32,10 @@ class ShareBranchHandling(OutputHandling):
         processed_trunk_config = self.config_basis(model, trunk_config)
 
         n_basis_functions = model.n_basis_functions
-        trunk_output_size = n_basis_functions * model.n_outputs
-        branch_output_size = n_basis_functions
+        self.trunk_output_size = n_basis_functions * model.n_outputs
+        self.branch_output_size = n_basis_functions
 
-        branch, trunk = self.create_components(model, branch_config, processed_trunk_config, branch_output_size, trunk_output_size)
+        branch, trunk = self.create_components(model, branch_config, processed_trunk_config, self.branch_output_size, self.trunk_output_size)
 
         return branch, trunk
     

@@ -30,7 +30,7 @@ class TwoStepTrainingStrategy(TrainingStrategy):
             logger.info("TwoStepTrainingStrategy (inference): No training preparation required.")
             return
         if self.A is None:
-            branch_output_size = (model.branch.forward(torch.empty(1)).shape[0],)
+            branch_output_size = (model.output_handling.branch_output_size,)
             A_dims = self.A_dims + branch_output_size
             self.A = self.two_step_helper.set_A_matrix(*A_dims)
             model.trunk = TwoStepTrunk(model.trunk, self.A)

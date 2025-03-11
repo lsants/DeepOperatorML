@@ -13,8 +13,6 @@ class OutputHandling(ABC):
     def __init__(self) -> None:
         self.branch_output_size = None
         self.trunk_output_size = None
-        self.n_trunk_outputs = None
-        self.n_branch_outputs = None
 
     @property
     @abstractmethod

@@ -20,14 +20,14 @@ class SplitOutputsHandling(OutputHandling):
         processed_trunk_config = self.config_basis(model, trunk_config)
 
         n_basis_functions = model.n_basis_functions
-        trunk_output_size = n_basis_functions * model.n_outputs
-        branch_output_size = n_basis_functions * model.n_outputs
+        self.trunk_output_size = n_basis_functions * model.n_outputs
+        self.branch_output_size = n_basis_functions * model.n_outputs
 
 
-        branch, trunk = self.create_components(model, branch_config, processed_trunk_config, branch_output_size, trunk_output_size)
+        branch, trunk = self.create_components(model, branch_config, processed_trunk_config, self.branch_output_size, self.trunk_output_size)
 
-        logger.debug(f"SplitOutputHandling: Computed trunk output size: {trunk_output_size}")
-        logger.debug(f"SplitOutputHandling: Computed branch output size: {branch_output_size}")
+        logger.debug(f"SplitOutputHandling: Computed trunk output size: {self.trunk_output_size}")
+        logger.debug(f"SplitOutputHandling: Computed branch output size: {self.branch_output_size}")
         logger.debug(f"SplitOutputHandling: Trunk layers: {pprint_layer_dict(processed_trunk_config.get('layers', []))}")
         logger.debug(f"SplitOutputHandling: Branch layers: {pprint_layer_dict(branch_config.get('layers', []))}")
 

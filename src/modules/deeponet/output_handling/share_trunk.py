@@ -24,13 +24,13 @@ class ShareTrunkHandling(OutputHandling):
         processed_trunk_config = self.config_basis(model, trunk_config)
 
         n_basis_functions = model.n_basis_functions
-        trunk_output_size = n_basis_functions
-        branch_output_size = n_basis_functions * model.n_outputs
+        self.trunk_output_size = n_basis_functions
+        self.branch_output_size = n_basis_functions * model.n_outputs
 
-        branch, trunk = self.create_components(model, branch_config, processed_trunk_config, branch_output_size, trunk_output_size)
+        branch, trunk = self.create_components(model, branch_config, processed_trunk_config, self.branch_output_size, self.trunk_output_size)
 
-        logger.debug(f"ShareTrunkHandling: Computed trunk output size: {trunk_output_size}")
-        logger.debug(f"ShareTrunkHandling: Computed branch output size: {branch_output_size}")
+        logger.debug(f"ShareTrunkHandling: Computed trunk output size: {self.trunk_output_size}")
+        logger.debug(f"ShareTrunkHandling: Computed branch output size: {self.branch_output_size}")
         logger.debug(f"ShareTrunkHandling: Trunk layers: {pprint_layer_dict(processed_trunk_config.get('layers', []))}")
         logger.debug(f"ShareTrunkHandling: Branch layers: {pprint_layer_dict(branch_config.get('layers', []))}")
 
