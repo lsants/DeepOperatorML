@@ -87,7 +87,7 @@ def process_coefficients_to_plot_format(coefficients: torch.Tensor, n_channels: 
     return coefficients_reshaped
 
 
-def format_param(param: dict[str, any], param_keys: list[str] | tuple | None=None) -> str:
+def format_param(param: dict[str, any] | tuple[np.ndarray], param_keys: list[str] | tuple | None=None) -> str:
     """
     Format a parameter value for display in the plot title.
     
@@ -107,14 +107,14 @@ def format_param(param: dict[str, any], param_keys: list[str] | tuple | None=Non
         str: The formatted parameter string.
     """
     if isinstance(param, dict):
-        items = [f"{k}={f'{v:.2f}'}" for k, v in param.items()]
+        items = [f"{k}={v:.1E}" for k, v in param.items()]
         return "(" + ", ".join(items) + ")"
     elif hasattr(param, '__iter__') and not isinstance(param, str):
         if param_keys is not None and len(param_keys) == len(param):
-            items = [f"{k}={f'{v:.2f}'}" for k, v in zip(param_keys, param)]
+            items = [f"{k}={v:.1E}" for k, v in zip(param_keys, param)]
             return "(" + ", ".join(items) + ")"
         else:
-            items = [f"{v:.2f}" for v in param]
+            items = [f"{v:.1E}" for v in param]
             return "(" + ", ".join(items) + ")"
     else:
         return str(param)

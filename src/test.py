@@ -72,8 +72,8 @@ def test_model(test_config_path: str, trained_model_config: dict | None=None) ->
             idx = np.argmin(np.abs(data_for_2D_plotting["branch_features"][ : , dim] - target))
             indices.append(idx)
         selected_indices[dim] = indices
-        logger.debug(f"\nSelected indices for {loaded_model_config['INPUT_FUNCTION_KEYS'][dim]}: {indices}\n")
-        logger.info(f"\nSelected values for {loaded_model_config['INPUT_FUNCTION_KEYS'][dim]}: {data_for_2D_plotting['branch_features'][indices]}\n")
+        logger.debug(f"\nSelected indices for {loaded_model_config['INPUT_FUNCTION_LABELS'][dim]}: {indices}\n")
+        logger.info(f"\nSelected values for {loaded_model_config['INPUT_FUNCTION_LABELS'][dim]}: {data_for_2D_plotting['branch_features'][indices]}\n")
 
     # --------------------- Plotting fields & axes -----------------------
     
@@ -86,12 +86,12 @@ def test_model(test_config_path: str, trained_model_config: dict | None=None) ->
                     truth_field=data_for_2D_plotting["truth_field_2D"][idx],
                     pred_field=data_for_2D_plotting["pred_field_2D"][idx],
                     param_value=param_val,
-                    param_labels=loaded_model_config.get("INPUT_FUNCTION_KEYS"),
+                    param_labels=loaded_model_config.get("INPUT_FUNCTION_LABELS"),
                     label_mapping=loaded_model_config["OUTPUT_LABELS"]
                 )
                 
                 val_str = ",".join([f"{i:.2f}" for i in param_val])
-                saver(figure=fig_field, figure_prefix=f"{count * 10}_th_perc_field_for_param_{loaded_model_config['INPUT_FUNCTION_KEYS'][dim]}=({val_str})")
+                saver(figure=fig_field, figure_prefix=f"{count * 10}_th_perc_field_for_param_{loaded_model_config['INPUT_FUNCTION_LABELS'][dim]}=({val_str})")
                 plt.close()
                 
                 # fig_axis = plot_axis(

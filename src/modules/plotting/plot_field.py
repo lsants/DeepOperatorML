@@ -112,7 +112,7 @@ def plot_2D_field(coords: dict[str, np.ndarray], truth_field: np.ndarray | None 
         
         # If both fields are provided, plot prediction, label, and error; otherwise, plot one column.
         ncols = 3 if (truth_field is not None and pred_field is not None) else 1
-        fig, ax = plt.subplots(2, ncols, figsize=(6 * ncols, 10), sharex=True, sharey=True)
+        fig, ax = plt.subplots(2, ncols, figsize=(6 * ncols, 12), sharex=True, sharey=True)
         
         # Row 0: Real parts.
         if ncols == 3:
