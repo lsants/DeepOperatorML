@@ -22,58 +22,58 @@ class TrainingStrategy(ABC):
         pass
 
     @abstractmethod
-    def forward(self, 
-                model: 'DeepONet', 
-                xb: torch.Tensor = None, 
+    def forward(self,
+                model: 'DeepONet',
+                xb: torch.Tensor = None,
                 xt: torch.Tensor = None,
                 **kwargs
-        ) -> tuple[torch.Tensor]:
+                ) -> tuple[torch.Tensor]:
         """
         Implements the forward pass for the training strategy.
         Concrete implementations should determine how the model processes the inputs,
         including any custom behavior (e.g. matrix-based operations or phased training).
         """
         pass
-    
+
     @abstractmethod
-    def compute_loss(self, 
-                     outputs: tuple[torch.Tensor], 
-                     batch: dict[str, torch.Tensor], 
-                     model: 'DeepONet', 
-                     params: dict[str, any], 
+    def compute_loss(self,
+                     outputs: tuple[torch.Tensor],
+                     batch: dict[str, torch.Tensor],
+                     model: 'DeepONet',
+                     params: dict[str, any],
                      **kwargs
-    ) -> float:
+                     ) -> float:
         """
         Computes the loss for the current batch.
         """
         pass
 
     @abstractmethod
-    def compute_errors(self, 
-                       outputs: tuple[torch.Tensor], 
-                       batch: dict[str, torch.Tensor], 
-                       model: 'DeepONet', 
-                       params: dict[str, any], 
+    def compute_errors(self,
+                       outputs: tuple[torch.Tensor],
+                       batch: dict[str, torch.Tensor],
+                       model: 'DeepONet',
+                       params: dict[str, any],
                        **kwargs
-    ) -> dict[str, any]:
+                       ) -> dict[str, any]:
         """
         Computes error metrics for evaluation.
         """
         pass
 
     @abstractmethod
-    def get_branch_config(self, base_branch_config: dict[str, any]) -> dict[str, any]:
+    def get_branch_config(self, branch_config: dict[str, any]) -> dict[str, any]:
         """
         Returns an updated branch configuration dictionary.
-        This method merges strategy-specific parameters into the base_branch_config.
+        This method merges strategy-specific parameters into the branch_config.
         """
         pass
 
     @abstractmethod
-    def get_trunk_config(self, base_trunk_config: dict[str, any]) -> dict[str, any]:
+    def get_trunk_config(self, trunk_config: dict[str, any]) -> dict[str, any]:
         """
         Returns an updated trunk configuration dictionary.
-        This method merges strategy-specific parameters into the base_trunk_config.
+        This method merges strategy-specific parameters into the trunk_config.
         """
         pass
 

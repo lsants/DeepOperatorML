@@ -1,5 +1,5 @@
 #  ----------------------Location of .npz data file ----------------
-DATA_FILE: ./data/raw/dynamic_homogeneous_displacements.npz
+DATA_FILE: ./data/raw/kelvin_displacements.npz
 
 # ------------------------------ Paths ------------------------
 # Model location
@@ -8,21 +8,19 @@ MODEL_FOLDER: ./models/
 OUTPUT_FOLDER_TO_SAVE: ./data/output/
 
 # ------------------------- Dataset parameters ---------------
-PROBLEM: dynamic_homogeneous_material
+PROBLEM: kelvin
 
 INPUT_FUNCTION_KEYS: # delta for dynamuc
-  - E
+  - F
   - nu
-  - rho
-  - omega
+  - mu
 
 INPUT_FUNCTION_LABELS:
-  - E
+  - F
   - ν
-  - ρ
-  - ω
+  - μ
 
-BRANCH_PROCESSING_TYPE: stack
+BRANCH_PROCESSING_TYPE: meshgrid
 
 COORDINATE_KEYS:
   - r

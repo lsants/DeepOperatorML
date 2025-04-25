@@ -11,6 +11,7 @@ from ...data_processing.transforms import Compose, Rescale
 
 logger = logging.getLogger(__name__)
 
+
 class ModelFactory:
     @staticmethod
     def create_model(model_params: dict[str, any], **kwargs) -> tuple[DeepONet, str]:
@@ -18,7 +19,9 @@ class ModelFactory:
 
         trunk_input_size = len(model_params['COORDINATE_KEYS'])
         if model_params.get('TRUNK_FEATURE_EXPANSION', 0) > 0:
-            trunk_input_size += 2 * len(model_params['COORDINATE_KEYS']) * model_params['TRUNK_FEATURE_EXPANSION']
+            trunk_input_size += 2 * \
+                len(model_params['COORDINATE_KEYS']) * \
+                model_params['TRUNK_FEATURE_EXPANSION']
 
         branch_config = {
             'architecture': model_params['BRANCH_ARCHITECTURE'],
@@ -31,25 +34,30 @@ class ModelFactory:
 
         branch_arch = model_params['BRANCH_ARCHITECTURE'].lower()
         if branch_arch in ['mlp', 'resnet', 'cnn']:
-            branch_config['activation'] = ActivationFactory.get_activation(model_params.get('BRANCH_ACTIVATION'))
+            branch_config['activation'] = ActivationFactory.get_activation(
+                model_params.get('BRANCH_ACTIVATION'))
         elif branch_arch == 'kan':
             branch_config['degree'] = model_params.get('BRANCH_DEGREE')
 
         trunk_arch = model_params['TRUNK_ARCHITECTURE'].lower()
         if trunk_arch in ['mlp', 'resnet', 'cnn']:
-            trunk_config['activation'] = ActivationFactory.get_activation(model_params.get('TRUNK_ACTIVATION'))
+            trunk_config['activation'] = ActivationFactory.get_activation(
+                model_params.get('TRUNK_ACTIVATION'))
         elif trunk_arch == 'kan':
             trunk_config['degree'] = model_params.get('TRUNK_DEGREE')
 
         trunk_config.setdefault("type", "trainable")
         branch_config.setdefault("type", "trainable")
 
-        output_handling = StrategyFactory.get_output_handling(model_params['OUTPUT_HANDLING'], model_params['OUTPUT_KEYS'])
+        output_handling = StrategyFactory.get_output_handling(
+            model_params['OUTPUT_HANDLING'], model_params['OUTPUT_KEYS'])
         model_params['BASIS_CONFIG'] = output_handling.BASIS_CONFIG
 
-        loss_function = LossFactory.get_loss_function(model_params['LOSS_FUNCTION'], model_params)
+        loss_function = LossFactory.get_loss_function(
+            model_params['LOSS_FUNCTION'], model_params)
         transforms = Compose([
-            Rescale(factor=model_params["BASIS_FUNCTIONS"], config=model_params["RESCALING"])
+            Rescale(factor=model_params["BASIS_FUNCTIONS"],
+                    config=model_params["RESCALING"])
         ])
 
         training_strategy = StrategyFactory.get_training_strategy(
@@ -64,8 +72,8 @@ class ModelFactory:
         )
 
         model = DeepONet(
-            base_branch_config=branch_config,
-            base_trunk_config=trunk_config,
+            branch_config=branch_config,
+            trunk_config=trunk_config,
             output_handling=output_handling,
             training_strategy=training_strategy,
             n_outputs=len(model_params['OUTPUT_KEYS']),
@@ -73,18 +81,20 @@ class ModelFactory:
         ).to(model_params['DEVICE'], dtype=getattr(torch, model_params['PRECISION']))
 
         model_params["BASIS_FUNCTIONS"] = model.n_basis_functions
-        
+
         model_params = process_config(model_params)
         if 'MODEL_NAME' not in model_params or not model_params['MODEL_NAME']:
             raise ValueError("MODEL_NAME is missing in the configuration.")
         model_name = model_params['MODEL_NAME']
 
         return model, model_name
-    
+
     @staticmethod
     def initialize_model(model_folder: str, model_name: str, device: str, precision: str) -> tuple[DeepONet, dict[str, any]]:
-        model_path = os.path.join(model_folder, f"model_state_{model_name}.pth")
-        config_path = os.path.join(model_folder, f"model_info_{model_name}.yaml")
+        model_path = os.path.join(
+            model_folder, f"model_state_{model_name}.pth")
+        config_path = os.path.join(
+            model_folder, f"model_info_{model_name}.yaml")
 
         logger.info(f"\nModel name: \n\n{model_name}\n\n")
         logger.info(f"\nModel loaded from: \n\n{model_path}\n\n")
@@ -100,18 +110,19 @@ class ModelFactory:
 
         if training_strategy == 'two_step':
             trained_trunk = checkpoint.get('trained_trunk')
-            model, _ = ModelFactory.create_model(trained_model_config, 
-                                                 inference=True, 
+            model, _ = ModelFactory.create_model(trained_model_config,
+                                                 inference=True,
                                                  trained_trunk=trained_trunk
                                                  )
         elif training_strategy == 'pod':
-            saved_pod_trunk = {'basis': checkpoint.get('pod_basis'), 'mean': checkpoint.get('mean_functions')}
-            model, _ = ModelFactory.create_model(trained_model_config, 
-                                                 inference=True, 
+            saved_pod_trunk = {'basis': checkpoint.get(
+                'pod_basis'), 'mean': checkpoint.get('mean_functions')}
+            model, _ = ModelFactory.create_model(trained_model_config,
+                                                 inference=True,
                                                  pod_trunk=saved_pod_trunk
                                                  )
         else:
-            model, _ = ModelFactory.create_model(trained_model_config, 
+            model, _ = ModelFactory.create_model(trained_model_config,
                                                  inference=True)
         model.load_state_dict(checkpoint['model_state_dict'], strict=False)
 

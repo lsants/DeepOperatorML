@@ -8,8 +8,9 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+
 class DeepONet(torch.nn.Module):
-    def __init__(self, base_branch_config: dict, base_trunk_config: dict, output_handling: 'OutputHandling', training_strategy: 'TrainingStrategy', n_outputs: int, n_basis_functions: int, **kwargs) -> None:
+    def __init__(self, branch_config: dict, trunk_config: dict, output_handling: 'OutputHandling', training_strategy: 'TrainingStrategy', n_outputs: int, n_basis_functions: int, **kwargs) -> None:
         """Initializes the DeepONet model with specified strategies.
 
         Args:
@@ -27,8 +28,9 @@ class DeepONet(torch.nn.Module):
         self.output_handling: 'OutputHandling' = output_handling
         self.training_strategy: 'TrainingStrategy' = training_strategy
 
-        trunk_config = self.training_strategy.get_trunk_config(base_trunk_config)
-        branch_config = self.training_strategy.get_branch_config(base_branch_config)
+        trunk_config = self.training_strategy.get_trunk_config(
+            trunk_config)
+        branch_config = self.training_strategy.get_branch_config(branch_config)
 
         self.branch, self.trunk = self.output_handling.configure_components(
             self, branch_config, trunk_config, **kwargs
@@ -36,5 +38,5 @@ class DeepONet(torch.nn.Module):
 
         self.training_strategy.prepare_training(self, **kwargs)
 
-    def forward(self, xb: torch.Tensor | None=None, xt: torch.Tensor | None=None) -> tuple[torch.Tensor]:
+    def forward(self, xb: torch.Tensor | None = None, xt: torch.Tensor | None = None) -> tuple[torch.Tensor]:
         return self.training_strategy.forward(self, xb=xb, xt=xt)
