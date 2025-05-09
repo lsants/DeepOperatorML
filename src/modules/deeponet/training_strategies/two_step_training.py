@@ -1,6 +1,7 @@
+from __future__ import annotations
 import torch
 import logging
-from typing import TYPE_CHECKING, Optional, Callable
+from typing import TYPE_CHECKING, Callable
 from .training_strategy_base import TrainingStrategy
 from .helpers import DecompositionHelper, PhaseManager, TwoStepHelper
 from ..components import PretrainedTrunk, TwoStepTrunk
@@ -12,7 +13,7 @@ logger = logging.getLogger(__name__)
 
 
 class TwoStepTrainingStrategy(TrainingStrategy):
-    def __init__(self, loss_fn: callable, inference: bool = False, output_transform: Optional[Callable] = None, **kwargs):
+    def __init__(self, loss_fn: callable, inference: bool = False, output_transform: Callable | None = None, **kwargs):
         super().__init__(loss_fn, output_transform)
         self.inference = inference
         self.phase_manager = PhaseManager()

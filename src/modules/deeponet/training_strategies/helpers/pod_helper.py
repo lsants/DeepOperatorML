@@ -1,7 +1,8 @@
 # File: src/modules/deeponet/helpers/pod_basis_helper.py
+from __future__ import annotations
 import torch
 import logging
-from typing import TYPE_CHECKING, Any, Dict, Tuple, Optional
+from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from modules.deeponet.deeponet import DeepONet
 

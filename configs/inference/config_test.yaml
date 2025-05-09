@@ -20,13 +20,13 @@ PLOT_AXIS: true
 PLOT_BASIS: true
 
 AXES_TO_PLOT:
-  - r
+  - x
   - z
 
 # Plot every X percentile (e.g every 10th percentile of the input functions)
 PLOT_PERCENTILES: 10
 
-INFERENCE_ON: train
+INFERENCE_ON: test
 SAMPLES_TO_PLOT: 5
 BASIS_TO_PLOT: all
 PRINCIPAL_MODES_TO_PLOT: 4

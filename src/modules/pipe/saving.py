@@ -1,3 +1,4 @@
+from __future__ import annotations
 import os
 import yaml
 import torch
@@ -6,6 +7,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 logger = logging.getLogger(__name__)
+
+
 class Saver:
     def __init__(self, model_name: str, model_folder: str | None=None, data_output_folder: str | None=None, figures_folder: str | None=None, full_logging: bool=True):
         """
@@ -45,16 +48,19 @@ class Saver:
         for key, value in kwargs.items():
             if key in self.save_methods:
                 if key == 'history':
-                    self.save_methods[key](value, filename_prefix=kwargs.get('history_prefix'))
+                    self.save_methods[key](
+                        value, filename_prefix=kwargs.get('history_prefix'))
                 elif key == 'figure':
-                    self.save_methods[key](value, filename_prefix=kwargs.get('figure_prefix'))
+                    self.save_methods[key](
+                        value, filename_prefix=kwargs.get('figure_prefix'))
                 elif key == 'time':
-                    self.save_methods[key](value, filename_prefix=kwargs.get('time_prefix'))
+                    self.save_methods[key](
+                        value, filename_prefix=kwargs.get('time_prefix'))
                 elif key == 'train_state':
                     self.save_methods[key](value['model_state_dict'],
                                            value['optimizer_state_dict'],
                                            value['epochs'],
-                                        )
+                                           )
                 else:
                     self.save_methods[key](value)
 
@@ -94,7 +100,8 @@ class Saver:
 
     def save_model_info(self, model_info: dict[str, any]) -> None:
         filename = f'model_info_{self.name}.yaml'
-        model_info_path = self.make_output_dir(self.data_output_folder, filename)
+        model_info_path = self.make_output_dir(
+            self.data_output_folder, filename)
         serializable_model_info = self.make_serializable(model_info)
         with open(model_info_path, 'w') as f:
             yaml.dump(serializable_model_info, f)
@@ -102,10 +109,10 @@ class Saver:
 
     def save_output_data(self, data: dict[str, np.ndarray]) -> None:
         preds_filename = f'./data/output/{self.name}.npz'
-        np.savez(preds_filename, 
+        np.savez(preds_filename,
                  basis_functions=data['basis_functions'],
                  coefficients=data['coefficients']
-                )
+                 )
 
     def save_indices(self, indices_dict) -> None:
         filename = f'indices_{self.name}.yaml'
@@ -117,12 +124,14 @@ class Saver:
 
     def save_norm_params(self, norm_params: dict,) -> None:
         filename = f'norm_params_{self.name}.yaml'
-        norm_params_path = self.make_output_dir(self.data_output_folder, filename)
+        norm_params_path = self.make_output_dir(
+            self.data_output_folder, filename)
         serializable_norm_params = self.make_serializable(norm_params)
         with open(norm_params_path, 'w') as f:
             yaml.dump(serializable_norm_params, f, indent=4)
         if self.full_logging:
-            logger.info(f"\nNormalization parameters saved to:\n{norm_params_path}\n")
+            logger.info(
+                f"\nNormalization parameters saved to:\n{norm_params_path}\n")
 
     def save_history(self, history: dict, filename_prefix: str | None = None) -> None:
         filename = f'{filename_prefix or "history"}_{self.name}.txt'
@@ -162,6 +171,7 @@ class Saver:
     def make_output_dir(self, folder: str, filename: str) -> str:
         """Ensures that the output directory exists and returns the full file path."""
         if folder is None:
-            raise ValueError(f"The specified folder for saving '{filename}' is undefined.")
+            raise ValueError(
+                f"The specified folder for saving '{filename}' is undefined.")
         os.makedirs(folder, exist_ok=True)
         return os.path.join(folder, filename)

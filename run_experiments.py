@@ -19,42 +19,15 @@ logger = logging.getLogger(__name__)
 BASE_CONFIG = 'configs/training/config_train.yaml'
 
 overrides_list = [
-    # {"PROBLEM": "dynamic", 
-    #  "DATA_FILE" : "./data/raw/dynamic_displacements.npz",
-    #  "INPUT_FUNCTION_KEYS" : ["delta"],
-    #  "COORDINATE_KEYS" : ["r", "z"],
-    #  "OUTPUT_KEYS" : ["g_u_real", "g_u_imag"],
-    #  "TRAINING_STRATEGY": "two_step",
-    #  "OUTPUT_HANDLING": "share_trunk",
-    #  "TRUNK_FEATURE_EXPANSION": 0
-    #  },
-
-    # {"PROBLEM": "dynamic", 
-    #  "DATA_FILE" : "./data/raw/dynamic_displacements.npz",
-    #  "INPUT_FUNCTION_KEYS" : ["delta"],
-    #  "COORDINATE_KEYS" : ["r", "z"],
-    #  "OUTPUT_KEYS" : ["g_u_real", "g_u_imag"],
-    #  "TRAINING_STRATEGY": "two_step",
-    #  "OUTPUT_HANDLING": "split_outputs",
-    #  "TRUNK_FEATURE_EXPANSION": 2
-    #  },
-
-    {"PROBLEM": "dynamic", 
-     "DATA_FILE" : "./data/raw/dynamic_displacements.npz",
-     "TRAINING_STRATEGY": "pod",
-     "OUTPUT_HANDLING": "split_outputs",
-     "TRUNK_DECOMPOSITION": 'qr'
+    {"PROBLEM": "kelvin", 
+     "DATA_FILE" : "./data/raw/kelvin_displacements.npz",
+     "INPUT_FUNCTION_KEYS" : ["F", "mu", "nu"],
+     "COORDINATE_KEYS" : ["x", "y", "z"],
+     "OUTPUT_KEYS" : ["g_u"],
+     "TRAINING_STRATEGY": "standard",
+     "OUTPUT_HANDLING": "single_output",
+     "TRUNK_FEATURE_EXPANSION": 0
      },
-
-    # {"PROBLEM": "dynamic", 
-    #  "DATA_FILE" : "./data/raw/dynamic_displacements.npz",
-    #  "INPUT_FUNCTION_KEYS" : ["delta"],
-    #  "COORDINATE_KEYS" : ["r", "z"],
-    #  "OUTPUT_KEYS" : ["g_u_real", "g_u_imag"],
-    #  "TRAINING_STRATEGY": "two_step",
-    #  "OUTPUT_HANDLING": "split_outputs",
-    #  "TRUNK_DECOMPOSITION": 'svd'
-    #  },
 
 
 ]

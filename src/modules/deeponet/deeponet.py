@@ -1,4 +1,5 @@
 # modules/model/deeponet.py
+from __future__ import annotations
 import torch
 import logging
 from typing import TYPE_CHECKING

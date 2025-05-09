@@ -1,3 +1,4 @@
+from __future__ import annotations
 import torch
 from abc import ABC, abstractmethod
 from ...data_processing.transforms import Compose

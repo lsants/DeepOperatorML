@@ -1,3 +1,4 @@
+from __future__ import annotations
 import torch
 import logging
 import numpy as np
@@ -137,7 +138,6 @@ def postprocess_for_2D_plot(model: 'DeepONet', plot_config: dict[str, any], mode
     branch_tuple = dtl.don_to_meshgrid(branch_features)
     branch_map = {k:v for k, v in zip(xb_keys, branch_tuple)}
     processed_data["branch_map"] = branch_map
-
     processed_data["branch_features"] = np.array(branch_features)
 
     # -------------- Prepare trunk data --------------
@@ -171,6 +171,7 @@ def postprocess_for_2D_plot(model: 'DeepONet', plot_config: dict[str, any], mode
     coords_2D_map = {k : v for k, v in coordinates_map.items() if k in plot_config["AXES_TO_PLOT"]}
 
     processed_data["coords_2D"] = coords_2D_map
+    print("GGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGg", index_to_remove_coords)
     processed_data["trunk_features"] = xt_plot
 
 
@@ -205,11 +206,12 @@ def postprocess_for_2D_plot(model: 'DeepONet', plot_config: dict[str, any], mode
     truth_slicer = [slice(None)] * truth_field.ndim
     pred_slicer = [slice(None)] * pred_field.ndim
     basis_slicer = [slice(None)] * basis_modes.ndim
-    if index_to_remove_coords:
+    if index_to_remove_coords is not None:  # Fix: Check for 'is not None' instead of truthy value
         processed_data["index_to_remove_coords"] = index_to_remove_coords
-        truth_slicer[index_to_remove_coords + 2] = 0
-        pred_slicer[index_to_remove_coords + 2] = 0
-        basis_slicer[index_to_remove_coords + 1] = 0
+        # Fix: Remove +2 from truth and pred slicers
+        truth_slicer[index_to_remove_coords] = 0
+        pred_slicer[index_to_remove_coords] = 0
+        basis_slicer[index_to_remove_coords + 1] = 0  # Basis slicer remains correct
     
     basis_modes_sliced = basis_modes[tuple(basis_slicer)]
     
@@ -221,10 +223,10 @@ def postprocess_for_2D_plot(model: 'DeepONet', plot_config: dict[str, any], mode
     processed_data["basis_functions_2D"] = basis_modes_sliced
     processed_data["coefficients"] = coefficients
     
-    logger.debug(f"\nOutputs shape: {pred_field.shape}\n")
-    logger.debug(f"\n2D Outputs shape: {processed_data['pred_field_2D'].shape}\n")
-    logger.debug(f"\n2D Truths shape: {processed_data['truth_field_2D'].shape}\n")
-    logger.debug(f"\n2D Basis functions shape: {processed_data['basis_functions_2D'].shape}\n")
+    logger.info(f"\nOutputs shape: {pred_field.shape}\n")
+    logger.info(f"\n2D Outputs shape: {processed_data['pred_field_2D'].shape}\n")
+    logger.info(f"\n2D Truths shape: {processed_data['truth_field_2D'].shape}\n")
+    logger.info(f"\n2D Basis functions shape: {processed_data['basis_functions_2D'].shape}\n")
 
     return processed_data
 

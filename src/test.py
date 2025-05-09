@@ -1,3 +1,4 @@
+from __future__ import annotations
 import logging
 import numpy as np
 from tqdm.auto import tqdm
@@ -51,7 +52,8 @@ def test_model(test_config_path: str, trained_model_config: dict | None=None) ->
 
     saver.set_logging(False) # Don't print saved paths for plots
 
-    # -------------------- Process data for plots ---------------------
+    # -------------------- Process data for plots --------------------- #
+    # TODO: Change to problem specific
 
     data_for_2D_plotting = plu.postprocess_for_2D_plot(model=model, 
                                                    plot_config=test_config, 

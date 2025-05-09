@@ -1,4 +1,5 @@
 # File: src/modules/deeponet/training_strategies/pod_training_strategy.py
+from __future__ import annotations
 import logging
 import torch
 from ..deeponet import DeepONet

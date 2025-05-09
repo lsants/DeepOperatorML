@@ -1,5 +1,7 @@
+from __future__ import annotations
 import torch
 import warnings
+from typing import Optional
 from ...data_processing.transforms import Compose
 from ..training_strategies import (
     TrainingStrategy,
@@ -20,21 +22,23 @@ class StrategyFactory:
     def get_output_handling(strategy_name: str, output_keys: list) -> OutputHandling:
         strategy_name_lower = strategy_name.lower()
         output_stategy_mapping = {
-                'single_output': SingleOutputHandling,
-                'share_branch': ShareBranchHandling,
-                'share_trunk': ShareTrunkHandling,
-                'split_outputs': SplitOutputsHandling,
+            'single_output': SingleOutputHandling,
+            'share_branch': ShareBranchHandling,
+            'share_trunk': ShareTrunkHandling,
+            'split_outputs': SplitOutputsHandling,
         }
         if strategy_name_lower not in output_stategy_mapping:
-            raise ValueError(f"Unsupported OUTPUT_HANDLING strategy: {strategy_name_lower}.")
+            raise ValueError(
+                f"Unsupported OUTPUT_HANDLING strategy: {strategy_name_lower}.")
         if strategy_name_lower == 'single_output' and len(output_keys) != 1:
-            raise ValueError(f"Invalid output handling, can't use {strategy_name_lower} strategy for a multi-output model.")
+            raise ValueError(
+                f"Invalid output handling, can't use {strategy_name_lower} strategy for a multi-output model.")
         elif len(output_keys) == 1:
             warnings.warn(
                 f"Warning: There's little use in using a strategy for handling multiple outputs when the model has {len(output_keys)} outputs. Resources may be wasted."
             )
         return output_stategy_mapping[strategy_name_lower]()
-    
+
     @staticmethod
     def get_training_strategy(strategy_name: str, 
                               loss_fn: callable, 
@@ -43,28 +47,30 @@ class StrategyFactory:
                               transform: Compose | None = None,
                               inference: bool = False, 
                               **kwargs) -> TrainingStrategy:
-        
+
         strategy_name_lower = strategy_name.lower()
         if strategy_name_lower == 'pod':
             var_share = model_params.get('VAR_SHARE')
             if not inference:
-                return PODTrainingStrategy(loss_fn=loss_fn, 
-                                        data=data, 
-                                        var_share=var_share, 
-                                        inference=inference,
-                                        output_transform=transform)
+                return PODTrainingStrategy(loss_fn=loss_fn,
+                                           data=data,
+                                           var_share=var_share,
+                                           inference=inference,
+                                           output_transform=transform)
             else:
-                return PODTrainingStrategy(loss_fn=loss_fn, 
-                                        data=data, 
-                                        var_share=var_share, 
-                                        inference=inference,
-                                        pod_trunk=kwargs.get('pod_trunk'),
-                                        output_transform=transform)
+                return PODTrainingStrategy(loss_fn=loss_fn,
+                                           data=data,
+                                           var_share=var_share,
+                                           inference=inference,
+                                           pod_trunk=kwargs.get('pod_trunk'),
+                                           output_transform=transform)
         elif strategy_name_lower == 'two_step':
-            train_dataset_length = len(data['xb']) if data and 'xb' in data else None
+            train_dataset_length = len(
+                data['xb']) if data and 'xb' in data else None
             if train_dataset_length is None:
                 if not inference:
-                    raise ValueError(f"Initializing a TwoStep model without informing batch size is only possible when doing inference.\nCheck what you're doing!")
+                    raise ValueError(
+                        f"Initializing a TwoStep model without informing batch size is only possible when doing inference.\nCheck what you're doing!")
                 return TwoStepTrainingStrategy(
                     loss_fn=loss_fn,
                     device=model_params['DEVICE'],
@@ -83,9 +89,10 @@ class StrategyFactory:
                     inference=inference,
                 )
         elif strategy_name_lower == 'standard':
-            return StandardTrainingStrategy(loss_fn=loss_fn, 
+            return StandardTrainingStrategy(loss_fn=loss_fn,
                                             inference=inference,
                                             output_transform=transform
                                             )
         else:
-            raise ValueError(f"Unsupported TRAINING_STRATEGY: {strategy_name_lower}.")
+            raise ValueError(
+                f"Unsupported TRAINING_STRATEGY: {strategy_name_lower}.")

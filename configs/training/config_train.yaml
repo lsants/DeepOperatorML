@@ -15,6 +15,11 @@ INPUT_FUNCTION_KEYS: # delta for dynamuc
   - nu
   - mu
 
+# xb = {'F': balabla,
+#        'nu': blabla,
+#        'mu': blabla}
+# xb = {'Re': blabla}
+
 INPUT_FUNCTION_LABELS:
   - F
   - ν
@@ -23,27 +28,26 @@ INPUT_FUNCTION_LABELS:
 BRANCH_PROCESSING_TYPE: meshgrid
 
 COORDINATE_KEYS:
-  - r
+  - x
+  - y
   - z
 
 OUTPUT_KEYS:
-  - g_u_real
-  - g_u_imag
+  - g_u
 
-OUTPUT_LABELS:
-  - "$\\Re(\\vec{u})$"
-  - "$\\Im(\\vec{u})$"
+OUTPUT_LABELS: # "$\\Re(\\vec{u})$" and "$\\Im(\\vec{u})$" for dynamic, "$\\vec{u})$" for kelvin
+  - "$\\vec{u})$"
 
 DIRECTION: 2
 
 # ------------------- Model architecture ------------------
 PRECISION: float32
-DEVICE: cuda
+DEVICE: cpu
 SEED: 42
 
-TRAINING_STRATEGY: two_step
-OUTPUT_HANDLING: split_outputs
-BASIS_FUNCTIONS: 200
+TRAINING_STRATEGY: standard
+OUTPUT_HANDLING: single_output
+BASIS_FUNCTIONS: 50
 BRANCH_ARCHITECTURE: resnet
 BRANCH_ACTIVATION: silu
 BRANCH_DEGREE: 8
@@ -74,7 +78,7 @@ RESCALING: none # p = number of basis functions. Can be none, 1/p or 1/sqrt(p)
 
 # ------------------- Parameters for vanilla training ------------------
 LEARNING_RATE: 0.001
-EPOCHS: 100000
+EPOCHS: 50
 BATCH_SIZE: 50
 TRAIN_PERC: 0.8
 VAL_PERC: 0.1
@@ -82,14 +86,14 @@ TEST_PERC: 0.1
 ERROR_NORM: 2
 STANDARD_PROGRESS_BAR_COLOR: 'green'
 GLOBAL_OPTIMIZER_SCHEDULE:
-  - EPOCHS: 25000
+  - EPOCHS: 4000
     OPTIMIZER: adam
     LEARNING_RATE: 0.001
     L2_REGULARIZATION: 0.00001
     LR_SCHEDULER:
-      STEP_SIZE: 5000
+      STEP_SIZE: 1000
       GAMMA: 0.7
-  - EPOCHS: 25000
+  - EPOCHS: 1000
     OPTIMIZER: adam
     LEARNING_RATE: 0.0001
     L2_REGULARIZATION: 0.00001

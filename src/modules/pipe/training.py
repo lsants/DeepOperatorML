@@ -1,7 +1,9 @@
+from __future__ import annotations
 import time
 import torch
 import logging
 from tqdm.auto import tqdm
+from typing import Optional
 from ..pipe.saving import Saver
 from .store_outputs import HistoryStorer
 from ..deeponet.deeponet import DeepONet
@@ -16,6 +18,7 @@ from ..deeponet.training_strategies import (
 )
 
 logger = logging.getLogger(__name__)
+
 
 class TrainingLoop:
     def __init__(self, model: DeepONet, training_strategy: TrainingStrategy, saver: Saver, training_params: dict) -> None:
@@ -37,14 +40,16 @@ class TrainingLoop:
             self.phases = [training_params["TRAINING_STRATEGY"].capitalize()]
         self.storer = HistoryStorer(self.phases)
         self.saver = saver
-        self.training_strategy.prepare_training(self.model, training_params=self.training_params)
-        self.optimizer_manager = OptimizerSchedulerManager(self.training_params, self.model)
-            
-    def train(self, train_batch: dict[torch.Tensor], val_batch: dict[torch.Tensor] | None = None) -> dict:
+        self.training_strategy.prepare_training(
+            self.model, training_params=self.training_params)
+        self.optimizer_manager = OptimizerSchedulerManager(
+            self.training_params, self.model)
+
+    def train(self, train_batch: dict[torch.Tensor], val_batch: Optional[dict[torch.Tensor]] = None) -> dict:
         """
         Executes the training loop. The configuration (via training_params) defines the pipeline:
          - TRAINING_PHASES: list of phase names (e.g., ["trunk", "branch"] for two-step; ["final"] for single-phase).
-        
+
         The loop iterates over phases, and for each phase:
          - Notifies the training strategy of the current phase.
          - Iterates for the given number of epochs, calling:
@@ -55,12 +60,14 @@ class TrainingLoop:
         """
 
         if isinstance(self.training_strategy, TwoStepTrainingStrategy):
-            epochs_list = [self.training_params["TRUNK_TRAIN_EPOCHS"], self.training_params["BRANCH_TRAIN_EPOCHS"]]
+            epochs_list = [self.training_params["TRUNK_TRAIN_EPOCHS"],
+                           self.training_params["BRANCH_TRAIN_EPOCHS"]]
         else:
             epochs_list = [self.training_params["EPOCHS"]]
-        
+
         if len(self.phases) != len(epochs_list):
-            raise ValueError("List of epochs don't match number of training phases.")
+            raise ValueError(
+                "List of epochs don't match number of training phases.")
 
         best_model_checkpoint = None
 
@@ -69,24 +76,28 @@ class TrainingLoop:
         for phase_idx, phase in enumerate(self.phases):
             phase_epochs = epochs_list[phase_idx]
             logger.info(f"Starting phase '{phase}' for {phase_epochs} epochs.")
-            
+
             self.training_strategy.update_training_phase(phase)
-            self.training_strategy.prepare_for_phase(self.model, 
-                                                     model_params=self.training_params, 
-                                                     train_batch=bt.prepare_batch(train_batch, self.training_params)
+            self.training_strategy.prepare_for_phase(self.model,
+                                                     model_params=self.training_params,
+                                                     train_batch=bt.prepare_batch(
+                                                         train_batch, self.training_params)
                                                      )
-            
+
             best_train_loss = float('inf')
 
             phase_start = time.time()
             for epoch in tqdm(range(phase_epochs), desc=f"Phase: {phase}", colour=self.training_params.get("STANDARD_PROGRESS_BAR_COLOR", 'blue')):
-                active_optimizer = self.optimizer_manager.get_active_optimizer(epoch, phase)["active"]
-                active_scheduler = self.optimizer_manager.get_active_scheduler(epoch, phase)["active"]
+                active_optimizer = self.optimizer_manager.get_active_optimizer(epoch, phase)[
+                    "active"]
+                active_scheduler = self.optimizer_manager.get_active_scheduler(epoch, phase)[
+                    "active"]
 
                 batch = bt.prepare_batch(train_batch, self.training_params)
                 outputs = self.model(batch["xb"], batch["xt"])
 
-                loss = self.training_strategy.compute_loss(outputs, batch, self.model, self.training_params)
+                loss = self.training_strategy.compute_loss(
+                    outputs, batch, self.model, self.training_params)
 
                 if epoch % 100 == 0 and epoch > 0:
                     print(f"Loss: {loss:.2E}")
@@ -96,11 +107,13 @@ class TrainingLoop:
                 active_optimizer.step()
                 if active_scheduler is not None:
                     self.optimizer_manager.step_scheduler(active_scheduler)
-                
-                errors = self.training_strategy.compute_errors(outputs, batch, self.model, self.training_params)
+
+                errors = self.training_strategy.compute_errors(
+                    outputs, batch, self.model, self.training_params)
                 self.storer.store_epoch_train_loss(phase, loss.item())
                 self.storer.store_epoch_train_errors(phase, errors)
-                self.storer.store_learning_rate(phase, active_optimizer.param_groups[-1]["lr"])
+                self.storer.store_learning_rate(
+                    phase, active_optimizer.param_groups[-1]["lr"])
 
                 self._validate(val_batch, phase)
 
@@ -119,14 +132,17 @@ class TrainingLoop:
                         best_model_checkpoint['pod_basis'] = self.model.trunk.basis
                         best_model_checkpoint['mean_functions'] = self.model.trunk.mean
 
-                self.training_strategy.after_epoch(epoch, self.model, self.training_params, train_batch=batch["xt"])
+                self.training_strategy.after_epoch(
+                    epoch, self.model, self.training_params, train_batch=batch["xt"])
 
             phase_duration = time.time() - phase_start
-            logger.info(f"Phase '{phase}' completed in {phase_duration:.2f} seconds.")
-        
+            logger.info(
+                f"Phase '{phase}' completed in {phase_duration:.2f} seconds.")
+
         phase_count += 1
 
-        trained_model_config = self._finalize_training(phase_count, best_model_checkpoint, phase_duration)
+        trained_model_config = self._finalize_training(
+            phase_count, best_model_checkpoint, phase_duration)
 
         return trained_model_config
 
@@ -136,15 +152,19 @@ class TrainingLoop:
         self.model.eval()
         val_batch_processed = bt.prepare_batch(val_batch, self.training_params)
         with torch.no_grad():
-            val_outputs = self.model(val_batch_processed['xb'], val_batch_processed['xt'])
-            val_loss = self.training_strategy.compute_loss(val_outputs, val_batch_processed, self.model, self.training_params)
-            val_errors = self.training_strategy.compute_errors(val_outputs, val_batch_processed, self.model, self.training_params)
+            val_outputs = self.model(
+                val_batch_processed['xb'], val_batch_processed['xt'])
+            val_loss = self.training_strategy.compute_loss(
+                val_outputs, val_batch_processed, self.model, self.training_params)
+            val_errors = self.training_strategy.compute_errors(
+                val_outputs, val_batch_processed, self.model, self.training_params)
 
         self.storer.store_epoch_val_loss(phase, val_loss.item())
         self.storer.store_epoch_val_errors(phase, val_errors)
 
     def _log_epoch_metrics(self, epoch: int, train_loss: float, train_errors: dict[str, list[float]], val_metrics: dict[str, list[float]]) -> None:
-        output_errors_str = ", ".join([f"{key}: {train_errors.get(key, 0):.3E}" for key in self.training_params['OUTPUT_KEYS']])
+        output_errors_str = ", ".join(
+            [f"{key}: {train_errors.get(key, 0):.3E}" for key in self.training_params['OUTPUT_KEYS']])
         log_msg = f"Epoch {epoch}: Train Loss: {train_loss:.3E}, Train Errors: {output_errors_str}"
         if val_metrics:
             val_output_errors_str = ", ".join(
@@ -159,11 +179,12 @@ class TrainingLoop:
         """
         history = self.storer.get_history()
 
-        valid_history = {phase: metrics for phase, metrics in history.items() if metrics.get('train_loss')}
-
+        valid_history = {phase: metrics for phase,
+                         metrics in history.items() if metrics.get('train_loss')}
 
         if not valid_history:
-            raise ValueError("There's no history to save. There's an error somewhere when generating the history.")
+            raise ValueError(
+                "There's no history to save. There's an error somewhere when generating the history.")
 
         aligned_history = align_epochs(valid_history)
         fig = plot_training(aligned_history)
