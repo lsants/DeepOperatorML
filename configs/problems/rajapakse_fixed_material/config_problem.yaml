@@ -1,0 +1,32 @@
+# Problem name
+PROBLEM: rajapakse_fixed_material
+
+#  ----------------------Location of .npz data files ----------------
+RAW_DATA_PATH: ./data/raw/displacements.npz
+PROCESSED_DATA_PATH: ./data/processed/rajapakse_fixed_material/rajapakse_fixed_material_processed_data.npz
+
+#  ----------------------Location of outputs ----------------
+OUTPUT_PATH: ./output/rajapakse_fixed_material/
+
+# ------------------------- dataset parameters ----------------
+TRAIN_PERC: 0.8
+VAL_PERC: 0.1
+TEST_PERC: 0.1
+
+INPUT_FUNCTION_KEYS:
+  - delta
+
+INPUT_FUNCTION_LABELS:
+  - δ
+
+COORDINATE_KEYS:
+  - r
+  - z
+
+OUTPUT_KEYS:
+  - g_u_real
+  - g_u_imag
+
+OUTPUT_LABELS: # "$\\Re(\\vec{u})$" and "$\\Im(\\vec{u})$" for dynamic, "$\\vec{u})$" for kelvin
+  - "$\\Re(\\vec{u})$"
+  - "$\\Im(\\vec{u})$"

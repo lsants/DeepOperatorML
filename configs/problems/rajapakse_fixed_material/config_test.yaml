@@ -1,0 +1,26 @@
+PRECISION: float32
+DEVICE: cpu
+
+# Location of dataset to test
+PROCESSED_DATA_PATH: ./data/processed/rajapakse_fixed_material/processed_rajapakse_fixed_material_data.npz
+
+# Location of outputs (data, metrics) - Set this if testing a pretrained model
+OUTPUT_PATH: ./output/rajapakse_fixed_material/
+
+PLOT_FIELD: true
+PLOT_AXIS: true
+PLOT_BASIS: true
+
+AXES_TO_PLOT:
+  - r
+  - z
+
+# Plot every X percentile (e.g every 10th percentile of the input functions)
+PLOT_PERCENTILES: 10
+
+INFERENCE_ON: test
+SAMPLES_TO_PLOT: 5
+BASIS_TO_PLOT: all
+PRINCIPAL_MODES_TO_PLOT: 4
+PLOT_FIELD_BAR_COLOR: cyan
+PLOT_BASIS_BAR_COLOR: magenta
