@@ -1,2 +1,2 @@
-from .train import train_model
-from .test import test_model
+from .modules.pipe.train import train_model
+from .modules.pipe.test import test_model
