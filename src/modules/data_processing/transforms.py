@@ -36,7 +36,7 @@ class Rescale:
     def inverse(self, sample: torch.Tensor) -> torch.Tensor:
         return sample / self.factor
     
-    def get_factor(self, factor: float, config: dict[str, float]) -> float:
+    def get_factor(self, factor: float, config: str) -> float:
         scales_config = {
             'none': 1,
             '1/p': 1 / factor,
@@ -46,6 +46,23 @@ class Rescale:
     
     def update_scale_factor(self, new_scale_factor: float) -> None:
         self.factor = self.get_factor(new_scale_factor, self.config)
+
+class NormalizeTransform:
+    """Apply precomputed normalization parameters"""
+    def __init__(self, scalers: dict[str, float], normalization_type: str):
+        self.scalers = scalers
+        self.normalization_type = normalization_type
+
+    def __call__(self, sample):
+        pass
+class DenormalizeTransform:
+    """Apply precomputed normalization parameters"""
+    def __init__(self, scalers: dict[str, float], normalization_type: str):
+        self.scalers = scalers
+        self.normalization_type = normalization_type
+
+    def __call__(self, sample):
+        pass
 
 def trunk_feature_expansion(xt: torch.Tensor, n_exp_features: int) -> torch.Tensor:
     expansion_features = [xt]

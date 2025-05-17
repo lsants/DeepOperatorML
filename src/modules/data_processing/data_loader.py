@@ -1,70 +1,19 @@
 from __future__ import annotations
 import torch
 import numpy as np
-from .scaling import Scaling
 from .deeponet_dataset import DeepONetDataset
-from .process_branch_input import branch_processing_map
 
-def preprocess_npz_data(npz_filename: str, input_function_keys: list[str], coordinate_keys: list[str], branch_processing_strategy: str, **kwargs) -> dict[str, torch.Tensor]:
+
+def get_dataset_statistics(dataset: DeepONetDataset, keys: list[str] | None = None) -> dict[str, dict[str, float]]:
     """
-    Loads data from an npz file and groups the input functions and coordinates into tuples
-    called 'xb' and 'xt' suitable for creating the PyTorch dataset.
-    
-    The function assumes that:
-      - The input functions (sensors) are stored under keys given by input_function_keys.
-        These may have different lengths. The function creates a meshgrid from these arrays
-        (using 'ij' indexing) and then flattens the resulting arrays column‐wise to obtain a
-        2D array of shape (num_sensor_points, num_sensor_dimensions).
-      - The coordinate arrays (for the trunk) are stored under keys given by coordinate_keys.
-        Again, a meshgrid is created and then flattened to yield a 2D array of shape
-        (num_coordinate_points, num_coordinate_dimensions).
-      - Optionally, if the .npz file contains an operator output under the key 'g_u', it is also included.
-    
-    Args:
-        npz_filename (str): Path to the .npz file.
-        input_function_keys (list of str): List of keys for sensor (input function) arrays.
-        coordinate_keys (list of str): List of keys for coordinate arrays.
-    
-    Returns:
-        dict: A dictionary with the following keys:
-            - 'xb': A 2D numpy array of shape (num_sensor_points, num_sensor_dimensions).
-            - 'xt': A 2D numpy array of shape (num_coordinate_points, num_coordinate_dimensions).
-            - 'g_u': (if present) the operator output array.
-    """
-
-    desired_direction = kwargs.get('direction')
-    data = np.load(npz_filename, allow_pickle=True)
-    
-    input_funcs = [data[key] for key in input_function_keys]
-    xb = branch_processing_map[branch_processing_strategy]().compute_xb(input_funcs)
-
-    coords = [data[name] for name in coordinate_keys]
-    coord_mesh = np.meshgrid(*coords, indexing='ij')
-    xt = np.column_stack([m.flatten() for m in coord_mesh])
-    
-    result = {'xb': xb, 'xt': xt}
-    if 'g_u' in data:
-        result['g_u'] = data['g_u']
-        if np.iscomplexobj(result['g_u']):
-            result["g_u_real"] = result["g_u"].real
-            result["g_u_imag"] = result["g_u"].imag
-        if desired_direction:
-            result['g_u'] = result['g_u'][..., desired_direction]
-    else:
-        raise ValueError("Operator target must be named 'g_u'")
-    
-    return result
-
-def get_minmax_norm_params(dataset: DeepONetDataset, keys: list[str] | None=None) ->  dict[str, dict[str, float]]:
-    """
-    Compute min-max normalization parameters for specified keys in the dataset.
+    Compute min, max, mean, and std for specified keys in the dataset.
 
     Args:
-        dataset (torch.utils.data.Dataset or torch.utils.data.Subset): Dataset or subset.
-        keys (list of str, optional): Keys to normalize. If None, includes 'xb', 'xt', and all outputs.
+        dataset (Dataset/Subset): Dataset to compute stats for.
+        keys (list[str]): Keys to process (e.g., ['xb', 'xt', 'g_u']).
 
     Returns:
-        dict: Dictionary containing min and max values for each key.
+        dict: Statistics for each key: {'min', 'max', 'mean', 'std'}.
     """
     if isinstance(dataset, torch.utils.data.Subset):
         original_dataset = dataset.dataset
@@ -74,15 +23,23 @@ def get_minmax_norm_params(dataset: DeepONetDataset, keys: list[str] | None=None
         indices = range(len(dataset))
 
     if keys is None:
-        keys = ['xb', 'xt'] + getattr(original_dataset, 'output_keys', [])
+        keys = ["xb", "xt"] + getattr(original_dataset, "output_keys", [])
 
-    min_max_params = {key: {'min': float('inf'), 'max': -float('inf')} for key in keys}
+    stats = {
+        key: {
+            "min": float("inf"),
+            "max": -float("inf"),
+            "sum": 0.0,
+            "sum_sq": 0.0,
+            "count": 0,
+        }
+        for key in keys
+    }
 
     for idx in indices:
         sample = original_dataset[idx]
-
         for key in keys:
-            if key == 'xt':
+            if key == "xt":
                 values = original_dataset.get_trunk()
             else:
                 values = sample[key]
@@ -90,33 +47,54 @@ def get_minmax_norm_params(dataset: DeepONetDataset, keys: list[str] | None=None
             if isinstance(values, torch.Tensor):
                 values = values.detach().cpu().numpy()
 
-            min_max_params[key]['min'] = min(min_max_params[key]['min'], np.min(values))
-            min_max_params[key]['max'] = max(min_max_params[key]['max'], np.max(values))
+            flattened = values.reshape(-1)
 
-    return min_max_params
+            stats[key]["min"] = min(stats[key]["min"], np.min(flattened))
+            stats[key]["max"] = max(stats[key]["max"], np.max(flattened))
 
-def get_norm_params(train_dataset: dict[str, torch.utils.data.Subset], params: dict[str, any]) -> dict[str, any]:
-    min_max_vals = get_minmax_norm_params(train_dataset)
+            stats[key]["sum"] += np.sum(flattened)
+            stats[key]["sum_sq"] += np.sum(flattened**2)
+            stats[key]["count"] += len(flattened)
 
-    xb_min, xb_max = min_max_vals['xb']['min'], min_max_vals['xb']['max']
-    xt_min, xt_max = min_max_vals['xt']['min'], min_max_vals['xt']['max']
+    for key in keys:
+        count = stats[key]["count"]
+        if count == 0:
+            raise ValueError(f"No data for key: {key}")
 
-    normalization_parameters = {
-        "xb": {
-            "min": xb_min,
-            "max": xb_max,
-        },
-        "xt": {
-            "min": xt_min,
-            "max": xt_max,
-        }
-    }   
-    for key in params['OUTPUT_KEYS']:
-        key_min, key_max = min_max_vals[key]['min'], min_max_vals[key]['max']
+        mean = stats[key]["sum"] / count
+        variance = (stats[key]["sum_sq"] / count) - (mean**2)
+        std = np.sqrt(variance)
+
+        stats[key]["mean"] = mean
+        stats[key]["std"] = std
+        del stats[key]["sum"], stats[key]["sum_sq"], stats[key]["count"]
+
+    return stats
+
+def get_norm_params(
+    train_dataset: dict[str, torch.utils.data.Subset], problem_params: dict[str, any]) -> dict[str, any]:
+    """
+    Collects normalization parameters (min/max/mean/std) for all keys.
+
+    Args:
+        train_dataset (Subset): Training dataset subset.
+        problem_params (dict): Contains 'OUTPUT_KEYS'.
+
+    Returns:
+        dict: Normalization parameters for each key.
+    """
+    keys = ["xb", "xt"] + problem_params["OUTPUT_KEYS"]
+    stats = get_dataset_statistics(train_dataset, keys)
+
+    normalization_parameters = {}
+    for key in keys:
         normalization_parameters[key] = {
-            "min": key_min,
-            "max": key_max,
+            "min": stats[key]["min"],
+            "max": stats[key]["max"],
+            "mean": stats[key]["mean"],
+            "std": stats[key]["std"],
         }
+
     return normalization_parameters
 
 def don_to_meshgrid(arr: np.ndarray) -> tuple[np.ndarray]:

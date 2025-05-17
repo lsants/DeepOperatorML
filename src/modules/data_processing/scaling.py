@@ -17,39 +17,21 @@ class Scaling:
         self.mean = mean
         self.std = std
 
-        if not ((min_val is not None and max_val is not None) or (mean is not None and std is not None)):
-            raise ValueError("Either min_val and max_val or mean and std must be provided.")
+        has_minmax = (min_val is not None) and (max_val is not None)
+        has_meanstd = (mean is not None) and (std is not None)
+        if not (has_minmax or has_meanstd):
+            raise ValueError("Provide min/max or mean/std.")
         
-    def __repr__(self):
-        return f"Scaling(min={self.min_val}, max={self.max_val})"
-
-    def normalize(self, values: torch.Tensor) -> torch.Tensor:
-        """
-        Normalizes values to the range [0, 1].
-
-        Args:
-            values (Tensor): Input values.
-
-        Returns:
-            Tensor: Normalized values.
-        """
+    def normalize(self, values: torch.Tensor, target_min=0.0, target_max=1.0) -> torch.Tensor:
         if self.min_val is None or self.max_val is None:
             raise ValueError("min_val and max_val must be provided for normalization.")
         
         v_min = torch.as_tensor(self.min_val, dtype=values.dtype, device=values.device)
         v_max = torch.as_tensor(self.max_val, dtype=values.dtype, device=values.device)
-        return (values - v_min) / (v_max - v_min)
+        normalized = (values - v_min) / (v_max - v_min)
+        return normalized * (target_max - target_min) + target_min
 
     def denormalize(self, values: torch.Tensor) -> torch.Tensor:
-        """
-        Denormalizes values from the range [0, 1] back to the original range.
-
-        Args:
-            values (Tensor): Input normalized values.
-
-        Returns:
-            Tensor: Denormalized values.
-        """
         if self.min_val is None or self.max_val is None:
             raise ValueError("min_val and max_val must be provided for denormalization.")
         
@@ -58,17 +40,8 @@ class Scaling:
         return values * (v_max - v_min) + v_min
 
     def standardize(self, values: torch.Tensor) -> torch.Tensor:
-        """
-        Standardizes values using the provided mean and standard deviation.
-
-        Args:
-            values (Tensor): Input values.
-
-        Returns:
-            Tensor: Standardized values.
-        """
         if self.mean is None or self.std is None:
-            raise ValueError("mean and std must be provided for standardization.")
+            raise ValueError("mean and std required for standardization.")
         
         mu = torch.as_tensor(self.mean, dtype=values.dtype, device=values.device)
         sigma = torch.as_tensor(self.std, dtype=values.dtype, device=values.device)
