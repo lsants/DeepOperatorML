@@ -1,5 +1,5 @@
+import os
 import sys
-import time
 import argparse 
 import yaml
 import logging
@@ -18,28 +18,32 @@ logging.basicConfig(
 
 def main() -> None:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--train-config", default="./configs/training/config_train.yaml", help="Path to training config file.")
-    parser.add_argument("--test-config",  default="./configs/inference/config_test.yaml", help="Path to testing config file.")
+    parser.add_argument("--problem", help="Type problem to be solved.")
+    parser.add_argument("--train-config-path", default="./configs/training/config_train.yaml", help="Path to training config file.")
     parser.add_argument("--skip-train",   action="store_true",        help="Skip training and only test.")
     parser.add_argument("--skip-test",    action="store_true",        help="Skip testing and only train.")
     args = parser.parse_args()
 
-    with open(args.train_config) as f:
-        train_cfg = yaml.safe_load(f)
-    with open(args.test_config) as f:
-        test_cfg = yaml.safe_load(f)
+    problem_path = os.path.join("./configs/problems/", args.problem)
+    train_config_path = args.train_config_path
+    problem_config_path = os.path.join(problem_path, "config_problem.yaml")
+    problem_test_config_path = os.path.join(problem_path, "config_test.yaml")
 
     if not args.skip_train:
-        model_info = train_model(args.train_config)
-        test_cfg["DATA_FILE"] = model_info["DATA_FILE"]
-        test_cfg["MODEL_FOLDER"] = train_cfg["MODEL_FOLDER"]
-        test_cfg["MODEL_NAME"] = model_info["MODEL_NAME"]
+        experiment_config = train_model(problem_config_path, train_config_path)
 
     if not args.skip_test:
+        with open(problem_test_config_path) as f:
+            test_cfg = yaml.safe_load(f)
         if not args.skip_train:
-            test_model(args.test_config, trained_model_config=model_info)
+            test_cfg["PROCESSED_DATA_PATH"] = experiment_config["PROCESSED_DATA_PATH"]
+            test_cfg["OUTPUT_PATH"] = experiment_config["OUTPUT_PATH"]
+            test_model(test_cfg, experiment_config)
         else:
-            test_model(args.test_config)
+            trained_model_config_path = os.path.join(test_cfg["OUTPUT_PATH"], 'config.yaml') 
+            with open(trained_model_config_path) as f:
+                trained_model_config = yaml.safe_load(f)
+            test_model(test_cfg, trained_model_config)
 
 if __name__ == '__main__':
     main()
