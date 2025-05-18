@@ -1,4 +1,5 @@
 from __future__ import annotations
+import os
 import time
 import torch
 import logging
@@ -35,17 +36,17 @@ class TrainingLoop:
         self.training_strategy = training_strategy
         self.training_params = training_params
         if hasattr(training_strategy, "get_phases"):
-            self.phases = training_strategy.get_phases()
+            self.phases = training_strategy.get_phases()  # type: ignore
         else:
             self.phases = [training_params["TRAINING_STRATEGY"].capitalize()]
         self.storer = HistoryStorer(self.phases)
         self.saver = saver
-        self.training_strategy.prepare_training(
+        self.training_strategy.prepare_for_training(
             self.model, training_params=self.training_params)
         self.optimizer_manager = OptimizerSchedulerManager(
             self.training_params, self.model)
 
-    def train(self, train_batch: dict[torch.Tensor], val_batch: Optional[dict[torch.Tensor]] = None) -> dict:
+    def train(self, train_batch: dict[str, torch.Tensor], val_batch: dict[str, torch.Tensor] | None = None) -> dict:
         """
         Executes the training loop. The configuration (via training_params) defines the pipeline:
          - TRAINING_PHASES: list of phase names (e.g., ["trunk", "branch"] for two-step; ["final"] for single-phase).
@@ -79,9 +80,10 @@ class TrainingLoop:
 
             self.training_strategy.update_training_phase(phase)
             self.training_strategy.prepare_for_phase(self.model,
-                                                     model_params=self.training_params,
+                                                     training_params=self.training_params,
                                                      train_batch=bt.prepare_batch(
-                                                         train_batch, self.training_params)
+                                                         train_batch,
+                                                         self.training_params)
                                                      )
 
             best_train_loss = float('inf')
@@ -97,7 +99,7 @@ class TrainingLoop:
                 outputs = self.model(batch["xb"], batch["xt"])
 
                 loss = self.training_strategy.compute_loss(
-                    outputs, batch, self.model, self.training_params)
+                    outputs, batch, self.model, training_params=self.training_params)
 
                 if epoch % 100 == 0 and epoch > 0:
                     print(f"Loss: {loss:.2E}")
@@ -109,7 +111,7 @@ class TrainingLoop:
                     self.optimizer_manager.step_scheduler(active_scheduler)
 
                 errors = self.training_strategy.compute_errors(
-                    outputs, batch, self.model, self.training_params)
+                    outputs, batch, self.model, training_params=self.training_params)
                 self.storer.store_epoch_train_loss(phase, loss.item())
                 self.storer.store_epoch_train_errors(phase, errors)
                 self.storer.store_learning_rate(
@@ -117,21 +119,36 @@ class TrainingLoop:
 
                 self._validate(val_batch, phase)
 
+                model_checkpoint = {
+                    'model_state_dict': self.model.state_dict(),
+                    'optimizer_state_dict': active_optimizer.state_dict(),
+                    'train_loss': loss.item(),
+                    'train_errors': errors,
+                    'epoch': epoch
+                }
+                if isinstance(self.training_strategy, TwoStepTrainingStrategy):
+                    if phase == 'branch':
+                        model_checkpoint['trained_trunk'] = self.model.trunk.trained_tensor
+                if isinstance(self.training_strategy, PODTrainingStrategy):
+                    model_checkpoint['pod_basis'] = self.model.trunk.basis
+                    model_checkpoint['mean_functions'] = self.model.trunk.mean
+
                 if loss.item() < best_train_loss:
                     best_train_loss = loss
                     best_model_checkpoint = {
                         'model_state_dict': self.model.state_dict(),
                         'optimizer_state_dict': active_optimizer.state_dict(),
                         'train_loss': best_train_loss,
-                        'train_errors': errors
+                        'train_errors': errors,
+                        'epoch': epoch
                     }
                     if isinstance(self.training_strategy, TwoStepTrainingStrategy):
                         if phase == 'branch':
                             best_model_checkpoint['trained_trunk'] = self.model.trunk.trained_tensor
                     if isinstance(self.training_strategy, PODTrainingStrategy):
                         best_model_checkpoint['pod_basis'] = self.model.trunk.basis
-                        best_model_checkpoint['mean_functions'] = self.model.trunk.mean
 
+                        best_model_checkpoint['mean_functions'] = self.model.trunk.mean
                 self.training_strategy.after_epoch(
                     epoch, self.model, self.training_params, train_batch=batch["xt"])
 
@@ -142,7 +159,7 @@ class TrainingLoop:
         phase_count += 1
 
         trained_model_config = self._finalize_training(
-            phase_count, best_model_checkpoint, phase_duration)
+            phase_count, model_checkpoint, best_model_checkpoint, phase_duration)
 
         return trained_model_config
 
@@ -150,15 +167,16 @@ class TrainingLoop:
         if isinstance(self.training_strategy, TwoStepTrainingStrategy):
             return
         self.model.eval()
-        val_batch_processed = bt.prepare_batch(val_batch, self.training_params)
+        val_batch_processed = bt.prepare_batch(
+            val_batch, training_params=self.training_params)
         with torch.no_grad():
             val_outputs = self.model(
                 val_batch_processed['xb'], val_batch_processed['xt'])
             val_loss = self.training_strategy.compute_loss(
-                val_outputs, val_batch_processed, self.model, self.training_params)
+                val_outputs, val_batch_processed, self.model, training_params=self.training_params)
             val_errors = self.training_strategy.compute_errors(
-                val_outputs, val_batch_processed, self.model, self.training_params)
-
+                val_outputs, val_batch_processed, self.model, training_params=self.training_params)
+            print(val_errors['g_u'])
         self.storer.store_epoch_val_loss(phase, val_loss.item())
         self.storer.store_epoch_val_errors(phase, val_errors)
 
@@ -173,7 +191,7 @@ class TrainingLoop:
             log_msg += f", Val Loss: {val_metrics['val_loss']:.3E}, Val Errors: {val_output_errors_str}"
         logger.info(log_msg)
 
-    def _finalize_training(self, phase_count: int, best_model_checkpoint: dict, training_time: float) -> dict[str, any]:
+    def _finalize_training(self, phase_count: int, final_model_checkpoint: dict, best_model_checkpoint: dict, training_time: float) -> dict[str, any]:
         """
         Finalizes training for the current phase, saving metrics and generating plots.
         """
@@ -189,18 +207,77 @@ class TrainingLoop:
         aligned_history = align_epochs(valid_history)
         fig = plot_training(aligned_history)
 
-        self.saver(
-            phase=self.phases[phase_count],
-            model_state=best_model_checkpoint,
-            model_info=self.training_params,
-            split_indices=self.training_params['TRAIN_INDICES'],
-            norm_params=self.training_params['NORMALIZATION_PARAMETERS'],
-            figure=fig,
-            history=valid_history,
-            time=training_time,
-            figure_prefix=f"{self.phases[phase_count]}",
-            history_prefix=f"{self.phases[phase_count]}",
-            time_prefix=f"{self.phases[phase_count]}",
+        if isinstance(self.training_strategy, TwoStepTrainingStrategy):
+            phase = self.phases[phase_count]
+        else:
+            phase = ''
+
+        best_epoch = best_model_checkpoint['epoch']
+        final_epoch = final_model_checkpoint['epoch']
+
+        final_checkpoint_path = os.path.join(
+            self.training_params["CHECKPOINTS_PATH"],
+            f'epoch_{final_epoch}.pth'
+        )
+        best_checkpoint_path = os.path.join(
+            self.training_params["CHECKPOINTS_PATH"],
+            f'epoch_{best_epoch}.pth'
+        )
+        best_model_path = os.path.join(self.training_params["CHECKPOINTS_PATH"],
+                                       f'best_model_state.pth'
+                                       )
+        fig_path = os.path.join(self.training_params["PLOTS_PATH"],
+                                f'training_{phase}_plot.png'
+                                )
+        history_path = os.path.join(self.training_params["METRICS_PATH"],
+                                    f'training_{phase}_history.txt'
+                                    )
+        time_path = os.path.join(self.training_params["METRICS_PATH"],
+                                 f'training_{phase}_time.txt'
+                                 )
+
+        self.saver.save_checkpoint(
+            file_path=final_checkpoint_path,
+            model_dict=final_model_checkpoint
+        )
+        self.saver.save_checkpoint(
+            file_path=best_checkpoint_path,
+            model_dict=best_model_checkpoint
+        )
+
+        self.saver.save_model_state(
+            file_path=best_model_path,
+            model_state=best_model_checkpoint['model_state_dict']
+        )
+
+        self.saver.save_model_info(
+            file_path=self.training_params['MODEL_INFO_PATH'],
+            model_info=self.training_params
+        )
+
+        self.saver.save_indices(
+            file_path=self.training_params['DATASET_INDICES_PATH'],
+            indices=self.training_params['TRAIN_INDICES']
+        )
+
+        self.saver.save_norm_params(
+            file_path=self.training_params['NORM_PARAMS_PATH'],
+            norm_params=self.training_params['NORMALIZATION_PARAMETERS']
+        )
+
+        self.saver.save_plots(
+            file_path=fig_path,
+            figure=fig
+        )
+
+        self.saver.save_history(
+            file_path=history_path,
+            history=valid_history
+        )
+
+        self.saver.save_time(
+            file_path=time_path,
+            times=training_time
         )
 
         return self.training_params

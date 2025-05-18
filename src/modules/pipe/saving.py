@@ -1,177 +1,150 @@
 from __future__ import annotations
-import os
-import yaml
-import torch
 import logging
+import torch
+import yaml
 import numpy as np
 import matplotlib.pyplot as plt
-
-logger = logging.getLogger(__name__)
+from typing import Any, Dict, Optional
 
 
 class Saver:
-    def __init__(self, model_name: str, model_folder: str | None=None, data_output_folder: str | None=None, figures_folder: str | None=None, full_logging: bool=True):
+    def __init__(
+        self,
+        model_name: Optional[str] = None,
+        full_logging: bool = False
+    ) -> None:
         """
-        Initializes the Saver with designated folders for models, data, and figures.
+        Initializes the Saver.
 
         Args:
-            model_name (str): The name of the model, used for file naming.
-            model_folder (str, optional): Directory to save model state dictionaries. Defaults to None.
-            data_output_folder (str, optional): Directory to save data-related files (e.g., indices, normalization params). Defaults to None.
-            figures_folder (str, optional): Directory to save figures/plots. Defaults to None.
+            model_name: Optional name for logging context.
+            full_logging: Whether to log save actions.
         """
         self.name = model_name
-        self.model_folder = model_folder
-        self.data_output_folder = data_output_folder
-        self.figures_folder = figures_folder
-        self.save_methods = {
-            'train_state': self.save_checkpoint,
-            'model_state': self.save_model,
-            'model_info': self.save_model_info,
-            'split_indices': self.save_indices,
-            'norm_params': self.save_norm_params,
-            'history': self.save_history,
-            'figure': self.save_plots,
-            'errors': self.save_errors,
-            'time': self.save_time,
-        }
+        self.full_logging = full_logging
+        self.logger = logging.getLogger(__name__)
+
+    def set_logging(self, full_logging: bool) -> None:
+        """Enable or disable logging of save actions."""
         self.full_logging = full_logging
 
-    def __call__(self, **kwargs) -> None:
+    def _make_serializable(self, obj: Any) -> Any:
         """
-        Saves various components based on provided keyword arguments.
-
-        Args:
-            name (str, optional): The current name or phase (e.g., 'POD', trunk', 'branch'). Defaults to None.
-            **kwargs: Arbitrary keyword arguments corresponding to components to save.
+        Recursively convert objects to JSON/YAML serializable types.
         """
-        for key, value in kwargs.items():
-            if key in self.save_methods:
-                if key == 'history':
-                    self.save_methods[key](
-                        value, filename_prefix=kwargs.get('history_prefix'))
-                elif key == 'figure':
-                    self.save_methods[key](
-                        value, filename_prefix=kwargs.get('figure_prefix'))
-                elif key == 'time':
-                    self.save_methods[key](
-                        value, filename_prefix=kwargs.get('time_prefix'))
-                elif key == 'train_state':
-                    self.save_methods[key](value['model_state_dict'],
-                                           value['optimizer_state_dict'],
-                                           value['epochs'],
-                                           )
-                else:
-                    self.save_methods[key](value)
-
-    def set_logging(self, logging: bool) -> None:
-        self.full_logging = logging
-
-    def make_serializable(self, obj):
-        """Recursively converts non-serializable objects to serializable ones."""
         if isinstance(obj, dict):
-            return {k: self.make_serializable(v) for k, v in obj.items()}
-        elif isinstance(obj, list):
-            return [self.make_serializable(item) for item in obj]
-        elif isinstance(obj, (torch.Tensor, np.ndarray)):
+            return {k: self._make_serializable(v) for k, v in obj.items()}
+        if isinstance(obj, list):
+            return [self._make_serializable(v) for v in obj]
+        if isinstance(obj, (torch.Tensor, np.ndarray)):
             return obj.tolist()
-        elif isinstance(obj, (np.float32, np.float64, np.int32, np.int64)):
+        if isinstance(obj, np.generic):
             return obj.item()
-        elif isinstance(obj, (float, int, str, bool)) or obj is None:
+        if isinstance(obj, (float, int, str, bool)) or obj is None:
             return obj
-        else:
-            return str(obj)
+        return str(obj)
 
-    def save_checkpoint(self, model_state_dict: dict, optimizer_state_dict: dict, epoch: int) -> None:
-        filename = f'checkpoint_{self.name}_epoch_{epoch}.pth'
-        model_path = self.make_output_dir(self.model_folder, filename)
-        torch.save({
-            'model_state_dict': model_state_dict,
-            'optimizer_state_dict': optimizer_state_dict,
-            'epoch': epoch
-        }, model_path)
-        logger.info(f"\nCheckpoint saved to:\n{model_path}\n")
-
-    def save_model(self, model_state) -> None:
-        filename = f'model_state_{self.name}.pth'
-        model_path = self.make_output_dir(self.model_folder, filename)
-        torch.save(model_state, model_path)
-        logger.info(f"\nModel saved to:\n{model_path}\n")
-
-    def save_model_info(self, model_info: dict[str, any]) -> None:
-        filename = f'model_info_{self.name}.yaml'
-        model_info_path = self.make_output_dir(
-            self.data_output_folder, filename)
-        serializable_model_info = self.make_serializable(model_info)
-        with open(model_info_path, 'w') as f:
-            yaml.dump(serializable_model_info, f)
-        logger.info(f"\nModel information saved to:\n{model_info_path}\n")
-
-    def save_output_data(self, data: dict[str, np.ndarray]) -> None:
-        preds_filename = f'./data/output/{self.name}.npz'
-        np.savez(preds_filename,
-                 basis_functions=data['basis_functions'],
-                 coefficients=data['coefficients']
-                 )
-
-    def save_indices(self, indices_dict) -> None:
-        filename = f'indices_{self.name}.yaml'
-        indices_path = self.make_output_dir(self.data_output_folder, filename)
-        with open(indices_path, 'w') as f:
-            yaml.dump(indices_dict, f)
+    def save_checkpoint(
+        self,
+        file_path: str,
+        model_dict: Dict[str, Any],
+    ) -> None:
+        """
+        Save model and optimizer state dictionaries to a checkpoint file.
+        """
+        torch.save(model_dict, file_path)
         if self.full_logging:
-            logger.info(f"\nIndices saved to:\n{indices_path}\n")
+            self.logger.info(f"Checkpoint saved to: {file_path}")
 
-    def save_norm_params(self, norm_params: dict,) -> None:
-        filename = f'norm_params_{self.name}.yaml'
-        norm_params_path = self.make_output_dir(
-            self.data_output_folder, filename)
-        serializable_norm_params = self.make_serializable(norm_params)
-        with open(norm_params_path, 'w') as f:
-            yaml.dump(serializable_norm_params, f, indent=4)
+    def save_model_state(self, file_path: str, model_state: Any) -> None:
+        """Save raw model state to a file."""
+        torch.save(model_state, file_path)
         if self.full_logging:
-            logger.info(
-                f"\nNormalization parameters saved to:\n{norm_params_path}\n")
+            self.logger.info(f"Model state saved to: {file_path}")
 
-    def save_history(self, history: dict, filename_prefix: str | None = None) -> None:
-        filename = f'{filename_prefix or "history"}_{self.name}.txt'
-        history_path = self.make_output_dir(self.data_output_folder, filename)
-        serializable_history = self.make_serializable(history)
-        with open(history_path, 'w') as f:
-            yaml.dump(serializable_history, f, indent=4)
-            logger.info(f"\nTraining history saved to:\n{history_path}\n")
-
-    def save_plots(self, figure: plt.figure, filename_prefix: str | None = None) -> None:
-        prefix = f"{filename_prefix}_" if filename_prefix else ""
-        filename = f'{prefix}plot_{self.name}.png'
-        fig_path = self.make_output_dir(self.figures_folder, filename)
-        figure.savefig(fig_path)
+    def save_model_info(
+        self,
+        file_path: str,
+        model_info: Dict[str, Any]
+    ) -> None:
+        """Save model metadata or hyperparameters to a YAML file."""
+        serializable = self._make_serializable(model_info)
+        with open(file_path, 'w') as f:
+            yaml.dump(serializable, f)
         if self.full_logging:
-            logger.info(f"\nFigure saved to:\n{fig_path}\n")
+            self.logger.info(f"Model info saved to: {file_path}")
 
-    def save_errors(self, errors: dict,) -> None:
-        filename = f"errors_{self.name}.txt"
-        errors_path = self.make_output_dir(self.data_output_folder, filename)
-        errors_serializable = self.make_serializable(errors)
-        with open(errors_path, "w") as f:
-            yaml.dump(errors_serializable, f, indent=4)
+    def save_indices(self, file_path: str, indices: Dict[str, Any]) -> None:
+        """Save split or index dictionaries to a YAML file."""
+        with open(file_path, 'w') as f:
+            yaml.dump(indices, f)
         if self.full_logging:
-            logger.info(f"\nErrors saved to:\n{errors_path}\n")
+            self.logger.info(f"Indices saved to: {file_path}")
 
-    def save_time(self, times: dict, filename_prefix: str | None = None) -> None:
-        prefix = f"{filename_prefix}_" if filename_prefix else ""
-        filename = f"{prefix}time_{self.name}.txt"
-        time_path = self.make_output_dir(self.data_output_folder, filename)
-        time_serializable = self.make_serializable(times)
-        with open(time_path, "w") as f:
-            yaml.dump(time_serializable, f, indent=4)
+    def save_norm_params(
+        self,
+        file_path: str,
+        norm_params: Dict[str, Any]
+    ) -> None:
+        """Save normalization parameters to a YAML file."""
+        serializable = self._make_serializable(norm_params)
+        with open(file_path, 'w') as f:
+            yaml.dump(serializable, f)
         if self.full_logging:
-            logger.info(f"\nTime information saved to:\n{time_path}\n")
+            self.logger.info(f"Normalization parameters saved to: {file_path}")
 
-    def make_output_dir(self, folder: str, filename: str) -> str:
-        """Ensures that the output directory exists and returns the full file path."""
-        if folder is None:
-            raise ValueError(
-                f"The specified folder for saving '{filename}' is undefined.")
-        os.makedirs(folder, exist_ok=True)
-        return os.path.join(folder, filename)
+    def save_history(
+        self,
+        file_path: str,
+        history: Dict[str, Any]
+    ) -> None:
+        """Save training history or metrics to a YAML or TXT file."""
+        serializable = self._make_serializable(history)
+        with open(file_path, 'w') as f:
+            yaml.dump(serializable, f)
+        if self.full_logging:
+            self.logger.info(f"History saved to: {file_path}")
+
+    def save_plots(
+        self,
+        file_path: str,
+        figure: plt.Figure
+    ) -> None:
+        """Save a matplotlib figure to an image file."""
+        figure.savefig(file_path)
+        if self.full_logging:
+            self.logger.info(f"Figure saved to: {file_path}")
+
+    def save_errors(self, file_path: str, errors: Dict[str, Any]) -> None:
+        """Save error logs or dictionaries to a YAML or TXT file."""
+        serializable = self._make_serializable(errors)
+        with open(file_path, 'w') as f:
+            yaml.dump(serializable, f)
+        if self.full_logging:
+            self.logger.info(f"Errors saved to: {file_path}")
+
+    def save_time(self, file_path: str, times: Dict[str, Any]) -> None:
+        """Save timing information or profiling results to a YAML or TXT file."""
+        serializable = self._make_serializable(times)
+        with open(file_path, 'w') as f:
+            yaml.dump(serializable, f)
+        if self.full_logging:
+            self.logger.info(f"Time information saved to: {file_path}")
+
+    def save_metrics(self, file_path: str, metrics: dict[str, any]) -> None:
+        """Save metrics to a YAML or TXT file."""
+        serializable = self._make_serializable(metrics)
+        with open(file_path, 'w') as f:
+            yaml.dump(serializable, f)
+        if self.full_logging:
+            self.logger.info(f"Metrics saved to: {file_path}")
+
+    def save_output_data(
+        self,
+        file_path: str,
+        data: Dict[str, np.ndarray]
+    ) -> None:
+        """Save prediction outputs or numpy arrays to an NPZ file."""
+        np.savez(file_path, **data)
+        if self.full_logging:
+            self.logger.info(f"Output data saved to: {file_path}")

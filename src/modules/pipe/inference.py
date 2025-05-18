@@ -1,16 +1,16 @@
 from __future__ import annotations
+import os
 import time
 import torch
-import numpy
+import numpy as np
 import logging
-from ..data_processing import transforms
-from ..data_processing.scaling import Scaling
-from ..data_processing import data_loader as dtl
-from ..data_processing.transforms import ToTensor, Rescale
+from ...modules.pipe.saving import Saver
+from ..data_processing import batching as bt
+from ..data_processing.transforms import ToTensor
 from ..deeponet.factories.model_factory import ModelFactory
 from ..data_processing.deeponet_dataset import DeepONetDataset
 from ..deeponet.training_strategies import TwoStepTrainingStrategy, PODTrainingStrategy
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 if TYPE_CHECKING:
     from ..deeponet import DeepONet
 
@@ -21,124 +21,131 @@ class TestEvaluator:
         self.model = model
         self.error_norm = error_norm
 
-    def __call__(self, g_u: torch.Tensor, pred: torch.Tensor) -> numpy.ndarray:
+    def __call__(self, g_u: torch.Tensor, pred: torch.Tensor) -> np.ndarray:
         self.model.eval()
         with torch.no_grad():
             test_error = torch.linalg.vector_norm((pred - g_u), ord=self.error_norm)\
                         / torch.linalg.vector_norm(g_u, ord=self.error_norm)
         return test_error.detach().cpu().numpy()
 
-def inference(test_config: dict[str, any]) -> tuple['DeepONet', 
-                                               dict[str, torch.Tensor], 
-                                               dict[str, torch.Tensor], 
-                                               torch.Tensor, 
-                                               torch.Tensor, 
-                                               dict[str, any]]:
-    path_to_data = test_config['DATA_FILE']
-    precision = test_config['PRECISION']
-    device = test_config['DEVICE']
-    model_name = test_config['MODEL_NAME']
-    model_folder = test_config['MODEL_FOLDER_TO_LOAD']
-    
-    logger.info(f"\nData loaded from: \n\n{path_to_data}\n\n")
+def inference(trained_model_config: dict[str, Any],
+            device: str,
+            precision: torch.dtype) -> tuple['DeepONet', dict]:
 
-    model, trained_model_config = ModelFactory.initialize_model(model_folder, 
-                                                        model_name, 
-                                                        device, 
-                                                        precision)
-
-    evaluator = TestEvaluator(model, trained_model_config['ERROR_NORM'])
+    # ------------------- Initialize model --------------------------
+    model = ModelFactory.initialize_model(trained_model_config, device)
     
-    to_tensor_transform = ToTensor(dtype=getattr(torch, precision), device=device)
+    # ------------------- Load data --------------------------
+    to_tensor_transform = ToTensor(
+        dtype=getattr(torch, precision), 
+        device=device
+    )
     output_keys = trained_model_config["OUTPUT_KEYS"]
-
-    processed_data = dtl.preprocess_npz_data(path_to_data, 
-                                             trained_model_config["INPUT_FUNCTION_KEYS"], 
-                                             trained_model_config["COORDINATE_KEYS"],
-                                             trained_model_config["BRANCH_PROCESSING_TYPE"],
-                                             direction=trained_model_config["DIRECTION"] if trained_model_config["PROBLEM"] == 'kelvin' else None)
-    dataset = DeepONetDataset(processed_data, transform=to_tensor_transform, output_keys=output_keys)
     
-    if test_config['INFERENCE_ON'] == 'train':
-        indices_for_inference = trained_model_config['TRAIN_INDICES']
-    elif test_config['INFERENCE_ON'] == 'val':
-        indices_for_inference = trained_model_config['VAL_INDICES']
-    elif test_config['INFERENCE_ON'] == 'test':
-        indices_for_inference = trained_model_config['TEST_INDICES']
-    else:
-        indices_for_inference = trained_model_config['TRAIN_INDICES']
-    
-    inference_dataset = dataset[indices_for_inference]
-    
-    xb = inference_dataset['xb']  # shape: (N, d)
-    xt = dataset.get_trunk()      # trunk features
-
-    ground_truth = {}
-    for key in output_keys:
-        ground_truth[key] = inference_dataset[key]
-    
-    xb_scaler = Scaling(
-        min_val=trained_model_config['NORMALIZATION_PARAMETERS']['xb']['min'],
-        max_val=trained_model_config['NORMALIZATION_PARAMETERS']['xb']['max']
+    processed_data = np.load(trained_model_config['PROCESSED_DATA_PATH'])
+    dataset = DeepONetDataset(
+        processed_data, 
+        transform=to_tensor_transform, 
+        output_keys=output_keys
     )
-    xt_scaler = Scaling(
-        min_val=trained_model_config['NORMALIZATION_PARAMETERS']['xt']['min'],
-        max_val=trained_model_config['NORMALIZATION_PARAMETERS']['xt']['max']
+
+    # ------------------- Prepare inference batch --------------------------
+    inference_indices = trained_model_config['TEST_INDICES']
+    inference_subset = dataset[inference_indices]
+    
+    batch = {
+        'xb': inference_subset['xb'],
+        'xt': dataset.get_trunk(),
+        **{key: inference_subset[key] for key in output_keys}
+    }
+
+    processed_batch, input_scalers, output_scalers = bt.prepare_batch(
+        batch=batch,
+        training_params=trained_model_config,
+        return_scalers=True
     )
-    output_scalers = {}
-    for key in output_keys:
-        output_scalers[key] = Scaling(
-            min_val=trained_model_config['NORMALIZATION_PARAMETERS'][key]['min'],
-            max_val=trained_model_config['NORMALIZATION_PARAMETERS'][key]['max']
-        )
-    
-    if trained_model_config['INPUT_NORMALIZATION']:
-        xb = xb_scaler.normalize(xb)
-        xt = xt_scaler.normalize(xt)
-    if trained_model_config['OUTPUT_NORMALIZATION']:
-        ground_truth_norm = {key: output_scalers[key].normalize(ground_truth[key]) for key in output_keys}
-    
-    if trained_model_config['TRUNK_FEATURE_EXPANSION']:
-        xt = transforms.trunk_feature_expansion(xt, trained_model_config['TRUNK_FEATURE_EXPANSION'])
-    
+
+    xb = processed_batch['xb']
+    xt = processed_batch['xt']
+
+    # ------------------- Run inference --------------------------
     logger.info("\n\n----------------- Starting inference... --------------\n\n")
     start_time = time.time()
-    if isinstance(model.training_strategy, TwoStepTrainingStrategy):
-        preds = model(xb=xb, xt=xt)
-    elif isinstance(model.training_strategy, PODTrainingStrategy):
-        preds = model(xb=xb)
+    
+    with torch.no_grad():
+        if isinstance(model.training_strategy, TwoStepTrainingStrategy):
+            raw_preds = model(xb=xb, xt=xt)
+        elif isinstance(model.training_strategy, PODTrainingStrategy):
+            raw_preds = model(xb=xb)
+        else:
+            raw_preds = model(xb=xb, xt=xt)
+    
+    inference_time = time.time() - start_time
+    
+    # ------------------- Process model outputs --------------------------
+    if isinstance(raw_preds, tuple):
+        if len(output_keys) == 1:
+            preds_norm = {output_keys[0]: raw_preds[0]}
+        else:
+            preds_norm = {k: v for k, v in zip(output_keys, raw_preds)}
     else:
-        preds = model(xb=xb, xt=xt)
-        
+        preds_norm = raw_preds
     
-    end_time = time.time()
-    inference_time = end_time - start_time
+    # ------------------- Denormalize predictions --------------------------
+    denorm_preds = {}
+    output_norm = trained_model_config['OUTPUT_NORMALIZATION']
     
-    if len(output_keys) == 1 and not isinstance(preds, dict):
-        preds = {output_keys[0]: preds[0]}
-    elif len(output_keys) == 2 and not isinstance(preds, dict):
-        preds = {k:v for k, v in zip(output_keys, preds)}
-    
-    if trained_model_config['OUTPUT_NORMALIZATION']:
-        preds_norm = {}
-        for key in output_keys:
-            preds_norm[key], preds[key] = preds[key], output_scalers[key].denormalize(preds[key])
-        errors_norm = {}
-        for key in output_keys:
-            errors_norm[key] = evaluator(ground_truth_norm[key], preds_norm[key])
-        trained_model_config['ERRORS_NORMED'] = errors_norm
-    else:
-        errors_norm = {}
-    
-    errors = {}
-
     for key in output_keys:
-        errors[key] = evaluator(ground_truth[key], preds[key])
-        logger.info(f"Test error for {key} (physical): {errors[key]:.2%}")
-        if trained_model_config['OUTPUT_NORMALIZATION']:
-            logger.info(f"Test error for {key} (normalized): {errors_norm[key]:.2%}")
+        if output_norm != 'none':
+            if output_norm.startswith('minmax'):
+                denorm_preds[key] = output_scalers[key].denormalize(preds_norm[key])
+            elif output_norm == 'standard':
+                denorm_preds[key] = output_scalers[key].destandardize(preds_norm[key])
+        else:
+            denorm_preds[key] = preds_norm[key]
     
-    trained_model_config['ERRORS_PHYSICAL'] = errors
-    trained_model_config['INFERENCE_TIME'] = inference_time
+    # ------------------- Calculate metrics --------------------------
+    evaluator = TestEvaluator(model, trained_model_config['ERROR_NORM'])
+    metrics = {'INFERENCE_TIME': inference_time}
     
-    return model, preds, ground_truth, xt, xb, trained_model_config
+    gt_norm = {k: processed_batch[k] for k in output_keys}
+    
+    errors_norm = {}
+    for key in output_keys:
+        if output_norm != 'none':
+            errors_norm[key] = evaluator(gt_norm[key], preds_norm[key])
+    
+    errors_phys = {}
+    for key in output_keys:
+        errors_phys[key] = evaluator(
+            batch[key].to(device=device), 
+            denorm_preds[key]
+        )
+        logger.info(f"Test error ({key}) - Physical: {errors_phys[key]:.2%}\n\n")
+        if output_norm != 'none':
+            logger.info(f"Test error ({key}) - Normalized: {errors_norm[key]:.2%}\n\n")
+    
+    if errors_norm:
+        metrics['ERRORS_NORMALIZED'] = errors_norm
+    metrics['ERRORS_PHYSICAL'] = errors_phys
+    
+    # ------------------- Save results --------------------------
+    test_outputs = {
+        'predictions': denorm_preds,
+        'ground_truth': {k: batch[k].to(device) for k in output_keys},
+        'inputs': {
+            'xb': xb,
+            'xt': xt
+        },
+        'scalers': {
+            'input': input_scalers,
+            'output': output_scalers
+        }
+    }
+    
+    Saver().save_metrics(
+        file_path=os.path.join(trained_model_config["METRICS_PATH"], 'test_metrics.yaml'),
+        metrics=metrics
+    )
+    
+    return model, test_outputs
