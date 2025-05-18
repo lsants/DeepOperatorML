@@ -5,14 +5,13 @@ import torch
 import numpy as np
 import logging
 from ...modules.pipe.saving import Saver
-from ..data_processing import batching as bt
 from ..data_processing.transforms import ToTensor
-from ..deeponet.factories.model_factory import ModelFactory
+from ..model.factories.model_factory import ModelFactory
 from ..data_processing.deeponet_dataset import DeepONetDataset
-from ..deeponet.training_strategies import TwoStepTrainingStrategy, PODTrainingStrategy
+from ..model.training_strategies import TwoStepTrainingStrategy, PODTrainingStrategy
 from typing import TYPE_CHECKING, Any
 if TYPE_CHECKING:
-    from ..deeponet import DeepONet
+    from ..model import DeepONet
 
 logger = logging.getLogger(__name__)
 

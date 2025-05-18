@@ -8,7 +8,7 @@ from .helpers import DecompositionHelper, PhaseManager, TwoStepHelper
 from ..components import PretrainedTrunk, TwoStepTrunk
 
 if TYPE_CHECKING:
-    from modules.deeponet.deeponet import DeepONet
+    from modules.model.deeponet import DeepONet
 
 logger = logging.getLogger(__name__)
 
@@ -33,7 +33,7 @@ class TwoStepTrainingStrategy(TrainingStrategy):
             logger.info(
                 "TwoStepTrainingStrategy: Initialized in inference mode.")
 
-    def prepare_for_training(self, model: "DeepONet", **kwargs) -> None:
+    def prepare_for_training(self, model: "DeepONet") -> None:
         if self.inference:
             logger.info(
                 "TwoStepTrainingStrategy (inference): No training preparation required.")

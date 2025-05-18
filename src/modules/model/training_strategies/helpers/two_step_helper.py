@@ -3,12 +3,12 @@ import torch
 import logging
 from collections.abc import Callable, Iterable
 
-from src.modules.deeponet.components import trainable_trunk, two_step_trunk
+from src.modules.model.components import trainable_trunk, two_step_trunk
 from .....exceptions import MissingSettingError
 from typing import TYPE_CHECKING, Any
 if TYPE_CHECKING:
-    from modules.deeponet.deeponet import DeepONet
-    from modules.deeponet.components import TrainableBranch, TrainableTrunk, PretrainedTrunk
+    from modules.model.deeponet import DeepONet
+    from modules.model.components import TrainableBranch, TrainableTrunk, PretrainedTrunk
 logger = logging.getLogger(__name__)
 
 class TwoStepHelper:

@@ -5,7 +5,7 @@ from ...data_processing.transforms import Compose
 from collections.abc import Callable, Iterable
 from typing import TYPE_CHECKING, Any
 if TYPE_CHECKING:
-    from modules.deeponet.deeponet import DeepONet
+    from modules.model.deeponet import DeepONet
 
 
 class TrainingStrategy(ABC):
@@ -15,7 +15,7 @@ class TrainingStrategy(ABC):
         self.inference: bool = False
 
     @abstractmethod
-    def prepare_for_training(self, model: 'DeepONet', **kwargs:Any) -> None:
+    def prepare_for_training(self, model: 'DeepONet') -> None:
         """
         Prepares the model for training.
         This method should handle any one-time model adjustments, resource allocations,

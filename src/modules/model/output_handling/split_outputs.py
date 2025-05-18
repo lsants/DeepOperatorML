@@ -4,8 +4,8 @@ from .output_handling_base import OutputHandling
 from ...utilities.log_functions import pprint_layer_dict
 from typing import TYPE_CHECKING, Any, Literal
 if TYPE_CHECKING:
-    from modules.deeponet.deeponet import DeepONet
-    from modules.deeponet.components import BaseBranch, BaseTrunk
+    from modules.model.deeponet import DeepONet
+    from modules.model.components import BaseBranch, BaseTrunk
 
 logger = logging.getLogger(__name__)
 
@@ -17,7 +17,7 @@ class SplitOutputsHandling(OutputHandling):
     def BASIS_CONFIG(self) -> Literal['multiple']:
         return 'multiple'
 
-    def configure_components(self, model: 'DeepONet', branch_config: dict[str, Any], trunk_config: dict[str, Any], **kwargs:Any) -> tuple['BaseBranch', 'BaseTrunk']:
+    def configure_components(self, model: 'DeepONet', branch_config: dict[str, Any], trunk_config: dict[str, Any]) -> tuple['BaseBranch', 'BaseTrunk']:
         processed_trunk_config = self.config_basis(model=model, trunk_config=trunk_config)
 
         n_basis_functions = model.n_basis_functions

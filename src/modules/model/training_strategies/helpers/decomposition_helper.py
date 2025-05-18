@@ -4,7 +4,7 @@ from ..training_strategy_base import TrainingStrategy
 from typing import Any, Dict, Tuple, Optional
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
-    from modules.deeponet.deeponet import DeepONet
+    from modules.model.deeponet import DeepONet
 
 logger = logging.getLogger(__name__)
 

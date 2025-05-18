@@ -3,7 +3,7 @@ from __future__ import annotations
 import torch
 import logging
 from typing import Any
-from ..deeponet.factories.optimizer_factory import OptimizerFactory
+from ..model.factories.optimizer_factory import OptimizerFactory
 
 logger = logging.getLogger(__name__)
 

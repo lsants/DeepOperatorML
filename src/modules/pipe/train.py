@@ -1,19 +1,21 @@
 import time
+from matplotlib import transforms
 import yaml
 import torch
 import logging
 import numpy as np
 from typing import Any
 from pathlib import Path
-from torch.utils.data import Subset
 from .saving import Saver
-from ..utilities import dir_functions
 from .training import TrainingLoop
-from ..data_processing import batching as bt
+from ..utilities import dir_functions
+from torch.utils.data import Subset, DataLoader
 from ..data_processing import data_loader as dtl
-from ..deeponet.factories.model_factory import ModelFactory
+from ..model.factories.model_factory import ModelFactory
 from ..data_processing.transforms import Compose, ToTensor
 from ..data_processing.deeponet_dataset import DeepONetDataset
+from ..data_processing.deeponet_sampler import DeepONetSampler
+from ..data_processing.deeponet_transformer import DeepONetTransformer
 
 logger = logging.getLogger(name=__name__)
 
@@ -28,7 +30,7 @@ def train_model(problem_config_path: str, train_config_path: str) -> dict[str, A
 
     # ---------------------------- Load dataset ----------------------
 
-    data = np.load(dataset_path / "data.npz")
+    data = dict(np.load(dataset_path / "data.npz"))
     splits = np.load(dataset_path / "split_indices.npz")
     scalers = np.load(dataset_path / "scalers.npz")
     
@@ -40,30 +42,59 @@ def train_model(problem_config_path: str, train_config_path: str) -> dict[str, A
         device=training_params['DEVICE']
     )
 
-    # normalization_transform = ToTensor(
-    #     dtype=getattr(torch, training_params['PRECISION']), 
-    #     device=training_params['DEVICE']
+    transforms_config = None
+
+    # dataset_transformer = DeepONetTransformer(
+    #     config=transforms_config
     # )
 
-    transformations = Compose(transforms=[
-        # normalization_transform,
-        # feature_expansion_transform,
-        to_tensor_transform
-    ])
-
-
-    full_dataset = DeepONetDataset(
-        data=data,
-        output_keys=problem_params['OUTPUT_KEYS'],
-        transform=transformations
+    train_data, val_data, test_data = dtl.slice_dataset(data=data,
+                                                        feature_labels=dataset_metadata['FEATURES'],
+                                                        target_labels=dataset_metadata['TARGETS'],
+                                                        splits=splits
     )
 
-    print([i for i in splits])
+    branch_label = dataset_metadata['FEATURES'][0]
+    trunk_label = dataset_metadata['FEATURES'][1]
+    target_labels = dataset_metadata['TARGETS']
 
-    # Use precomputed indices
-    train_dataset = Subset(full_dataset, splits['XB_TRAIN'])
-    val_dataset = Subset(full_dataset, splits['XB_VAL'])
-    test_dataset = Subset(full_dataset, splits['XB_TEST'])
+    train_dataset = DeepONetDataset(
+        data=train_data,
+        feature_labels=dataset_metadata['FEATURES'],
+        output_labels=target_labels,
+        # transform=dataset_transformer
+    )
+    val_dataset = DeepONetDataset(
+        data=val_data,
+        feature_labels=dataset_metadata['FEATURES'],
+        output_labels=target_labels,
+        # transform=dataset_transformer
+    )
+    test_dataset = DeepONetDataset(
+        data=test_data,
+        feature_labels=dataset_metadata['FEATURES'],
+        output_labels=target_labels,
+        # transform=dataset_transformer
+    )
+
+    print(train_dataset[:]['g_u'].shape)
+    print(val_dataset[:]['g_u'].shape)
+    print(test_dataset[:]['g_u'].shape)
+
+    train_branch_samples = len(train_dataset[:][branch_label])
+    train_trunk_samples = len(train_dataset[:][trunk_label])
+
+    train_sampler = DeepONetSampler(num_branch_samples=train_branch_samples,
+                              branch_batch_size=training_params['BRANCH_BATCH_SIZE'],
+                              num_trunk_samples=train_trunk_samples,
+                              trunk_batch_size=training_params['TRUNK_BATCH_SIZE'],
+                              )
+
+    train_dataloader = DataLoader(
+        dataset=train_dataset,
+        sampler=train_sampler,
+        collate_fn=lambda x : x[0]
+    )
 
     # ------------------------------------ Initialize model -----------------------------
 
@@ -73,21 +104,13 @@ def train_model(problem_config_path: str, train_config_path: str) -> dict[str, A
         inference=False
     )
 
-
+    print(model)
     # ---------------------------------- Initializing classes for training  -------------------
-
-
-    training_strategy = model.training_strategy
-
+    quit()
     training_loop = TrainingLoop(
         model=model,
         training_params=training_params,
     )
-
-    # ---------------------------------- Batching data -------------------------------------
-
-    train_batch = bt.get_single_batch(dataset=train_dataset, indices=splits['XB_TRAIN'], training_params=training_params)
-    val_batch = bt.get_single_batch(dataset=val_dataset, indices=splits['XB_VAL'], training_params=training_params)
 
     # ----------------------------------------- Train loop ---------------------------------
     start_time = time.time()
@@ -99,7 +122,8 @@ def train_model(problem_config_path: str, train_config_path: str) -> dict[str, A
     
     # ---------------------------- Output folder --------------------------------
 
-    problem_params['MODEL_NAME'] = model_name
+
+    model_name = dir_functions.get_model_name(config=training_params)
     dir_functions.create_output_directories(config=problem_params)
 
     logger.info(msg=f"\nExperiment will be saved at:\n{problem_params['OUTPUT_PATH']}\n")

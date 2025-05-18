@@ -1,101 +1,62 @@
 from __future__ import annotations
 import torch
 import numpy as np
+import numpy.typing as npt 
 from .deeponet_dataset import DeepONetDataset
+from collections.abc import Mapping
 
+def slice_dataset(data: Mapping[str, np.ndarray], 
+                  feature_labels: list[str], 
+                  target_labels: list[str], 
+                  splits: dict[str, list[int]]) -> tuple[dict[str, np.ndarray], ...]:
+    
+    if len(feature_labels) != 2:
+        raise ValueError("feature_labels must contain exactly two elements: branch and trunk labels.")
+    branch_label, trunk_label = feature_labels
+    for label in feature_labels:
+        if label not in data:
+            raise KeyError(f"Feature '{label}' not found in `data`.")
+    required_splits = [f"{label.upper()}_{split}" for label in feature_labels for split in ["TRAIN", "VAL", "TEST"]]
+    for split_key in required_splits:
+        if split_key not in splits:
+            raise KeyError(f"Split key '{split_key}' missing in `splits`.")
+    
+    branch_label = feature_labels[0]
+    trunk_label = feature_labels[1]
+    branch_data = data[branch_label]
+    trunk_data = data[trunk_label]
+    output_data = {key: data[key] for key in data if key in target_labels}
 
-def get_dataset_statistics(dataset: DeepONetDataset, keys: list[str] | None = None) -> dict[str, dict[str, float]]:
-    """
-    Compute min, max, mean, and std for specified keys in the dataset.
+    train_branch_indices = splits[f'{branch_label.upper()}_TRAIN']
+    val_branch_indices = splits[f'{branch_label.upper()}_VAL']
+    test_branch_indices = splits[f'{branch_label.upper()}_TEST']
 
-    Args:
-        dataset (Dataset/Subset): Dataset to compute stats for.
-        keys (list[str]): Keys to process (e.g., ['xb', 'xt', 'g_u']).
+    train_trunk_indices = splits[f'{trunk_label.upper()}_TRAIN']
+    val_trunk_indices = splits[f'{trunk_label.upper()}_VAL']
+    test_trunk_indices = splits[f'{trunk_label.upper()}_TEST']
 
-    Returns:
-        dict: Statistics for each key: {'min', 'max', 'mean', 'std'}.
-    """
-    if isinstance(dataset, torch.utils.data.Subset):
-        original_dataset = dataset.dataset
-        indices = dataset.indices
-    else:
-        original_dataset = dataset
-        indices = range(len(dataset))
-
-    if keys is None:
-        keys = ["xb", "xt"] + getattr(original_dataset, "output_keys", [])
-
-    stats = {
-        key: {
-            "min": float("inf"),
-            "max": -float("inf"),
-            "sum": 0.0,
-            "sum_sq": 0.0,
-            "count": 0,
-        }
-        for key in keys
+    train_output_data = {key: val[train_branch_indices][:, train_trunk_indices] for key, val in output_data.items()}
+    train_data = {
+        branch_label: branch_data[train_branch_indices],
+        trunk_label: trunk_data[train_trunk_indices],
+        **train_output_data
     }
 
-    for idx in indices:
-        sample = original_dataset[idx]
-        for key in keys:
-            if key == "xt":
-                values = original_dataset.get_trunk()
-            else:
-                values = sample[key]
-
-            if isinstance(values, torch.Tensor):
-                values = values.detach().cpu().numpy()
-
-            flattened = values.reshape(-1)
-
-            stats[key]["min"] = min(stats[key]["min"], np.min(flattened))
-            stats[key]["max"] = max(stats[key]["max"], np.max(flattened))
-
-            stats[key]["sum"] += np.sum(flattened)
-            stats[key]["sum_sq"] += np.sum(flattened**2)
-            stats[key]["count"] += len(flattened)
-
-    for key in keys:
-        count = stats[key]["count"]
-        if count == 0:
-            raise ValueError(f"No data for key: {key}")
-
-        mean = stats[key]["sum"] / count
-        variance = (stats[key]["sum_sq"] / count) - (mean**2)
-        std = np.sqrt(variance)
-
-        stats[key]["mean"] = mean
-        stats[key]["std"] = std
-        del stats[key]["sum"], stats[key]["sum_sq"], stats[key]["count"]
-
-    return stats
-
-def get_norm_params(
-    train_dataset: dict[str, torch.utils.data.Subset], problem_params: dict[str, any]) -> dict[str, any]:
-    """
-    Collects normalization parameters (min/max/mean/std) for all keys.
-
-    Args:
-        train_dataset (Subset): Training dataset subset.
-        problem_params (dict): Contains 'OUTPUT_KEYS'.
-
-    Returns:
-        dict: Normalization parameters for each key.
-    """
-    keys = ["xb", "xt"] + problem_params["OUTPUT_KEYS"]
-    stats = get_dataset_statistics(train_dataset, keys)
-
-    normalization_parameters = {}
-    for key in keys:
-        normalization_parameters[key] = {
-            "min": stats[key]["min"],
-            "max": stats[key]["max"],
-            "mean": stats[key]["mean"],
-            "std": stats[key]["std"],
+    val_output_data = {key: val[val_branch_indices][:, val_trunk_indices] for key, val in output_data.items()}
+    val_data = {
+        branch_label: branch_data[val_branch_indices],
+        trunk_label: trunk_data[val_trunk_indices],
+        **val_output_data
         }
 
-    return normalization_parameters
+    test_output_data = {key: val[test_branch_indices][:, test_trunk_indices] for key, val in output_data.items()}
+    test_data = {
+        branch_label: branch_data[test_branch_indices],
+        trunk_label: trunk_data[test_trunk_indices],
+        **test_output_data
+        }
+
+    return train_data, val_data, test_data
 
 def don_to_meshgrid(arr: np.ndarray) -> tuple[np.ndarray]:
     """

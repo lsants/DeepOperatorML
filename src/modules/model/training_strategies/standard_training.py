@@ -2,7 +2,7 @@ from __future__ import annotations
 import torch
 from typing import TYPE_CHECKING, Callable, Iterable, Any
 if TYPE_CHECKING:
-    from modules.deeponet.deeponet import DeepONet
+    from modules.model.deeponet import DeepONet
 from .training_strategy_base import TrainingStrategy
 
 class StandardTrainingStrategy(TrainingStrategy):
@@ -19,7 +19,7 @@ class StandardTrainingStrategy(TrainingStrategy):
         config["type"] = "trainable"
         return config
 
-    def prepare_for_training(self, model: 'DeepONet', **kwargs) -> None:
+    def prepare_for_training(self, model: 'DeepONet') -> None:
         for param in model.trunk.parameters():
             param.requires_grad = True
         for param in model.branch.parameters():

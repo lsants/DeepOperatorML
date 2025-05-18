@@ -1,61 +1,89 @@
 from __future__ import annotations
-from collections.abc import Callable, Iterable
-from typing import Any
+from ast import List
 import logging
 import torch
 import numpy as np
+from typing import Any
+from .deeponet_transformer import DeepONetTransformer
+from collections.abc import Callable, Iterable, Iterator
 
 logger = logging.getLogger(__name__)
 
-class DeepONetDataset(torch.utils.data.Dataset): # type: ignore
-    def __init__(self, data: dict[str, np.ndarray] , output_keys: list[str], transform: Callable[..., Any] | None = None) -> None:
-        """
-        Args:
-            data (dict): Dictionary containing the data.
-                It must include:
-                  - Branch inputs under the 'xb' key.
-                  - Trunk inputs under the 'xt' key. Must be in meshgrid format: (n_coordinate_points, n_dimensions).
-                  - Target outputs under keys specified in output_keys. Each output will be in a (N_input_functions, N_coordinate_points) format.
-            output_keys (list of str): List of keys for output fields. These keys must exist in data (e.g 'g_u').
-            transform (Callable, optional): Transformation applied to all fields.
-        Raises:
-            ValueError: If any required key is missing or if the outputs in data do not match the provided output_keys.
-        """
 
-        self.branch: np.ndarray = data['xb']
-        self.trunk: np.ndarray = data['xt']
-        self.output_keys = output_keys
-        self.outputs = {}
-        
-        for key in self.output_keys:
-            if key not in data:
-                raise ValueError(f"Output key '{key}' not found in data.")
+class DeepONetDataset(torch.utils.data.Dataset):  # type: ignore
+    def __init__(
+        self,
+        data: dict[str, np.ndarray],
+        feature_labels: list[str],
+        output_labels: list[str],
+        transformer: DeepONetTransformer | None = None
+    ) -> None:
+        print(feature_labels, data.keys())
+        self.branch_data = data[feature_labels[0]]
+        self.trunk_data = data[feature_labels[1]]
+        self.feature_labels = feature_labels
+        self.output_labels = output_labels
+        self.output_data = {}
+        self.transformer = transformer
 
-        for key in self.output_keys:
+        if self.transformer:
+            self.trunk_data = self.transformer.transform_xt(self.trunk_data)
+
+        for key in self.output_labels:
             field = data[key]
-            n_branch_samples = self.branch.shape[0]
-            self.outputs[key] = field.reshape(n_branch_samples, -1)
-        
-        self.transform = transform
-        self.n_outputs = len(self.output_keys)
+            n_samples = self.branch_data.shape[0]
+            self.output_data[key] = field.reshape(n_samples, -1)
 
-    def __len__(self) -> int:
-        return len(self.branch)
+    def _process_index(self, index: Any, max_length: int) -> np.ndarray:
+        """Convert index (int, slice, list, etc.) to a 1D array of indices."""
+        if isinstance(index, int):
+            return np.array([index])
+        elif isinstance(index, slice):
+            return np.arange(max_length)[index]
+        elif isinstance(index, (list, np.ndarray)):
+            return np.asarray(index).flatten()
+        elif isinstance(index, (range)):
+            return np.array(list(index))
+        else:
+            raise ValueError(f"Unsupported index type: {type(index)}")
 
     def __getitem__(self, idx: Any) -> dict[str, Any]:
-        if torch.is_tensor(idx):
-            idx = idx.tolist()
+        if isinstance(idx, list) and isinstance(idx[0], tuple):
+            idx = idx[0] # When it's a list of tuples get the tuple (solves bug when using dataloader)
+        if isinstance(idx, tuple):
+            idx_0, idx_1 = idx
+        else:
+            idx_0 = idx
+            idx_1 = None
 
-        branch_input = self.branch[idx]
-        trunk_input = self.trunk
-        outputs = {key: self.outputs[key][idx] for key in self.output_keys}
+        branch_length = len(self.branch_data)
+        idx_0_processed = self._process_index(idx_0, branch_length)
 
-        if self.transform:
-            branch_input = self.transform(branch_input)
-            trunk_input = self.transform(trunk_input)
-            outputs = {key: self.transform(val) for key, val in outputs.items()}
+        if idx_1 is not None:
+            trunk_length = len(self.trunk_data)
+            idx_1_processed = self._process_index(idx_1, trunk_length)
+        else:
+            idx_1_processed = np.arange(len(self.trunk_data))
 
-        return {'xb': branch_input, 'xt': trunk_input, **outputs, 'index': idx}
+        grid_indices = np.ix_(idx_0_processed, idx_1_processed)
 
-    def get_trunk(self):
-        return self.transform(self.trunk) if self.transform else self.trunk
+        output_item = {key: self.output_data[key][grid_indices] 
+                       for key in self.output_labels}
+        
+        branch_item = self.branch_data[idx_0_processed]
+        trunk_item = self.trunk_data[idx_1_processed]
+
+        # if self.transformer:
+        #     branch_item = self.transformer.transform_xb(
+        #         branch_item[np.newaxis, :], training=True
+        #     ).squeeze(0)
+        #     output_item = {
+        #         key: self.transformer.transform_output(val, key)
+        #         for key, val in output_item.items()
+        #     }   
+
+        return {
+            self.feature_labels[0]: branch_item,
+            self.feature_labels[1]: trunk_item,
+            **output_item,
+        }

@@ -10,7 +10,7 @@ from matplotlib.patches import ConnectionPatch
 from mpl_toolkits.axes_grid1.inset_locator import inset_axes, mark_inset
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
-    from modules.deeponet.deeponet import DeepONet
+    from modules.model.deeponet import DeepONet
 
 logger = logging.getLogger(__name__)
 

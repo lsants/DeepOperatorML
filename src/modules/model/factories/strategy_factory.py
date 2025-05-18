@@ -11,7 +11,6 @@ from ..training_strategies import (
 )
 from ..output_handling import (
     SingleOutputHandling,
-    ShareBranchHandling,
     ShareTrunkHandling,
     SplitOutputsHandling,
     OutputHandling
@@ -23,7 +22,6 @@ class StrategyFactory:
         strategy_name_lower = strategy_name.lower()
         output_stategy_mapping = {
             'single_output': SingleOutputHandling,
-            'share_branch': ShareBranchHandling,
             'share_trunk': ShareTrunkHandling,
             'split_outputs': SplitOutputsHandling,
         }

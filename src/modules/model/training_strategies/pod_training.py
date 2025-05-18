@@ -8,7 +8,6 @@ from collections.abc import Callable, Iterable
 from typing import Any
 from ..components.pod_trunk import PODTrunk
 from .training_strategy_base import TrainingStrategy
-from ...data_processing.transforms import Compose, Rescale
 
 logger = logging.getLogger(name=__name__)
 
@@ -32,7 +31,7 @@ class PODTrainingStrategy(TrainingStrategy):
                 'data'), var_share=kwargs.get('var_share'))
         self.pod_trunk = kwargs.get('pod_trunk')
 
-    def prepare_for_training(self, model: DeepONet, **kwargs) -> None:
+    def prepare_for_training(self, model: DeepONet) -> None:
         """
         For POD, preparation may include verifying that the trunk has been reconfigured
         as a fixed tensor (i.e. the basis functions have been computed by the output strategy).

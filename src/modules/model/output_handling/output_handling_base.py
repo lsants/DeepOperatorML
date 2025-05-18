@@ -6,7 +6,7 @@ from ..factories.network_factory import NetworkFactory
 from ..factories.component_factory import branch_factory, trunk_factory
 from typing import TYPE_CHECKING, Any, Literal
 if TYPE_CHECKING:
-    from modules.deeponet.deeponet import DeepONet
+    from modules.model.deeponet import DeepONet
     from ..components import BaseBranch, BaseTrunk
 
 

@@ -4,14 +4,12 @@ import time
 import torch
 import logging
 from tqdm.auto import tqdm
-from typing import Optional, Any
-from ..pipe.saving import Saver
+from typing import Any
 from .store_outputs import HistoryStorer
-from ..deeponet.deeponet import DeepONet
-from ..data_processing import batching as bt
+from ..model.deeponet import DeepONet
 from ..plotting.plot_training import plot_training, align_epochs
-from ..deeponet.training_strategies.helpers import OptimizerSchedulerManager
-from ..deeponet.training_strategies import (
+from ..model.training_strategies.helpers import OptimizerSchedulerManager
+from ..model.training_strategies import (
     TrainingStrategy,
     StandardTrainingStrategy,
     TwoStepTrainingStrategy,
@@ -190,7 +188,7 @@ class TrainingLoop:
             log_msg += f", Val Loss: {val_metrics['val_loss']:.3E}, Val Errors: {val_output_errors_str}"
         logger.info(log_msg)
 
-    def _finalize_training(self, phase_count: int, final_model_checkpoint: dict, best_model_checkpoint: dict, training_time: float) -> dict[str, any]:
+    def _finalize_training(self, phase_count: int, final_model_checkpoint: dict, best_model_checkpoint: dict, training_time: float) -> dict[str, Any]:
         """
         Finalizes training for the current phase, saving metrics and generating plots.
         """
