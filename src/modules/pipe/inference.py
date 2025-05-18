@@ -37,7 +37,7 @@ def inference(trained_model_config: dict[str, Any],
     
     # ------------------- Load data --------------------------
     to_tensor_transform = ToTensor(
-        dtype=getattr(torch, precision), 
+        dtype=precision, 
         device=device
     )
     output_keys = trained_model_config["OUTPUT_KEYS"]
