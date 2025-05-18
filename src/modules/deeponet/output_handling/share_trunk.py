@@ -5,6 +5,8 @@ from ...utilities.log_functions import pprint_layer_dict
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from modules.deeponet.deeponet import DeepONet
+    from modules.deeponet.components import BaseBranch, BaseTrunk
+
 
 logger = logging.getLogger(__name__)
 

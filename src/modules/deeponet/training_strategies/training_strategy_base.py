@@ -2,19 +2,20 @@ from __future__ import annotations
 import torch
 from abc import ABC, abstractmethod
 from ...data_processing.transforms import Compose
-from typing import TYPE_CHECKING
+from collections.abc import Callable, Iterable
+from typing import TYPE_CHECKING, Any
 if TYPE_CHECKING:
     from modules.deeponet.deeponet import DeepONet
 
 
 class TrainingStrategy(ABC):
-    def __init__(self, loss_fn: callable, output_transform: Compose | None = None) -> None:
-        self.loss_fn: callable = loss_fn
+    def __init__(self, loss_fn: Callable[[Iterable[torch.Tensor], Iterable[torch.Tensor]], 
+                                         torch.Tensor]) -> None:
+        self.loss_fn = loss_fn
         self.inference: bool = False
-        self.output_transform: Compose | None = output_transform
 
     @abstractmethod
-    def prepare_training(self, model: 'DeepONet', **kwargs) -> None:
+    def prepare_for_training(self, model: 'DeepONet', **kwargs:Any) -> None:
         """
         Prepares the model for training.
         This method should handle any one-time model adjustments, resource allocations,
@@ -25,9 +26,9 @@ class TrainingStrategy(ABC):
     @abstractmethod
     def forward(self,
                 model: 'DeepONet',
-                xb: torch.Tensor = None,
-                xt: torch.Tensor = None,
-                **kwargs
+                branch_input: torch.Tensor | None = None,
+                trunk_input: torch.Tensor | None = None,
+                **kwargs: Any
                 ) -> tuple[torch.Tensor]:
         """
         Implements the forward pass for the training strategy.
@@ -41,7 +42,7 @@ class TrainingStrategy(ABC):
                      outputs: tuple[torch.Tensor],
                      batch: dict[str, torch.Tensor],
                      model: 'DeepONet',
-                     params: dict[str, any],
+                     params: dict[str, Any],
                      **kwargs
                      ) -> float:
         """
@@ -54,16 +55,16 @@ class TrainingStrategy(ABC):
                        outputs: tuple[torch.Tensor],
                        batch: dict[str, torch.Tensor],
                        model: 'DeepONet',
-                       params: dict[str, any],
+                       training_params: dict[str, Any],
                        **kwargs
-                       ) -> dict[str, any]:
+                       ) -> dict[str, Any]:
         """
         Computes error metrics for evaluation.
         """
         pass
 
     @abstractmethod
-    def get_branch_config(self, branch_config: dict[str, any]) -> dict[str, any]:
+    def get_branch_config(self, branch_config: dict[str, Any]) -> dict[str, Any]:
         """
         Returns an updated branch configuration dictionary.
         This method merges strategy-specific parameters into the branch_config.
@@ -71,7 +72,7 @@ class TrainingStrategy(ABC):
         pass
 
     @abstractmethod
-    def get_trunk_config(self, trunk_config: dict[str, any]) -> dict[str, any]:
+    def get_trunk_config(self, trunk_config: dict[str, Any]) -> dict[str, Any]:
         """
         Returns an updated trunk configuration dictionary.
         This method merges strategy-specific parameters into the trunk_config.
@@ -91,5 +92,5 @@ class TrainingStrategy(ABC):
     def prepare_for_phase(self, model, **kwargs) -> None:
         pass
 
-    def after_epoch(self, epoch: int, model, params: dict[str, any], **kwargs) -> None:
+    def after_epoch(self, epoch: int, model, params: dict[str, Any], **kwargs) -> None:
         pass

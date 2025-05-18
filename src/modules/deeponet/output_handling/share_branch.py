@@ -6,6 +6,8 @@ from ....exceptions import InvalidStrategyCombinationError
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from modules.deeponet.deeponet import DeepONet
+    from modules.deeponet.components import BaseBranch, BaseTrunk
+
 
 logger = logging.getLogger(__name__)
 

@@ -2,9 +2,10 @@ import logging
 import torch
 from .output_handling_base import OutputHandling
 from ...utilities.log_functions import pprint_layer_dict
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Literal
 if TYPE_CHECKING:
     from modules.deeponet.deeponet import DeepONet
+    from modules.deeponet.components import BaseBranch, BaseTrunk
 
 logger = logging.getLogger(__name__)
 
@@ -13,18 +14,22 @@ class SplitOutputsHandling(OutputHandling):
         super().__init__()
 
     @property
-    def BASIS_CONFIG(self):
+    def BASIS_CONFIG(self) -> Literal['multiple']:
         return 'multiple'
 
-    def configure_components(self, model, branch_config: dict, trunk_config: dict, **kwargs) -> tuple:
-        processed_trunk_config = self.config_basis(model, trunk_config)
+    def configure_components(self, model: DeepONet, branch_config: dict[str, Any], trunk_config: dict[str, Any], **kwargs:Any) -> tuple[BaseBranch, BaseTrunk]:
+        processed_trunk_config = self.config_basis(model=model, trunk_config=trunk_config)
 
         n_basis_functions = model.n_basis_functions
         self.trunk_output_size = n_basis_functions * model.n_outputs
         self.branch_output_size = n_basis_functions * model.n_outputs
 
 
-        branch, trunk = self.create_components(model, branch_config, processed_trunk_config, self.branch_output_size, self.trunk_output_size)
+        branch, trunk = self.create_components(model=model, 
+                                               branch_config=branch_config, 
+                                               trunk_config=processed_trunk_config, 
+                                               branch_output_size=self.branch_output_size,
+                                               trunk_output_size=self.trunk_output_size)
 
         logger.debug(f"SplitOutputHandling: Computed trunk output size: {self.trunk_output_size}")
         logger.debug(f"SplitOutputHandling: Computed branch output size: {self.branch_output_size}")

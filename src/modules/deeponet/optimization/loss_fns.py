@@ -1,9 +1,19 @@
 import torch
 
 def mse_loss(targets: tuple[torch.Tensor], preds: tuple[torch.Tensor]) -> torch.Tensor:
-    loss = 0
+    loss = torch.tensor(0.0)
     for target, pred in zip(targets, preds):
+         loss = loss.to(dtype=pred.dtype,
+                    device=pred.device)
          loss += torch.mean((pred - target) ** 2)
+    return loss
+
+def rmse_loss(targets: tuple[torch.Tensor], preds: tuple[torch.Tensor]) -> torch.Tensor:
+    loss = torch.tensor(0.0)
+    for target, pred in zip(targets, preds):
+         loss = loss.to(dtype=pred.dtype,
+                         device=pred.device)
+         loss += torch.sqrt(torch.mean((pred - target) ** 2))
     return loss
 
 def mag_phase_loss(targets: tuple[torch.Tensor], preds: tuple[torch.Tensor]) -> torch.Tensor:
@@ -20,5 +30,6 @@ def mag_phase_loss(targets: tuple[torch.Tensor], preds: tuple[torch.Tensor]) -> 
 
 LOSS_FUNCTIONS = {
      "mse" : mse_loss,
+     "rmse" : rmse_loss,
      "mag_phase" : mag_phase_loss
 }

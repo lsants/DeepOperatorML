@@ -1,8 +1,8 @@
 from __future__ import annotations
 import torch
 import warnings
-from typing import Optional
-from ...data_processing.transforms import Compose
+from collections.abc import Callable, Iterable
+from typing import Any
 from ..training_strategies import (
     TrainingStrategy,
     StandardTrainingStrategy,
@@ -33,7 +33,7 @@ class StrategyFactory:
         if strategy_name_lower == 'single_output' and len(output_keys) != 1:
             raise ValueError(
                 f"Invalid output handling, can't use {strategy_name_lower} strategy for a multi-output model.")
-        elif len(output_keys) == 1:
+        elif strategy_name_lower != 'single_output' and len(output_keys) == 1:
             warnings.warn(
                 f"Warning: There's little use in using a strategy for handling multiple outputs when the model has {len(output_keys)} outputs. Resources may be wasted."
             )
@@ -41,10 +41,9 @@ class StrategyFactory:
 
     @staticmethod
     def get_training_strategy(strategy_name: str, 
-                              loss_fn: callable, 
+                              loss_fn: Callable[[Iterable[torch.Tensor], Iterable[torch.Tensor]], torch.Tensor], 
                               data: dict[str, torch.Tensor], 
-                              model_params: dict[str, any],
-                              transform: Compose | None = None,
+                              model_params: dict[str, Any],
                               inference: bool = False, 
                               **kwargs) -> TrainingStrategy:
 
@@ -56,14 +55,14 @@ class StrategyFactory:
                                            data=data,
                                            var_share=var_share,
                                            inference=inference,
-                                           output_transform=transform)
+                                           )
             else:
                 return PODTrainingStrategy(loss_fn=loss_fn,
                                            data=data,
                                            var_share=var_share,
                                            inference=inference,
                                            pod_trunk=kwargs.get('pod_trunk'),
-                                           output_transform=transform)
+                                           )
         elif strategy_name_lower == 'two_step':
             train_dataset_length = len(
                 data['xb']) if data and 'xb' in data else None
@@ -76,7 +75,6 @@ class StrategyFactory:
                     device=model_params['DEVICE'],
                     precision=getattr(torch, model_params['PRECISION']),
                     pretrained_trunk_tensor=kwargs.get('trained_trunk'),
-                    output_transform=transform,
                     inference=inference,
                 )
             else:
@@ -85,13 +83,11 @@ class StrategyFactory:
                     device=model_params['DEVICE'],
                     precision=getattr(torch, model_params['PRECISION']),
                     train_dataset_length=train_dataset_length,
-                    output_transform=transform,
                     inference=inference,
                 )
         elif strategy_name_lower == 'standard':
             return StandardTrainingStrategy(loss_fn=loss_fn,
-                                            inference=inference,
-                                            output_transform=transform
+                                            inference=inference,                     
                                             )
         else:
             raise ValueError(

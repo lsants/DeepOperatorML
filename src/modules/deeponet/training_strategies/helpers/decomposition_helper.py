@@ -15,10 +15,10 @@ class DecompositionHelper:
         self.T: torch.Tensor | None = None
         self.trained_trunk: torch.Tensor | torch.Tensor = None
 
-    def decompose(self, model: 'DeepONet', params: dict[str, any], trunk_input: torch.Tensor) -> None:
+    def decompose(self, model: 'DeepONet', training_params: dict[str, any], trunk_input: torch.Tensor) -> None:
         """Performs QR or SVD decomposition on the trunk output and updates matrices."""
         with torch.no_grad():
-            decomposition = params.get('TRUNK_DECOMPOSITION', 'qr')
+            decomposition = training_params.get('TRUNK_DECOMPOSITION', 'svd')
             phi = model.trunk.forward(trunk_input)
             K = model.n_basis_functions
             n = model.n_outputs

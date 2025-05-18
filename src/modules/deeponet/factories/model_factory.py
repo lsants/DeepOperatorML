@@ -1,7 +1,9 @@
+from __future__ import annotations
 import os
 import yaml
 import torch
 import logging
+from typing import Any
 from ..deeponet import DeepONet
 from .loss_factory import LossFactory
 from .strategy_factory import StrategyFactory
@@ -11,11 +13,11 @@ from ...data_processing.transforms import Compose, Rescale
 
 logger = logging.getLogger(__name__)
 
-
 class ModelFactory:
     @staticmethod
-    def create_model(model_params: dict[str, any], **kwargs) -> tuple[DeepONet, str]:
+    def create_model(model_params: dict[str, Any], **kwargs) -> tuple[DeepONet, str]:
         data = kwargs.get('train_data')
+        inference = kwargs.get('inference', False)
 
         trunk_input_size = len(model_params['COORDINATE_KEYS'])
         if model_params.get('TRUNK_FEATURE_EXPANSION', 0) > 0:
@@ -61,12 +63,12 @@ class ModelFactory:
         ])
 
         training_strategy = StrategyFactory.get_training_strategy(
-            model_params.get('TRAINING_STRATEGY'),
-            loss_function,
-            data,
-            model_params,
+            strategy_name=model_params.get('TRAINING_STRATEGY'),
+            loss_fn=loss_function,
+            data=data,
+            model_params=model_params,
             transform=transforms,
-            inference=kwargs.get('inference', False),
+            inference=inference,
             trained_trunk=kwargs.get('trained_trunk'),
             pod_trunk=kwargs.get('pod_trunk'),
         )
@@ -78,7 +80,7 @@ class ModelFactory:
             training_strategy=training_strategy,
             n_outputs=len(model_params['OUTPUT_KEYS']),
             n_basis_functions=model_params['BASIS_FUNCTIONS']
-        ).to(model_params['DEVICE'], dtype=getattr(torch, model_params['PRECISION']))
+        ).to(device=model_params['DEVICE'], dtype=getattr(torch, model_params['PRECISION']))
 
         model_params["BASIS_FUNCTIONS"] = model.n_basis_functions
 
@@ -90,42 +92,30 @@ class ModelFactory:
         return model, model_name
 
     @staticmethod
-    def initialize_model(model_folder: str, model_name: str, device: str, precision: str) -> tuple[DeepONet, dict[str, any]]:
-        model_path = os.path.join(
-            model_folder, f"model_state_{model_name}.pth")
-        config_path = os.path.join(
-            model_folder, f"model_info_{model_name}.yaml")
+    def initialize_model(trained_model_config: dict[str, any], device, **kwargs) -> DeepONet:
+        checkpoint_path = trained_model_config["CHECKPOINTS_PATH"]
+        best_model_state_path = os.path.join(checkpoint_path, 'best_model_state.pth')
 
-        logger.info(f"\nModel name: \n\n{model_name}\n\n")
-        logger.info(f"\nModel loaded from: \n\n{model_path}\n\n")
+        checkpoint = torch.load(f=best_model_state_path, map_location=device, weights_only=True)
 
-        with open(config_path, 'r') as file:
-            trained_model_config = yaml.safe_load(file)
-
-        trained_model_config['DEVICE'] = device
-        trained_model_config['PRECISION'] = precision
-        training_strategy = trained_model_config['TRAINING_STRATEGY'].lower()
-
-        checkpoint = torch.load(model_path, map_location=device)
-
-        if training_strategy == 'two_step':
-            trained_trunk = checkpoint.get('trained_trunk')
-            model, _ = ModelFactory.create_model(trained_model_config,
+        if trained_model_config["TRAINING_STRATEGY"] == 'two_step':
+            trained_trunk = checkpoint.get('trunk.trained_tensor')
+            model, _ = ModelFactory.create_model(model_params=trained_model_config,
                                                  inference=True,
                                                  trained_trunk=trained_trunk
                                                  )
-        elif training_strategy == 'pod':
+        elif trained_model_config["TRAINING_STRATEGY"] == 'pod':
             saved_pod_trunk = {'basis': checkpoint.get(
                 'pod_basis'), 'mean': checkpoint.get('mean_functions')}
-            model, _ = ModelFactory.create_model(trained_model_config,
+            model, _ = ModelFactory.create_model(model_params=trained_model_config,
                                                  inference=True,
                                                  pod_trunk=saved_pod_trunk
                                                  )
         else:
-            model, _ = ModelFactory.create_model(trained_model_config,
+            model, _ = ModelFactory.create_model(model_params=trained_model_config,
                                                  inference=True)
-        model.load_state_dict(checkpoint['model_state_dict'], strict=False)
-
+        
+        model.load_state_dict(state_dict=checkpoint, strict=False)
         model.eval()
 
-        return model, trained_model_config
+        return model

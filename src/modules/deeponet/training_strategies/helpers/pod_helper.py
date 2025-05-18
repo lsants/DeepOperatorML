@@ -85,7 +85,7 @@ class PODBasisHelper:
         self.pod_basis = basis
         self.mean_functions = mean  # shape (1, features)
         
-        logger.info(f"PODBasisHelper (single): Using {n_modes} modes for {variance_share*100:.2f}% variance.")
+        logger.info(f"PODBasisHelper (single): Using {n_modes} modes for {variance_share*100:.5f}% variance.")
         logger.info(f"PODBasisHelper (single): Basis shape: {self.pod_basis.shape}, Mean shape: {self.mean_functions.shape}")
         
         model.register_buffer("pod_basis", self.pod_basis)

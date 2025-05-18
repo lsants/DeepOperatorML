@@ -1,22 +1,25 @@
-import numpy as np
+from collections.abc import Callable, Iterable
+from typing import Any
 import torch
+import numpy as np
+from numpy import typing as npt
 
 class Compose:
-    def __init__(self, transforms: list[callable]) -> None:
+    def __init__(self, transforms: Iterable[Callable[..., Any]]) -> None:
         self.transforms = transforms
 
-    def __call__(self, sample: any) -> any:
+    def __call__(self, sample: Any) -> torch.TensorType | npt.ArrayLike:
         for transform in self.transforms:
             sample = transform(sample)
         return sample
     
 class ToTensor:
-    def __init__(self, dtype: np.dtype, device: str) -> None:
+    def __init__(self, dtype: torch.dtype, device: str) -> None:
         self.dtype = dtype
-        self.device = device
+        self.device = torch.device(device=device)
 
-    def __call__(self, sample: np.ndarray) -> torch.Tensor:
-        tensor = torch.tensor(sample, dtype=self.dtype, device=self.device)
+    def __call__(self, sample: npt.ArrayLike) -> torch.Tensor:
+        tensor = torch.tensor(data=sample, dtype=self.dtype, device=self.device)
         return tensor
     
 class Rescale:
@@ -28,7 +31,7 @@ class Rescale:
             config (str): Function used for scaling. If 'none', scale by 1 (identity).
         """
         self.config = config
-        self.factor = self.get_factor(factor, self.config)
+        self.factor = self.get_factor(factor=factor, config=self.config)
 
     def __call__(self, sample: torch.Tensor) -> torch.Tensor:
         return self.factor * sample
