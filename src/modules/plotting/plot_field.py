@@ -3,7 +3,7 @@ from __future__ import annotations
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.colors as colors
-from .plot_utils import format_param
+from ..utilities.plot_utils import format_param
 
 def plot_2D_field(coords: dict[str, np.ndarray], truth_field: np.ndarray | None = None, pred_field: np.ndarray | None = None, **kwargs) -> plt.figure:
     """

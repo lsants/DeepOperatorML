@@ -1,8 +1,7 @@
 import os
 from datetime import datetime
 
-
-def process_config(config):
+def process_config(model_config):
     """
     Processes the configuration dictionary using the "PROBLEM" key to adjust the model name and paths.
     Raises a ValueError if any required key (MODEL_NAME, PROBLEM, TRAINING_STRATEGY, OUTPUT_HANDLING,
@@ -14,62 +13,29 @@ def process_config(config):
         and output handling information.
 
     Args:
-        config (dict): The raw configuration dictionary loaded from YAML.
+        model_config (dict): The model configuration dictionary loaded from YAML.
 
     Returns:
         dict: The modified configuration dictionary.
     """
 
-    config['MODEL_NAME'] = datetime.now().strftime("%Y%m%d") + "_" + "DeepONet"
+    model_config['MODEL_NAME'] = 'experiment_' + datetime.now().strftime("%Y-%m-%d_%H-%M")
 
-    required_keys = ["MODEL_NAME", "PROBLEM", "TRAINING_STRATEGY", "OUTPUT_HANDLING",
-                     "MODEL_FOLDER"]
-    for key in required_keys:
-        if key not in config or config[key] is None:
-            raise ValueError(f"Missing required configuration key: {key}")
-
-    problem = config["PROBLEM"].lower()
-
-    model_name = config["MODEL_NAME"]
-    if problem:
-        model_name += "_" + problem
-    training_strategy = config["TRAINING_STRATEGY"]
-    model_name += "_" + f"{config['BASIS_FUNCTIONS']}_basis"
-    if config["RESCALING"] != 'none':
-        if config["RESCALING"] == '1/sqrt(p)':
-            model_name += '_' + 'rescaled_by_inv(sqrt(n_basis))'
-        if config["RESCALING"] == '1/p':
-            model_name += '_' + 'rescaled_by_inv(n_basis)'
-    model_name += "_" + training_strategy.lower()
+    model_name = model_config["MODEL_NAME"]
+    training_strategy = model_config["TRAINING_STRATEGY"].lower()
+    output_handling = model_config["OUTPUT_HANDLING"].lower()
+    model_name += "_" + training_strategy
+    model_name += "_" + output_handling
+    model_name += "_" + model_config['BRANCH_ARCHITECTURE']
+    if training_strategy != 'pod':
+        model_name += "_" + model_config['TRUNK_ARCHITECTURE']
     if training_strategy == 'two_step':
-        model_name += '_' + config['TRUNK_DECOMPOSITION']
-    if config["LOSS_FUNCTION"] != 'mse':
-        model_name += f"_{config['LOSS_FUNCTION']}"
-    if config.get("INPUT_NORMALIZATION", False):
-        model_name += "_in"
-    if config.get("OUTPUT_NORMALIZATION", False):
-        model_name += "_out"
-    if config.get("INPUT_NORMALIZATION", False) or config.get("OUTPUT_NORMALIZATION", False):
-        model_name += "_norm"
-    if config.get("TRUNK_FEATURE_EXPANSION", 0) > 0:
-        feature_expansions = config["TRUNK_FEATURE_EXPANSION"]
+        model_name += '_' + model_config['TRUNK_DECOMPOSITION']
+    model_name += "_" + f"{model_config['BASIS_FUNCTIONS']}_basis"
+    if model_config.get("TRUNK_FEATURE_EXPANSION", 0) > 0:
+        feature_expansions = model_config["TRUNK_FEATURE_EXPANSION"]
         model_name += f"_{feature_expansions}_trunk_exp_fts"
-    output_handling = config["OUTPUT_HANDLING"].lower()
-    if "share_trunk" in output_handling:
-        model_name += "_single_basis"
-    if "share_branch" in output_handling:
-        model_name += "_mult_basis"
-    elif "split_outputs" in output_handling:
-        model_name += "_split"
 
-    config["MODEL_NAME"] = model_name
+    model_config["MODEL_NAME"] = model_name
 
-    model_folder = config["MODEL_FOLDER"]
-    training_strategy_str = config["TRAINING_STRATEGY"]
-    output_handling_str = config["OUTPUT_HANDLING"]
-    config["MODEL_FOLDER_TO_SAVE"] = os.path.join(
-        model_folder, problem, training_strategy_str, output_handling_str, model_name) + os.sep
-    config["IMAGES_FOLDER_TO_SAVE"] = os.path.join(
-        config["MODEL_FOLDER_TO_SAVE"], 'images') + os.sep
-
-    return config
+    return model_config
