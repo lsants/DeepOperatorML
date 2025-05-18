@@ -2,6 +2,7 @@ from __future__ import annotations
 import os
 import yaml
 import json
+from typing import Any
 
 def load_params(file):
     with open(file, 'r') as file:
@@ -13,7 +14,7 @@ def load_data_info(file):
         i = json.load(file)
         return i
     
-def create_output_directories(training_params: dict[str, any]):
+def create_output_directories(training_params: dict[str, Any]):
     training_params['OUTPUT_PATH'] = os.path.join(training_params["OUTPUT_PATH"], training_params["MODEL_NAME"])
     training_params['CHECKPOINTS_PATH'] = os.path.join(training_params["OUTPUT_PATH"], "checkpoints")
     training_params['AUXILIARY_DATA_PATH'] = os.path.join(training_params["OUTPUT_PATH"], 'aux')

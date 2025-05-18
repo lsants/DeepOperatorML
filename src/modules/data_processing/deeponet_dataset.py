@@ -25,17 +25,16 @@ class DeepONetDataset(torch.utils.data.Dataset): # type: ignore
         self.branch: np.ndarray = data['xb']
         self.trunk: np.ndarray = data['xt']
         self.output_keys = output_keys
+        self.outputs = {}
         
         for key in self.output_keys:
             if key not in data:
                 raise ValueError(f"Output key '{key}' not found in data.")
 
-        n_samples = self.branch.shape[0]
-        self._outputs = {}
-
         for key in self.output_keys:
             field = data[key]
-            self.outputs[key] = field.reshape(n_samples, -1)
+            n_branch_samples = self.branch.shape[0]
+            self.outputs[key] = field.reshape(n_branch_samples, -1)
         
         self.transform = transform
         self.n_outputs = len(self.output_keys)

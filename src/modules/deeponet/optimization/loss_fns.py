@@ -1,6 +1,7 @@
+from collections.abc import Iterable
 import torch
 
-def mse_loss(targets: tuple[torch.Tensor], preds: tuple[torch.Tensor]) -> torch.Tensor:
+def mse_loss(targets: Iterable[torch.Tensor], preds: Iterable[torch.Tensor]) -> torch.Tensor:
     loss = torch.tensor(0.0)
     for target, pred in zip(targets, preds):
          loss = loss.to(dtype=pred.dtype,
@@ -8,7 +9,7 @@ def mse_loss(targets: tuple[torch.Tensor], preds: tuple[torch.Tensor]) -> torch.
          loss += torch.mean((pred - target) ** 2)
     return loss
 
-def rmse_loss(targets: tuple[torch.Tensor], preds: tuple[torch.Tensor]) -> torch.Tensor:
+def rmse_loss(targets: Iterable[torch.Tensor], preds: Iterable[torch.Tensor]) -> torch.Tensor:
     loss = torch.tensor(0.0)
     for target, pred in zip(targets, preds):
          loss = loss.to(dtype=pred.dtype,
@@ -16,7 +17,7 @@ def rmse_loss(targets: tuple[torch.Tensor], preds: tuple[torch.Tensor]) -> torch
          loss += torch.sqrt(torch.mean((pred - target) ** 2))
     return loss
 
-def mag_phase_loss(targets: tuple[torch.Tensor], preds: tuple[torch.Tensor]) -> torch.Tensor:
+def mag_phase_loss(targets: Iterable[torch.Tensor], preds: Iterable[torch.Tensor]) -> torch.Tensor:
      if len(targets) < 2 or len(preds) < 2:
           raise ValueError("Magnitude-Phase loss requires complex (2-sized) output.")
      mag_target = torch.sqrt(targets[0] ** 2 + targets[1] ** 2)

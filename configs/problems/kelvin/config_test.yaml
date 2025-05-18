@@ -2,7 +2,7 @@ PRECISION: float32
 DEVICE: cpu
 
 # Location of dataset to test
-PROCESSED_DATA_PATH: ./data/processed/kelvin/processed_kelvin_data.npz
+DATASET_VERSION:
 
 # Location of outputs (data, metrics) - Set this if testing a pretrained model
 OUTPUT_PATH: ./output/kelvin/

@@ -1,3 +1,4 @@
+from __future__ import annotations
 import torch
 from typing import TYPE_CHECKING, Callable, Iterable, Any
 if TYPE_CHECKING:
@@ -5,7 +6,7 @@ if TYPE_CHECKING:
 from .training_strategy_base import TrainingStrategy
 
 class StandardTrainingStrategy(TrainingStrategy):
-    def __init__(self, loss_fn: Callable[[Iterable[torch.Tensor], Iterable[torch.Tensor]]], **kwargs) -> None:
+    def __init__(self, loss_fn: Callable[[Iterable[torch.Tensor], Iterable[torch.Tensor]], torch.Tensor], **kwargs) -> None:
         super().__init__(loss_fn)
 
     def get_trunk_config(self, trunk_config: dict[str, Any]) -> dict[str, Any]:

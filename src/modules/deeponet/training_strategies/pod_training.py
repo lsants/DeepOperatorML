@@ -60,12 +60,12 @@ class PODTrainingStrategy(TrainingStrategy):
                 start_dim=0, end_dim=1)[i: i + 1] for i in range(model.n_outputs))
         return output
 
-    def compute_loss(self, outputs: tuple[torch.Tensor], batch: dict[str, torch.Tensor], model: DeepONet, training_params: dict[str, Any], **kwargs) -> float:
+    def compute_loss(self, outputs: tuple[torch.Tensor], batch: dict[str, torch.Tensor], model: DeepONet, training_params: dict[str, Any], **kwargs) -> torch.Tensor:
         """
         Computes the loss by comparing model outputs with targets etrunk_inputracted from the batch.
         """
-        # Assume targets are stored under keys defined in training_params["OUTPUT_KEYS"]
-        targets = tuple(batch[key] for key in training_params["OUTPUT_KEYS"])
+        # Assume targets are stored under keys defined in training_params["TARGETS"]
+        targets = tuple(batch[key] for key in training_params["TARGETS"])
         assert len(targets) == len(outputs)
         return self.loss_fn(targets, outputs)
 
@@ -76,8 +76,8 @@ class PODTrainingStrategy(TrainingStrategy):
         errors = {}
         error_norm = training_params.get("ERROR_NORM", 2)
         targets = {k: v for k, v in batch.items(
-        ) if k in training_params["OUTPUT_KEYS"]}
-        for key, target, pred in zip(training_params["OUTPUT_KEYS"], targets.values(), outputs):
+        ) if k in training_params["TARGETS"]}
+        for key, target, pred in zip(training_params["TARGETS"], targets.values(), outputs):
             norm_target = torch.linalg.vector_norm(target, ord=error_norm)
             norm_error = torch.linalg.vector_norm(
                 target - pred, ord=error_norm)

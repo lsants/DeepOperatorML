@@ -19,7 +19,7 @@ from ..output_handling import (
 
 class StrategyFactory:
     @staticmethod
-    def get_output_handling(strategy_name: str, output_keys: list) -> OutputHandling:
+    def get_output_handling(strategy_name: str, num_outputs: int) -> OutputHandling:
         strategy_name_lower = strategy_name.lower()
         output_stategy_mapping = {
             'single_output': SingleOutputHandling,
@@ -30,22 +30,22 @@ class StrategyFactory:
         if strategy_name_lower not in output_stategy_mapping:
             raise ValueError(
                 f"Unsupported OUTPUT_HANDLING strategy: {strategy_name_lower}.")
-        if strategy_name_lower == 'single_output' and len(output_keys) != 1:
+        if strategy_name_lower == 'single_output' and num_outputs != 1:
             raise ValueError(
                 f"Invalid output handling, can't use {strategy_name_lower} strategy for a multi-output model.")
-        elif strategy_name_lower != 'single_output' and len(output_keys) == 1:
+        elif strategy_name_lower != 'single_output' and num_outputs == 1:
             warnings.warn(
-                f"Warning: There's little use in using a strategy for handling multiple outputs when the model has {len(output_keys)} outputs. Resources may be wasted."
+                f"Warning: There's little use in using a strategy for handling multiple outputs when the model has {num_outputs} outputs. Resources may be wasted."
             )
         return output_stategy_mapping[strategy_name_lower]()
 
     @staticmethod
     def get_training_strategy(strategy_name: str, 
                               loss_fn: Callable[[Iterable[torch.Tensor], Iterable[torch.Tensor]], torch.Tensor], 
-                              data: dict[str, torch.Tensor], 
+                              data: dict[str, torch.Tensor] | None, 
                               model_params: dict[str, Any],
                               inference: bool = False, 
-                              **kwargs) -> TrainingStrategy:
+                              **kwargs: Any) -> TrainingStrategy:
 
         strategy_name_lower = strategy_name.lower()
         if strategy_name_lower == 'pod':
@@ -64,12 +64,11 @@ class StrategyFactory:
                                            pod_trunk=kwargs.get('pod_trunk'),
                                            )
         elif strategy_name_lower == 'two_step':
-            train_dataset_length = len(
-                data['xb']) if data and 'xb' in data else None
-            if train_dataset_length is None:
+            branch_batch_size = kwargs.get('branch_batch_size')
+            if branch_batch_size is None:
                 if not inference:
                     raise ValueError(
-                        f"Initializing a TwoStep model without informing batch size is only possible when doing inference.\nCheck what you're doing!")
+                        f"Initializing a TwoStep model without informing branch batch size is only possible when doing inference.\nCheck what you're doing!")
                 return TwoStepTrainingStrategy(
                     loss_fn=loss_fn,
                     device=model_params['DEVICE'],
@@ -82,7 +81,7 @@ class StrategyFactory:
                     loss_fn=loss_fn,
                     device=model_params['DEVICE'],
                     precision=getattr(torch, model_params['PRECISION']),
-                    train_dataset_length=train_dataset_length,
+                    branch_batch_size=branch_batch_size,
                     inference=inference,
                 )
         elif strategy_name_lower == 'standard':

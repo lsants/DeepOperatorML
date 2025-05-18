@@ -1,8 +1,11 @@
+from __future__ import annotations
 import hashlib
 import numpy as np
+from torch import values_copy
 import yaml
 from datetime import datetime
 from pathlib import Path
+from typing import Any
 from .deeponet_dataset import DeepONetDataset
 
 def validate_data_structure(data: dict, config: dict) -> dict:
@@ -29,6 +32,13 @@ def validate_data_structure(data: dict, config: dict) -> dict:
         'features': {f: data[f].shape[0] for f in features},
         'targets': {t: data[t].shape for t in targets}
     }
+
+def get_data_shapes(data: dict[str, Any], config: dict[str, Any]) -> dict[str, tuple[int]]:
+    """Get dataset shapes."""
+    features = config['DATA_LABELS']['FEATURES']
+    targets = config['DATA_LABELS']['TARGETS']
+    data_shapes = {f: data[f].shape for f in features} | {t: data[t].shape for t in targets}
+    return data_shapes
 
 def get_sample_sizes(data: dict, config: dict) -> dict[str, int]:
     """Get sample sizes for all features based on config relationships."""
@@ -85,7 +95,7 @@ def compute_scalers(
         scalers[f"{feature}_std"] = np.std(train_data, axis=0)
     return scalers
 
-def generate_version_hash(raw_data_path: str, problem_config: dict) -> str:
+def generate_version_hash(raw_data_path: str | Path, problem_config: dict) -> str:
     hash_obj = hashlib.sha256()
     hash_obj.update(Path(raw_data_path).name.encode())
     problem_config_yaml = yaml.safe_dump(problem_config['SPLITTING'] | problem_config['DATA_LABELS'], sort_keys=True)
@@ -95,9 +105,10 @@ def generate_version_hash(raw_data_path: str, problem_config: dict) -> str:
 def save_artifacts(
     output_dir: Path,
     data: dict[str, np.ndarray],
-    splits: dict[str, dict[str, np.ndarray]],  # Now expects feature->split_type->indices
+    splits: dict[str, dict[str, np.ndarray]],
     scalers: dict[str, np.ndarray],
-    config: dict
+    shapes: dict[str, tuple[int]],
+    config: dict[str, Any]
 ) -> None:
     output_dir.mkdir(parents=True, exist_ok=True)
     
@@ -107,7 +118,7 @@ def save_artifacts(
     flat_splits = {}
     for feature, feature_splits in splits.items():
         for split_type, indices in feature_splits.items():
-            flat_splits[f"{feature}_{split_type}"] = indices
+            flat_splits[f"{feature.upper()}_{split_type}"] = indices
             
     np.savez(output_dir / 'split_indices.npz', **flat_splits)
     
@@ -120,7 +131,10 @@ def save_artifacts(
         'SPLIT_RATIOS': config['SPLITTING']['RATIOS'],
         'SPLIT_SEED': config['SPLITTING']['SEED'],
         'FEATURES': config['DATA_LABELS']['FEATURES'],
-        'TARGETS': config['DATA_LABELS']['TARGETS']
+        'TARGETS': config['DATA_LABELS']['TARGETS'],
+        'INPUT_FUNCTIONS': config['INPUT_FUNCTION_LABELS'],
+        'COORDINATES': config['COORDINATE_KEYS'],
+        'SHAPES': shapes
     }
     
     with (output_dir / 'metadata.yaml').open('w') as f:

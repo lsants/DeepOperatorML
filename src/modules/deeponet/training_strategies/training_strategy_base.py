@@ -42,9 +42,9 @@ class TrainingStrategy(ABC):
                      outputs: tuple[torch.Tensor],
                      batch: dict[str, torch.Tensor],
                      model: 'DeepONet',
-                     params: dict[str, Any],
+                     training_params: dict[str, Any],
                      **kwargs
-                     ) -> float:
+                     ) -> torch.Tensor:
         """
         Computes the loss for the current batch.
         """

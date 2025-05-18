@@ -22,12 +22,11 @@ def train_model(problem_config_path: str, train_config_path: str) -> dict[str, A
     # --------------------------- Load params file ------------------------
     training_params = dir_functions.load_params(file=train_config_path)
     problem_params = dir_functions.load_params(file=problem_config_path)
-    config = training_params | problem_params
-    logger.info(msg=f"Training data from:\n{config['PROCESSED_DATA_PATH']}\n")
-    torch.manual_seed(seed=config['SEED'])
+    dataset_path = Path(f"data/processed/{problem_params['PROBLEM']}_{problem_params['DATASET_VERSION']}")
+    logger.info(msg=f"Training from:\n{dataset_path}\n")
+    torch.manual_seed(seed=training_params['SEED'])
 
     # ---------------------------- Load dataset ----------------------
-    dataset_path = Path(f"data/processed/{config['PROBLEM']}_{config['DATASET_VERSION']}")
 
     data = np.load(dataset_path / "data.npz")
     splits = np.load(dataset_path / "split_indices.npz")
@@ -36,90 +35,59 @@ def train_model(problem_config_path: str, train_config_path: str) -> dict[str, A
     with open(dataset_path / "metadata.yaml") as f:
         dataset_metadata = yaml.safe_load(f)
 
-    _validate_config_consistency(train_config=config, dataset_metadata=dataset_metadata)
-
     to_tensor_transform = ToTensor(
-        dtype=getattr(torch, config['PRECISION']), 
-        device=config['DEVICE']
+        dtype=getattr(torch, training_params['PRECISION']), 
+        device=training_params['DEVICE']
     )
 
-    if config["INPUT_NORMALIZATION"] != 'none':
-        input_normalization_transform = NormalizeTransform(
-            scalers=scalers,
-            normalization_type=config["INPUT_NORMALIZATION"]
-        )
-    if config["OUTPUT_NORMALIZATION"] != 'none':
-        output_normalization_transform = NormalizeTransform(
-            scalers=scalers,
-            normalization_type=config["INPUT_NORMALIZATION"]
-        )
+    # normalization_transform = ToTensor(
+    #     dtype=getattr(torch, training_params['PRECISION']), 
+    #     device=training_params['DEVICE']
+    # )
 
-        transformations = Compose(transforms=[
-            normalization_transform,
-            feature_expansion_transform,
-            to_tensor_transform
-        ])
+    transformations = Compose(transforms=[
+        # normalization_transform,
+        # feature_expansion_transform,
+        to_tensor_transform
+    ])
+
 
     full_dataset = DeepONetDataset(
         data=data,
-        output_keys=config['OUTPUT_KEYS'],
+        output_keys=problem_params['OUTPUT_KEYS'],
         transform=transformations
     )
 
-    # Use precomputed indices
-    train_dataset = Subset(full_dataset, splits['TRAIN'])
-    val_dataset = Subset(full_dataset, splits['VAL'])
-    test_dataset = Subset(full_dataset, splits['TEST'])
+    print([i for i in splits])
 
-    # Store split information in config
-    config.update({
-        'TRAIN_INDICES': splits['TRAIN'].tolist(),
-        'VAL_INDICES': splits['VAL'].tolist(),
-        'TEST_INDICES': splits['TEST'].tolist(),
-        'NORMALIZATION_PARAMETERS': {
-            'xb': {
-                   'min': scalers['xb_min'] , 'max': scalers['xb_max'],
-                   'mean': scalers['xb_mean'], 'std': scalers['xb_std']
-                   },
-            'xt': {
-                   'min': scalers['xt_min'] , 'max': scalers['xt_max'], 
-                   'mean': scalers['xt_mean'], 'std': scalers['xt_std']
-                   } # add output keys
-        }
-    })
+    # Use precomputed indices
+    train_dataset = Subset(full_dataset, splits['XB_TRAIN'])
+    val_dataset = Subset(full_dataset, splits['XB_VAL'])
+    test_dataset = Subset(full_dataset, splits['XB_TEST'])
 
     # ------------------------------------ Initialize model -----------------------------
 
-    model, model_name = ModelFactory.create_model(
-        model_params=config,
-        train_data=train_dataset[:],
+    model = ModelFactory.create_model(
+        model_params=training_params,
+        dataset_params=dataset_metadata,
         inference=False
     )
 
-    # ---------------------------- Output folder --------------------------------
-
-    config['MODEL_NAME'] = model_name
-    dir_functions.create_output_directories(config=config)
-
-    logger.info(msg=f"\nExperiment will be saved at:\n{config['OUTPUT_PATH']}\n")
 
     # ---------------------------------- Initializing classes for training  -------------------
 
-    saver = Saver(model_name=config['MODEL_NAME'])
 
     training_strategy = model.training_strategy
 
     training_loop = TrainingLoop(
         model=model,
-        training_strategy=training_strategy,
-        saver=saver,
-        training_params=config,
+        training_params=training_params,
     )
 
     # ---------------------------------- Batching data -------------------------------------
 
-    train_batch = bt.get_single_batch(dataset=train_dataset, indices=splits['TRAIN'], training_params=config)
-    val_batch = bt.get_single_batch(dataset=val_dataset, indices=splits['TRAIN'], training_params=config)
+    train_batch = bt.get_single_batch(dataset=train_dataset, indices=splits['XB_TRAIN'], training_params=training_params)
+    val_batch = bt.get_single_batch(dataset=val_dataset, indices=splits['XB_VAL'], training_params=training_params)
 
     # ----------------------------------------- Train loop ---------------------------------
     start_time = time.time()
@@ -128,32 +96,14 @@ def train_model(problem_config_path: str, train_config_path: str) -> dict[str, A
     training_time = end_time - start_time
 
     logger.info(msg=f"\n----------------------------------------Training concluded in: {training_time:.2f} seconds---------------------------\n")
+    
+    # ---------------------------- Output folder --------------------------------
+
+    problem_params['MODEL_NAME'] = model_name
+    dir_functions.create_output_directories(config=problem_params)
+
+    logger.info(msg=f"\nExperiment will be saved at:\n{problem_params['OUTPUT_PATH']}\n")
+
+    saver = Saver(model_name=training_params['MODEL_NAME'])
 
     return model_info
-
-def _validate_config_consistency(train_config: dict, dataset_metadata: dict):
-    """Ensure training config matches dataset version parameters"""
-    validation_fields = [
-        ('PROBLEM', 'problem_name'),
-        ('SPLITTING.SEED', 'split_seed'),
-        ('NORMALIZATION.FEATURES', 'normalized_features')
-    ]
-    
-    errors = []
-    for config_key, metadata_key in validation_fields:
-        train_val = _nested_get(train_config, config_key)
-        dataset_val = dataset_metadata.get(metadata_key)
-        
-        if train_val != dataset_val:
-            errors.append(f"Config mismatch: {config_key} ({train_val}) != "
-                         f"dataset {metadata_key} ({dataset_val})")
-    
-    if errors:
-        raise ValueError(f"Config/dataset version mismatch:\n" + "\n".join(errors))
-
-def _nested_get(d: dict, key: str):
-    """Get nested dictionary values using dot notation"""
-    keys = key.split('.')
-    for k in keys:
-        d = d.get(k, {})
-    return d

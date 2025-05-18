@@ -39,5 +39,5 @@ class TrainableBranch(BaseBranch,  torch.nn.Module):
         
         return f"Trainable branch\n({input_size}, {output_size})"
 
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        return self.module(x)
+    def forward(self, branch_input: torch.Tensor) -> torch.Tensor:
+        return self.module(branch_input)

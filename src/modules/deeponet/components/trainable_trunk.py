@@ -31,8 +31,8 @@ class TrainableTrunk(BaseTrunk, torch.nn.Module):
         
         return f"Trainable trunk\n({input_size}, {output_size})"
 
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        return self.module(x)
+    def forward(self, trunk_input: torch.Tensor) -> torch.Tensor:
+        return self.module(trunk_input)
 
     def get_basis(self) -> torch.Tensor:
         # In a trainable trunk, you might simply compute the basis by a forward pass.

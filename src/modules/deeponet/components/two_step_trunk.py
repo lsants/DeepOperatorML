@@ -8,5 +8,5 @@ class TwoStepTrunk(torch.nn.Module):
         self.A = torch.nn.Parameter(A)
         torch.nn.init.kaiming_uniform_(self.A)
 
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        return self.trunk(x)
+    def forward(self, trunk_input: torch.Tensor) -> torch.Tensor:
+        return self.trunk(trunk_input)

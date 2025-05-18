@@ -4,7 +4,7 @@ import time
 import torch
 import logging
 from tqdm.auto import tqdm
-from typing import Optional
+from typing import Optional, Any
 from ..pipe.saving import Saver
 from .store_outputs import HistoryStorer
 from ..deeponet.deeponet import DeepONet
@@ -22,7 +22,7 @@ logger = logging.getLogger(__name__)
 
 
 class TrainingLoop:
-    def __init__(self, model: DeepONet, training_strategy: TrainingStrategy, saver: Saver, training_params: dict) -> None:
+    def __init__(self, model: DeepONet, training_params: dict) -> None:
         """
         Initializes the TrainingLoop.
 
@@ -33,18 +33,17 @@ class TrainingLoop:
             training_params (dict): Training parameters.
         """
         self.model = model
-        self.training_strategy = training_strategy
+        self.training_strategy = model.training_strategy
         self.training_params = training_params
-        if hasattr(training_strategy, "get_phases"):
-            self.phases = training_strategy.get_phases()  # type: ignore
+        if hasattr(self.training_strategy, "get_phases"):
+            self.phases = self.training_strategy.get_phases()  # type: ignore
         else:
             self.phases = [training_params["TRAINING_STRATEGY"].capitalize()]
-        self.storer = HistoryStorer(self.phases)
-        self.saver = saver
+        self.storer = HistoryStorer(phases=self.phases)
         self.training_strategy.prepare_for_training(
-            self.model, training_params=self.training_params)
+            model=self.model, training_params=self.training_params)
         self.optimizer_manager = OptimizerSchedulerManager(
-            self.training_params, self.model)
+            model_config=self.training_params, model=self.model)
 
     def train(self, train_batch: dict[str, torch.Tensor], val_batch: dict[str, torch.Tensor] | None = None) -> dict:
         """
@@ -204,8 +203,8 @@ class TrainingLoop:
             raise ValueError(
                 "There's no history to save. There's an error somewhere when generating the history.")
 
-        aligned_history = align_epochs(valid_history)
-        fig = plot_training(aligned_history)
+        aligned_history = align_epochs(history=valid_history)
+        fig = plot_training(history=aligned_history)
 
         if isinstance(self.training_strategy, TwoStepTrainingStrategy):
             phase = self.phases[phase_count]

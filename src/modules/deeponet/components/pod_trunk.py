@@ -14,7 +14,7 @@ class PODTrunk(BaseTrunk, torch.nn.Module):
         input_size, output_size = self.basis.shape
         return f"POD trunk\n({input_size}, {output_size})"
     
-    def forward(self, x: torch.Tensor=None) -> torch.Tensor:
+    def forward(self) -> torch.Tensor:
         return self.basis
 
     def get_basis(self) -> torch.Tensor:

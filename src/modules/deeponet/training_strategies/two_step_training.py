@@ -14,14 +14,16 @@ logger = logging.getLogger(__name__)
 
 
 class TwoStepTrainingStrategy(TrainingStrategy):
-    def __init__(self, loss_fn: Callable[[Any, Any], torch.Tensor], inference: bool = False, **kwargs):
+    def __init__(self, loss_fn: Callable[[Any, Any], torch.Tensor], inference: bool = False, **kwargs: Any):
         super().__init__(loss_fn=loss_fn)
         self.inference = inference
         self.phase_manager = PhaseManager()
         self.decomposition_helper = DecompositionHelper()
         self.two_step_helper = TwoStepHelper(
-            self.decomposition_helper, kwargs['device'], kwargs['precision'])
-        self.num_train_samples: int | None = kwargs.get('train_dataset_length'),
+            decomposition_helper=self.decomposition_helper, 
+            device=kwargs['device'], 
+            precision=kwargs['precision'])
+        self.num_train_samples=kwargs.get('branch_batch_size')
         self.A = None
         self.current_phase = self.phase_manager.current_phase  # initially "trunk"
         self.pretrained_trunk_tensor = kwargs.get(
@@ -37,10 +39,11 @@ class TwoStepTrainingStrategy(TrainingStrategy):
                 "TwoStepTrainingStrategy (inference): No training preparation required.")
             return
         if self.A is None:
+            branch_batch_size = self.num_train_samples
             branch_output_size = model.output_handling.branch_output_size
-            self.A = self.two_step_helper.set_A_matrix(branch_batch_size=self.num_train_samples, 
+            self.A = self.two_step_helper.set_A_matrix(branch_batch_size=branch_batch_size, 
                                                        branch_output_size=branch_output_size)
-            model.trunk = TwoStepTrunk(model.trunk, self.A)
+            model.trunk = TwoStepTrunk(trunk=model.trunk, A=self.A)
 
     def forward(self, model: "DeepONet", branch_input: torch.Tensor | None = None, trunk_input: torch.Tensor | None = None, **kwargs) -> tuple[torch.Tensor]:
         branch_out, trunk_out = self.two_step_helper.compute_outputs(
@@ -57,11 +60,30 @@ class TwoStepTrainingStrategy(TrainingStrategy):
             return outputs
         return model.output_handling.forward(model=model, branch_input=branch_out, trunk_input=trunk_out)
 
-    def compute_loss(self, outputs: tuple, batch: dict[str, torch.Tensor], model: "DeepONet", training_params: dict, **kwargs) -> float:
-        return self.two_step_helper.compute_loss(outputs, batch, model, training_params, self.current_phase, self.loss_fn)
+    def compute_loss(self, 
+                     outputs: tuple, 
+                     batch: dict[str, torch.Tensor], 
+                     model: "DeepONet", 
+                     training_params: dict, 
+                     **kwargs) -> torch.Tensor:
+        return self.two_step_helper.compute_loss(
+            outputs=outputs, 
+            batch=batch, model=model, 
+            training_params=training_params, 
+            phase=self.current_phase,
+            loss_fn=self.loss_fn
+            )
 
-    def compute_errors(self, outputs: tuple, batch: dict[str, torch.Tensor], model: "DeepONet", training_params: dict, **kwargs) -> dict[str, float]:
-        return self.two_step_helper.compute_errors(outputs, batch, model, training_params, self.current_phase)
+    def compute_errors(self, 
+                       outputs: tuple, 
+                       batch: dict[str, torch.Tensor], 
+                       model: "DeepONet", 
+                       training_params: dict, **kwargs) -> dict[str, float]:
+        return self.two_step_helper.compute_errors(outputs=outputs, 
+                                                   batch=batch, 
+                                                   model=model,
+                                                   training_params=training_params, 
+                                                   phase=self.current_phase)
 
     def get_trunk_config(self, trunk_config: dict) -> dict:
         config = trunk_config.copy()
@@ -86,7 +108,7 @@ class TwoStepTrainingStrategy(TrainingStrategy):
         logger.info(
             f"TwoStepTrainingStrategy: Updated phase to {self.current_phase}")
 
-    def prepare_for_phase(self, model: "DeepONet", **kwargs) -> None:
+    def prepare_for_phase(self, model: "DeepONet", **kwargs: Any) -> None:
         """
         In branch phase, compute the pretrained trunk tensor and update the model's trunk component.
         """
@@ -104,7 +126,7 @@ class TwoStepTrainingStrategy(TrainingStrategy):
                     "TwoStepTrainingStrategy: Missing trunk input for phase transition.")
             decomposition_params = kwargs.get('training_params')
             self.pretrained_trunk_tensor = self.two_step_helper.compute_trained_trunk(
-                model, decomposition_params, trunk_input
+                model=model, training_params=decomposition_params, trunk_input=trunk_input
             )
             logger.info(
                 "TwoStepTrainingStrategy: Pretrained trunk tensor computed via helper.")
@@ -112,7 +134,7 @@ class TwoStepTrainingStrategy(TrainingStrategy):
             logger.info(
                 "TwoStepTrainingStrategy: Model trunk updated to PretrainedTrunk.")
 
-    def after_epoch(self, epoch: int, model: "DeepONet", training_params: dict[str, any], **kwargs) -> None:
+    def after_epoch(self, epoch: int, model: "DeepONet", training_params: dict[str, Any], **kwargs) -> None:
         self.two_step_helper.after_epoch(
             epoch, model, training_params, **kwargs)
 

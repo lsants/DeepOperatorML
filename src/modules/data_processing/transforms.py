@@ -8,7 +8,7 @@ class Compose:
     def __init__(self, transforms: Iterable[Callable[..., Any]]) -> None:
         self.transforms = transforms
 
-    def __call__(self, sample: Any) -> torch.TensorType | npt.ArrayLike:
+    def __call__(self, sample: Any) -> Any:
         for transform in self.transforms:
             sample = transform(sample)
         return sample
@@ -50,15 +50,7 @@ class Rescale:
     def update_scale_factor(self, new_scale_factor: float) -> None:
         self.factor = self.get_factor(new_scale_factor, self.config)
 
-class NormalizeTransform:
-    """Apply precomputed normalization parameters"""
-    def __init__(self, scalers: dict[str, float], normalization_type: str):
-        self.scalers = scalers
-        self.normalization_type = normalization_type
-
-    def __call__(self, sample):
-        pass
-class DenormalizeTransform:
+class Normalize:
     """Apply precomputed normalization parameters"""
     def __init__(self, scalers: dict[str, float], normalization_type: str):
         self.scalers = scalers
@@ -77,8 +69,4 @@ def trunk_feature_expansion(xt: torch.Tensor, n_exp_features: int) -> torch.Tens
     trunk_features = torch.concat(expansion_features, axis=1)
     return trunk_features
 
-def mirror(arr: np.ndarray) -> np.ndarray:
-    arr_flip = np.flip(arr[1 : , : ], axis=1)
-    arr_mirrored = np.concatenate((arr_flip, arr), axis=1)
-    arr_mirrored = arr_mirrored.T
-    return arr_mirrored
+

@@ -37,7 +37,8 @@ RESCALING: none # p = number of basis functions. Can be none, 1/p or 1/sqrt(p)
 # ------------------- Parameters for vanilla training ------------------
 LEARNING_RATE: 0.001
 EPOCHS: 10
-BATCH_SIZE: 50
+BRANCH_BATCH_SIZE: 50
+TRUNK_BATCH_SIZE: 50
 ERROR_NORM: 2
 STANDARD_PROGRESS_BAR_COLOR: 'green'
 GLOBAL_OPTIMIZER_SCHEDULE:

@@ -1,9 +1,9 @@
 import torch
 from abc import ABC, abstractmethod
-
+from typing import Any
 class BaseTrunk(ABC):
     @abstractmethod
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
+    def forward(self, trunk_input: Any ) -> torch.Tensor:
         """Computes the trunk output (basis functions) from the input."""
         pass
 
@@ -13,4 +13,4 @@ class BaseTrunk(ABC):
            For a trainable trunk, this might be computed on the fly;
            for a fixed trunk, this simply returns the stored tensor.
         """
-        pass
+        pass    

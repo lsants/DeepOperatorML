@@ -71,3 +71,9 @@ def flip_sign_of_negative_modes(modes: np.ndarray, mean_coeffs: np.ndarray) -> n
             final_mask |= mask
         inverted_modes *= np.where(final_mask, -1, 1)
     return inverted_modes
+
+def mirror(arr: np.ndarray) -> np.ndarray:
+    arr_flip = np.flip(arr[1 : , : ], axis=1)
+    arr_mirrored = np.concatenate((arr_flip, arr), axis=1)
+    arr_mirrored = arr_mirrored.T
+    return arr_mirrored

@@ -1,8 +1,11 @@
+from collections.abc import Callable, Iterable
 from ..optimization.loss_fns import LOSS_FUNCTIONS
+from typing import Any
+import torch
 
 class LossFactory:
     @staticmethod
-    def get_loss_function(name: str, model_params: dict) -> dict[str, callable]:
+    def get_loss_function(name: str, model_params: dict[str, Any]) -> Callable[[Iterable[torch.Tensor], Iterable[torch.Tensor]], torch.Tensor]:
         if name not in LOSS_FUNCTIONS:
             raise ValueError(
                 f"Unsupported loss function: '{name}'. Supported function are: {list(LOSS_FUNCTIONS.keys())}"

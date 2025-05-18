@@ -1,6 +1,6 @@
 #  ----------------------Location of .npz data files ----------------
 RAW_DATA_PATH: ./data/raw/kelvin/kelvin_v1.npz
-DATASET_VERSION: 
+DATASET_VERSION: d5230a4f
 
 #  ----------------------Location of outputs ----------------
 OUTPUT_PATH: ./output/kelvin/

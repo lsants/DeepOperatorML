@@ -17,7 +17,7 @@ class SplitOutputsHandling(OutputHandling):
     def BASIS_CONFIG(self) -> Literal['multiple']:
         return 'multiple'
 
-    def configure_components(self, model: DeepONet, branch_config: dict[str, Any], trunk_config: dict[str, Any], **kwargs:Any) -> tuple[BaseBranch, BaseTrunk]:
+    def configure_components(self, model: 'DeepONet', branch_config: dict[str, Any], trunk_config: dict[str, Any], **kwargs:Any) -> tuple['BaseBranch', 'BaseTrunk']:
         processed_trunk_config = self.config_basis(model=model, trunk_config=trunk_config)
 
         n_basis_functions = model.n_basis_functions

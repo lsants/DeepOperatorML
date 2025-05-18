@@ -19,7 +19,7 @@ def process_config(model_config):
         dict: The modified configuration dictionary.
     """
 
-    model_config['MODEL_NAME'] = 'experiment_' + datetime.now().strftime("%Y-%m-%d_%H-%M")
+    model_config['MODEL_NAME'] = datetime.now().strftime("%Y-%m-%d_%H-%M")
 
     model_name = model_config["MODEL_NAME"]
     training_strategy = model_config["TRAINING_STRATEGY"].lower()
@@ -29,12 +29,6 @@ def process_config(model_config):
     model_name += "_" + model_config['BRANCH_ARCHITECTURE']
     if training_strategy != 'pod':
         model_name += "_" + model_config['TRUNK_ARCHITECTURE']
-    if training_strategy == 'two_step':
-        model_name += '_' + model_config['TRUNK_DECOMPOSITION']
-    model_name += "_" + f"{model_config['BASIS_FUNCTIONS']}_basis"
-    if model_config.get("TRUNK_FEATURE_EXPANSION", 0) > 0:
-        feature_expansions = model_config["TRUNK_FEATURE_EXPANSION"]
-        model_name += f"_{feature_expansions}_trunk_exp_fts"
 
     model_config["MODEL_NAME"] = model_name
 

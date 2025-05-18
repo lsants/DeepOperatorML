@@ -45,13 +45,14 @@ def preprocess_data():
         else:
             raise AttributeError(f"Module '{script_path}' must implement 'run_preprocessing(problem_config)'")
         
-        dim_info = helper_functions.validate_data_structure(processed_data, problem_config)
+        dim_info = helper_functions.validate_data_structure(data=processed_data, config=problem_config)
         
-        # Get sample sizes for all features
-        sample_sizes = helper_functions.get_sample_sizes(processed_data, problem_config)
+        features_sample_sizes = helper_functions.get_sample_sizes(data=processed_data, config=problem_config)
+
+        dataset_sizes = helper_functions.get_data_shapes(data=processed_data, config=problem_config)
 
         feature_splits = helper_functions.split_features(
-            sample_sizes=sample_sizes,
+            sample_sizes=features_sample_sizes,
             split_ratios=problem_config['SPLITTING']['RATIOS'],
             seed=problem_config['SPLITTING']['SEED']
         )
@@ -81,6 +82,7 @@ def preprocess_data():
             data=processed_data,
             splits=feature_splits,
             scalers=scalers,
+            shapes=dataset_sizes,
             config=problem_config
 )
         

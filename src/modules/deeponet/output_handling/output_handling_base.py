@@ -36,11 +36,9 @@ class OutputHandling(ABC):
     @abstractmethod
     def configure_components(self, 
                              model: "DeepONet", 
-                             branch_component: object, 
-                             trunk_component: object, 
                              branch_config: dict[str, Any], 
                              trunk_config: dict[str, Any], 
-                             **kwargs: Any) -> tuple[type["BaseBranch"], type["BaseTrunk"]]:
+                             **kwargs: Any) -> tuple["BaseBranch", "BaseTrunk"]:
         """
         Uses the provided branch and trunk configuration dictionaries (augmented by training strategy info)
         to create and adjust the networks. This method can also use additional data (e.g. POD basis)
@@ -62,13 +60,13 @@ class OutputHandling(ABC):
                 model.n_basis_functions = n_modes
                 trunk_config["data"] = {'basis': basis, 'mean': mean}
             else:
+                if trunk_config["data"] is None:
+                    raise ValueError("Error! POD trunk not found.")
                 trunk_config["data"] = model.training_strategy.pod_trunk
                 if self.BASIS_CONFIG == 'single':
                     model.n_basis_functions = trunk_config["data"]["basis"].shape[-1]
                 else:
                     model.n_basis_functions = trunk_config["data"]["basis"].shape[-1] // model.n_outputs
-                if not trunk_config["data"]:
-                    raise ValueError("Error! POD trunk not found.")
         else:
             trunk_config["type"] = trunk_config.get("type", "trainable")
         return trunk_config

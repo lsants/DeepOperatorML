@@ -13,7 +13,7 @@ class PretrainedTrunk(BaseTrunk, torch.nn.Module):
         input_size, output_size = self.trained_tensor.shape
         return f"Fixed trunk\n({input_size}, {output_size})"
     
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
+    def forward(self) -> torch.Tensor:
         return self.trained_tensor
 
     def get_basis(self) -> torch.Tensor:

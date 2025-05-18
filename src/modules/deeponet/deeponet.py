@@ -3,9 +3,12 @@ from __future__ import annotations
 import torch
 import logging
 from typing import TYPE_CHECKING, Any
+
+from src.modules.deeponet import components
 if TYPE_CHECKING:
     from .output_handling.output_handling_base import OutputHandling
     from .training_strategies.training_strategy_base import TrainingStrategy
+    from .components import BaseBranch, BaseTrunk
 
 logger = logging.getLogger(__name__)
 
@@ -28,14 +31,13 @@ class DeepONet(torch.nn.Module):
         self.output_handling: 'OutputHandling' = output_handling
         self.training_strategy: 'TrainingStrategy' = training_strategy
 
-        trunk_config = self.training_strategy.get_trunk_config(
-            trunk_config=trunk_config)
-        branch_config = self.training_strategy.get_branch_config(
-            branch_config=branch_config)
-
-        self.branch, self.trunk = self.output_handling.configure_components(
-            model=self, branch_component=branch_config, trunk_component=trunk_config, **kwargs
+        trunk_config = self.training_strategy.get_trunk_config(trunk_config=trunk_config)
+        branch_config = self.training_strategy.get_branch_config(branch_config=branch_config)
+        branch_component, trunk_component = self.output_handling.configure_components(
+            model=self, branch_config=branch_config, trunk_config=trunk_config, **kwargs
         )
+        self.branch: 'BaseBranch' = branch_component
+        self.trunk: 'BaseTrunk' = trunk_component
 
         self.training_strategy.prepare_for_training(model=self, **kwargs)
 
