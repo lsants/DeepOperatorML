@@ -5,7 +5,9 @@ import yaml
 import logging
 from src import train_model
 from src import test_model
-    
+from src.modules.pipe.pipeline_config import DataConfig, TrainConfig, TestConfig
+from src.modules.utilities import config_validation as validation
+
 logger = logging.getLogger(__name__)
 
 logging.basicConfig(
@@ -20,30 +22,37 @@ def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--problem", help="Type problem to be solved.")
     parser.add_argument("--train-config-path", default="./configs/training/config_train.yaml", help="Path to training config file.")
-    parser.add_argument("--skip-train",   action="store_true",        help="Skip training and only test.")
-    parser.add_argument("--skip-test",    action="store_true",        help="Skip testing and only train.")
+    parser.add_argument("--test",   action="store_true",        help="Skip training and only test.")
     args = parser.parse_args()
 
     problem_path = os.path.join("./configs/problems/", args.problem)
     train_config_path = args.train_config_path
-    problem_config_path = os.path.join(problem_path, "config_problem.yaml")
+    experiment_config_path = os.path.join(problem_path, "config_problem.yaml")
     problem_test_config_path = os.path.join(problem_path, "config_test.yaml")
 
-    if not args.skip_train:
-        experiment_config = train_model(problem_config_path, train_config_path)
+    train_cfg = TrainConfig.from_config_files(
+            exp_cfg_path=experiment_config_path, 
+            train_cfg_path=train_config_path
+        )
+    data_cfg = DataConfig.from_experiment_config(
+            problem=args.problem,
+            exp_cfg=yaml.safe_load(open(experiment_config_path))
+        )
 
-    if not args.skip_test:
-        with open(problem_test_config_path) as f:
-            test_cfg = yaml.safe_load(f)
-        if not args.skip_train:
-            test_cfg["PROCESSED_DATA_PATH"] = experiment_config["PROCESSED_DATA_PATH"]
-            test_cfg["OUTPUT_PATH"] = experiment_config["OUTPUT_PATH"]
-            test_model(test_cfg, experiment_config)
-        else:
-            trained_model_config_path = os.path.join(test_cfg["OUTPUT_PATH"], 'config.yaml') 
-            with open(trained_model_config_path) as f:
-                trained_model_config = yaml.safe_load(f)
-            test_model(test_cfg, trained_model_config)
+    # Validate individual configs
+    validation.validate_data_config(data_cfg)
+    validation.validate_train_config(train_cfg)
+    
+    # Cross-config validation
+    validation.validate_config_compatibility(data_cfg, train_cfg)
+
+    if args.test:
+        test_cfg = TestConfig.from_config_files(
+            test_cfg_path=problem_test_config_path,)
+        test_model(test_config=test_cfg)
+    else:
+        train_model(data_cfg=data_cfg, train_cfg=train_cfg)
+
 
 if __name__ == '__main__':
     main()

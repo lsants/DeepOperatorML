@@ -1,5 +1,5 @@
 from .deeponet import DeepONet
-
+from . import components
 from . import components
 from . import factories
 from . import nn

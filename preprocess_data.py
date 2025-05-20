@@ -22,7 +22,7 @@ def preprocess_data():
     try:
         base_dir = Path(__file__).parent
         script_path = base_dir / 'src' / 'problems' / args.problem / 'problem_dependent_preprocessing.py'
-        config_path = base_dir / 'configs' / 'problems' / args.problem / 'config_problem.yaml'
+        config_path = base_dir / 'configs' / 'problems' / args.problem / 'config_preprocessing.yaml'
         if not base_dir.exists():
             raise FileNotFoundError(f"Problem directory not found: {base_dir}")
         if not script_path.exists():

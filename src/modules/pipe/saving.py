@@ -3,6 +3,7 @@ import logging
 import torch
 import yaml
 import numpy as np
+from pathlib import Path
 import matplotlib.pyplot as plt
 from typing import Any, Dict, Optional
 
@@ -138,6 +139,16 @@ class Saver:
             yaml.dump(serializable, f)
         if self.full_logging:
             self.logger.info(f"Metrics saved to: {file_path}")
+
+    def save_transform_pipeline(
+        self,
+        file_path: str | Path,
+        transform_pipeline: Any
+    ) -> None:
+        """Save a transform pipeline to a file."""
+        transform_pipeline.save(file_path)
+        if self.full_logging:
+            self.logger.info(f"Transform pipeline saved to: {file_path}")
 
     def save_output_data(
         self,

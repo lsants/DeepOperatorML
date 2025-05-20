@@ -1,62 +1,29 @@
 from __future__ import annotations
-import torch
 import numpy as np
-import numpy.typing as npt 
-from .deeponet_dataset import DeepONetDataset
 from collections.abc import Mapping
 
-def slice_dataset(data: Mapping[str, np.ndarray], 
-                  feature_labels: list[str], 
-                  target_labels: list[str], 
-                  splits: dict[str, list[int]]) -> tuple[dict[str, np.ndarray], ...]:
-    
-    if len(feature_labels) != 2:
-        raise ValueError("feature_labels must contain exactly two elements: branch and trunk labels.")
-    branch_label, trunk_label = feature_labels
-    for label in feature_labels:
-        if label not in data:
-            raise KeyError(f"Feature '{label}' not found in `data`.")
-    required_splits = [f"{label.upper()}_{split}" for label in feature_labels for split in ["TRAIN", "VAL", "TEST"]]
-    for split_key in required_splits:
-        if split_key not in splits:
-            raise KeyError(f"Split key '{split_key}' missing in `splits`.")
-    
-    branch_label = feature_labels[0]
-    trunk_label = feature_labels[1]
+def slice_data(data: Mapping[str, np.ndarray], 
+                  feature_keys: list[str], 
+                  target_keys: list[str], 
+                  split_indices: tuple[np.ndarray, ...]) -> dict[str, np.ndarray]:
+    branch_label = feature_keys[0]
+    branch_splits = split_indices[0]
+    trunk_label = feature_keys[1]
+    trunk_splits = split_indices[1]
+    target_labels = target_keys
     branch_data = data[branch_label]
     trunk_data = data[trunk_label]
-    output_data = {key: data[key] for key in data if key in target_labels}
-
-    train_branch_indices = splits[f'{branch_label.upper()}_TRAIN']
-    val_branch_indices = splits[f'{branch_label.upper()}_VAL']
-    test_branch_indices = splits[f'{branch_label.upper()}_TEST']
-
-    train_trunk_indices = splits[f'{trunk_label.upper()}_TRAIN']
-    val_trunk_indices = splits[f'{trunk_label.upper()}_VAL']
-    test_trunk_indices = splits[f'{trunk_label.upper()}_TEST']
-
-    train_output_data = {key: val[train_branch_indices][:, train_trunk_indices] for key, val in output_data.items()}
-    train_data = {
-        branch_label: branch_data[train_branch_indices],
-        trunk_label: trunk_data[train_trunk_indices],
-        **train_output_data
+    target_data = {key: data[key] for key in target_labels}
+    
+    split_target_data = {key: val[branch_splits][ : , trunk_splits] for key, val in target_data.items()}
+    split_branch_data = branch_data[branch_splits]
+    split_trunk_data = trunk_data[trunk_splits]
+    split_data = {
+        branch_label: split_branch_data,
+        trunk_label: split_trunk_data,
+        **split_target_data
     }
-
-    val_output_data = {key: val[val_branch_indices][:, val_trunk_indices] for key, val in output_data.items()}
-    val_data = {
-        branch_label: branch_data[val_branch_indices],
-        trunk_label: trunk_data[val_trunk_indices],
-        **val_output_data
-        }
-
-    test_output_data = {key: val[test_branch_indices][:, test_trunk_indices] for key, val in output_data.items()}
-    test_data = {
-        branch_label: branch_data[test_branch_indices],
-        trunk_label: trunk_data[test_trunk_indices],
-        **test_output_data
-        }
-
-    return train_data, val_data, test_data
+    return split_data
 
 def don_to_meshgrid(arr: np.ndarray) -> tuple[np.ndarray]:
     """

@@ -6,8 +6,8 @@ from typing import TYPE_CHECKING, Any
 
 from src.modules.model import components
 if TYPE_CHECKING:
-    from .output_handling.output_handling_base import OutputHandling
-    from .training_strategies.training_strategy_base import TrainingStrategy
+    from .output_handling.base import OutputHandling
+    from .training_strategies.base import TrainingStrategy
     from .components import BaseBranch, BaseTrunk
 
 logger = logging.getLogger(__name__)

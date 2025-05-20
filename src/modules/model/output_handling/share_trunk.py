@@ -1,6 +1,6 @@
 import logging
 import torch
-from .output_handling_base import OutputHandling
+from .base import OutputHandling
 from ...utilities.log_functions import pprint_layer_dict
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:

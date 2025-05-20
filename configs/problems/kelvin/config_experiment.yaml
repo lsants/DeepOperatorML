@@ -1,0 +1,4 @@
+dataset_version: d5230a4f
+precision: float32
+device: cpu
+output_path: ./output/ # Script will create subdirectory with the problem name 'kelvin'.

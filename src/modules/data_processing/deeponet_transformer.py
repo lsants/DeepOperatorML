@@ -1,106 +1,188 @@
 from __future__ import annotations
+from re import S
 import torch
 import numpy as np
-import pickle
-from . import transforms
-from collections.abc import Callable, Iterable
-from typing import Any, Dict
+from collections.abc import Callable
+from typing import Optional, Literal
+from .config import TransformConfig
+from pathlib import Path
+from .data_augmentation.feature_expansions import FeatureExpansionConfig
+from .data_augmentation.feature_expansions import FeatureExpansionRegistry
+from .config import ComponentTransformConfig
 
-class   DeepONetTransformer:
-    """Handles custom transforms for DeepONet with serialization support."""
-
-    def __init__(self, config: Dict[str, Any]):
-        # Configuration for transformations
+class DeepONetTransformPipeline:
+    def __init__(self, config: TransformConfig):
         self.config = config
+        self.branch_stats: dict = {}  # Track mean/std for branch
+        self.trunk_stats: dict = {}  # Track mean/std for trunk
+        self.original_dims: dict = {}
+        self.expansion_factors: dict = {}
 
-        # Initialize transformation components
-        self.branch_scaler = None
-        self.trunk_scaler = None
-        self.output_rescalers = {}
-        self.n_exp_features = config.get('n_exp_features', 0)
-        self.device = config.get('device', 'cpu')
-        self.dtype = config.get('dtype', torch.float32)
+        # Initialize branch components
+        self.branch_normalizer = self._init_normalizer(
+            norm_type=config.branch.normalization, component='branch' # type: ignore
+        )
+        self.branch_expander = self._init_expander(
+            expansion_cfg=config.branch.feature_expansion, component='branch' # type: ignore
+        )
 
-        self.branch_transforms = transforms.Compose(transforms=[
-            transforms.ToTensor(dtype=self.dtype, device=self.device),
-            self._create_branch_normalizer()
-        ])
+        # Initialize trunk components
+        self.trunk_normalizer = self._init_normalizer(
+            norm_type=config.trunk.normalization, component='trunk' # type: ignore
+        )
+        self.trunk_expander = self._init_expander(
+            expansion_cfg=config.trunk.feature_expansion, component='trunk' # type: ignore
+        )
 
-        self.trunk_transforms = transforms.Compose(transforms=[
-            self._create_trunk_feature_expansion(),
-            transforms.ToTensor(dtype=self.dtype, device=self.device)
-        ])
+    def _init_normalizer(self, norm_type: str, component: str) -> Optional[Callable]:
+        """Returns normalization function and stores stats"""
+        if not norm_type: return None
+        
+        def normalizer(data: torch.Tensor) -> torch.Tensor:
+            if norm_type == "standardize":
+                mean = data.mean(dim=0)
+                std = data.std(dim=0)
+                self._update_stats([f'{component}_norm'] , {'mean': mean, 'std': std})
+                return (data - mean) / std
+            if norm_type == "0_1_min_max":
+                min_val = torch.min(data, dim=0)
+                max_val = torch.max(data, dim=0)
+                self._update_stats([f'{component}_norm'] , {'max': max_val, 'min': min_val})
+                return (data - min_val) / (max_val - min_val) # type: ignore
+            if norm_type == "-1_1_min_max":
+                min_val = torch.min(data, dim=0)
+                max_val = torch.max(data, dim=0)
+                self._update_stats([f'{component}_norm'] , {'max': max_val, 'min': min_val})
+                return 2*(data - min_val) / (max_val - min_val) - 1 # type: ignore
+            # Implement other norm types similarly
+            return data
+        
+        return normalizer
 
-    def _create_branch_normalizer(self) -> Callable:
-        """Create normalization pipeline for branch inputs"""
-        return transforms.Normalize(scalers=self.branch_scaler,
-                         normalization_type=self.config.get('branch_norm', 'zscore'))
-
-    def _create_trunk_feature_expansion(self) -> Callable:
-        """Create feature expansion for trunk inputs"""
-        def _expander(x: np.ndarray) -> torch.Tensor:
-            xt_tensor = torch.as_tensor(x, dtype=self.dtype)
-            return transforms.trunk_feature_expansion(xt=xt_tensor, n_exp_features=self.n_exp_features)
-        return _expander
-
-    def fit(self, data: Dict[str, np.ndarray]):
-        """Calculate normalization parameters"""
-        # Branch input normalization
-        if 'branch_norm' in self.config:
-            self.branch_scaler = {
-                'mean': data['xb'].mean(axis=0),
-                'std': data['xb'].std(axis=0)
-            }
-
-        # Initialize output rescalers
-        for key in data['output_keys']:
-            self.output_rescalers[key] = transforms.Rescale(
-                factor=self.config.get('scale_factor', 1),
-                config=self.config.get('rescaling', '1/sqrt(p)')
+    def _init_expander(self, expansion_cfg: FeatureExpansionConfig, component: str) -> Optional[Callable]:
+        """Retrieve expansion from registry"""
+        if not expansion_cfg: return None
+        
+        self.expansion_factors[component] = {
+            'original_dim': None,  # Set during first transform
+            'expansion_type': expansion_cfg.type,
+            'size': expansion_cfg.size
+        }
+        
+        return self._get_expansion_fn(expansion_type=expansion_cfg.type) # type: ignore
+    
+    def _get_expansion_fn(self, expansion_type: str) -> Callable:
+        """Registry wrapper with dimension tracking"""
+        def expander(x: torch.Tensor) -> torch.Tensor:
+            # Record original dimension on first use
+            if not self.expansion_factors['original_dim']:
+                self.expansion_factors['original_dim'] = x.shape[-1]
+                
+            return FeatureExpansionRegistry.get_expansion_fn(name=expansion_type, size=self.expansion_factors['size'])(
             )
+        return expander
 
-    def transform_branch(self, xb: np.ndarray, training: bool = False) -> torch.Tensor:
-        """Apply branch transforms with optional training-time noise"""
-        transformed = self.branch_transforms(xb)
-        if training and self.config.get('add_noise', False):
-            transformed += torch.randn_like(transformed) * \
-                self.config.get('noise_std', 0.1)
-        return transformed
+
+    def _to_tensor(self, data: np.ndarray) -> torch.Tensor:
+        return torch.as_tensor(data, dtype=self.config.dtype).to(self.config.device)
+
+    def transform_branch(self, xb: np.ndarray) -> torch.Tensor:
+        tensor = self._to_tensor(xb)
+        if self.branch_normalizer:
+            tensor = self.branch_normalizer(tensor)
+        return tensor
 
     def transform_trunk(self, xt: np.ndarray) -> torch.Tensor:
-        """Apply trunk feature expansion"""
-        return self.trunk_transforms(xt)
+        tensor = self._to_tensor(xt)
+        if self.trunk_normalizer:
+            tensor = self.trunk_normalizer(tensor)
+        if self.trunk_expander:
+            tensor = self.trunk_expander(tensor)
+        return tensor
 
-    def transform_output(self, y: np.ndarray, key: str) -> torch.Tensor:
-        """Apply output rescaling"""
-        return self.output_rescalers[key](torch.as_tensor(y, dtype=self.dtype))
-
-    def inverse_transform_output(self, y: torch.Tensor, key: str) -> torch.Tensor:
-        """Inverse output rescaling"""
-        return self.output_rescalers[key].inverse(y)
-
-    def save(self, path: str):
-        """Serialize transformer state"""
+    def save(self, path: Path):
+        """Serializes exactly what your architecture needs for inference"""
         state = {
-            'config': self.config,
-            'branch_scaler': self.branch_scaler,
-            'output_rescalers': self.output_rescalers,
-            'n_exp_features': self.n_exp_features
+            'branch_stats': self.branch_stats,
+            'trunk_stats': self.trunk_stats,
+            'config': {
+                'device': self.config.device,
+                'dtype': str(self.config.dtype).split('.')[-1],
+                'branch_feature_expansion': self.config.branch.feature_expansion,
+                'trunk_feature_expansion': self.config.trunk.feature_expansion,
+                'normalization': {
+                    'branch': self.config.branch.normalization,
+                    'trunk': self.config.trunk.normalization
+                }
+            }
         }
-        with open(path, 'wb') as f:
-            pickle.dump(state, f)
+        torch.save(state, path / "transform_state.pt")
 
     @classmethod
-    def load(cls, path: str, device: str | None = None):
-        """Load serialized transformer"""
-        with open(path, 'rb') as f:
-            state = pickle.load(f)
+    def load(cls, saved_path: Path, device: str):
+        """Matches your testing requirements"""
+        state = torch.load(saved_path / "transform_state.pt", map_location=device)
+        # Rebuild config from saved state
+        config = TransformConfig(
+            branch=ComponentTransformConfig(
+                normalization=state['config']['normalization']['branch'],
+                feature_expansion=FeatureExpansionConfig(
+                    **state['config']['branch_feature_expansion']
+                ) if state['config']['branch_feature_expansion'] else None
+            ),
+            trunk=ComponentTransformConfig(
+                normalization=state['config']['normalization']['trunk'],
+                feature_expansion=FeatureExpansionConfig(
+                    **state['config']['trunk_feature_expansion']
+                ) if state['config']['trunk_feature_expansion'] else None
+            ),
+            output_normalization=None  # Per your current setup
+        )._set_device(device, eval(f"torch.{state['config']['dtype']}"))
+        
+        pipeline = cls(config)
+        pipeline.branch_stats = state['branch_stats']
+        pipeline.trunk_stats = state['trunk_stats']
+        return pipeline
 
-        if device is not None:
-            state['config']['device'] = device
-
-        transformer = cls(state['config'])
-        transformer.branch_scaler = state['branch_scaler']
-        transformer.output_rescalers = state['output_rescalers']
-        transformer.n_exp_features = state['n_exp_features']
-        return transformer
+    def inverse_transform(self, component: Literal["branch", "trunk"], tensor: torch.Tensor) -> torch.Tensor:
+        """Reverse normalization and expansion in correct order"""
+        # Reverse feature expansion first (if applied)
+        if component in self.expansion_factors:
+            tensor = self.inverse_expansion(component, tensor)
+        
+        # Reverse normalization if configured
+        norm_type = getattr(self.config, component).normalization
+        stats = self.branch_stats if component == "branch" else self.trunk_stats
+        
+        if not norm_type or not stats:
+            return tensor
+        
+        if norm_type == "standardize":
+            return tensor * stats['std'] + stats['mean']
+        elif norm_type == "minmax_0_1":
+            return tensor * (stats['max'] - stats['min']) + stats['min']
+        elif norm_type == "minmax_-1_1":
+            return (tensor + 1) * (stats['max'] - stats['min']) / 2 + stats['min']
+        
+        return tensor
+    
+    def inverse_expansion(self, component: str, x: torch.Tensor) -> torch.Tensor:
+        """Reverses feature expansion by slicing"""
+        factors = self.expansion_factors.get(component)
+        if not factors: return x
+        
+        # Slice to original dimensions
+        return x[..., :factors['original_dim']]
+    
+    def _update_stats(self, component: str, data: torch.Tensor):
+        """Centralized stats calculation"""
+        stats = {
+            'mean': data.mean(dim=0).detach(),
+            'std': data.std(dim=0).detach(),
+            'min': data.min(dim=0).detach(), # type: ignore
+            'max': data.max(dim=0).detach() # type: ignore
+        }
+        if component == 'branch':
+            self.branch_stats.update(stats)
+        else:
+            self.trunk_stats.update(stats)

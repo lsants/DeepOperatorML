@@ -5,7 +5,7 @@ from ..data_processing.postprocessing_helper import run_post_processing, run_plo
 
 logger = logging.getLogger(__name__)
 
-def test_model(test_config, model_to_test_config) -> None:
+def test_model(test_config) -> None:
     
     # -------------------- Load params and initialize model ---------------------
     test_device, test_precision = test_config['DEVICE'], test_config['PRECISION']

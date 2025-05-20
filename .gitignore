@@ -152,9 +152,10 @@ cython_debug/
 #Data files
 /data
 /images
-/models
+# /models
 /axsgrscelib
 /output
+/trained_models
 
 # macosx file that escaped into the repo
 .DS_Store

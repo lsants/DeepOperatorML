@@ -1,22 +1,17 @@
 from __future__ import annotations
-from ast import List
 import logging
 import torch
 import numpy as np
 from typing import Any
-from .deeponet_transformer import DeepONetTransformer
-from collections.abc import Callable, Iterable, Iterator
 
 logger = logging.getLogger(__name__)
-
 
 class DeepONetDataset(torch.utils.data.Dataset):  # type: ignore
     def __init__(
         self,
-        data: dict[str, np.ndarray],
+        data: dict[str, Any],
         feature_labels: list[str],
         output_labels: list[str],
-        transformer: DeepONetTransformer | None = None
     ) -> None:
         print(feature_labels, data.keys())
         self.branch_data = data[feature_labels[0]]
@@ -24,10 +19,6 @@ class DeepONetDataset(torch.utils.data.Dataset):  # type: ignore
         self.feature_labels = feature_labels
         self.output_labels = output_labels
         self.output_data = {}
-        self.transformer = transformer
-
-        if self.transformer:
-            self.trunk_data = self.transformer.transform_xt(self.trunk_data)
 
         for key in self.output_labels:
             field = data[key]
@@ -72,15 +63,6 @@ class DeepONetDataset(torch.utils.data.Dataset):  # type: ignore
         
         branch_item = self.branch_data[idx_0_processed]
         trunk_item = self.trunk_data[idx_1_processed]
-
-        # if self.transformer:
-        #     branch_item = self.transformer.transform_xb(
-        #         branch_item[np.newaxis, :], training=True
-        #     ).squeeze(0)
-        #     output_item = {
-        #         key: self.transformer.transform_output(val, key)
-        #         for key, val in output_item.items()
-        #     }   
 
         return {
             self.feature_labels[0]: branch_item,

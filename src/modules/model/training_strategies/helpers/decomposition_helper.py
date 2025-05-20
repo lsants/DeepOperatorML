@@ -1,6 +1,6 @@
 import torch
 import logging
-from ..training_strategy_base import TrainingStrategy
+from ..base import TrainingStrategy
 from typing import Any, Dict, Tuple, Optional
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:

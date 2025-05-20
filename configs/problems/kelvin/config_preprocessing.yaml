@@ -1,0 +1,36 @@
+#  ----------------------Location of .npz data files ----------------
+raw_data_path: ./data/raw/kelvin/kelvin_v1.npz
+dataset_version: d5230a4f
+
+# ------------------------- Dataset parameters ----------------
+problem: kelvin
+splitting:
+  rations: [0.8, 0.1, 0.1]
+  seed: 42
+
+data_labels:
+  features: [xb, xt]
+  targets: [g_u]
+
+input_function_keys:  
+  - F
+  - nu
+  - mu
+
+input_function_labels:
+  - F
+  - ν
+  - μ 
+
+coordinate_keys:
+  - x
+  - y
+  - z
+
+coordinate_labels:
+  - g_u
+
+output_labels:
+  - "$\\vec{u})$"
+
+load_direction: z

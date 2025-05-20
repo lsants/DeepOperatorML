@@ -1,15 +1,13 @@
 # ------------------- Model architecture ------------------
-PRECISION: float32
-DEVICE: cpu
-SEED: 42
+seed: 42
 
-TRAINING_STRATEGY: pod
-OUTPUT_HANDLING: split_outputs
-BASIS_FUNCTIONS: 30
-BRANCH_ARCHITECTURE: resnet
-BRANCH_ACTIVATION: silu
-BRANCH_DEGREE: 8
-BRANCH_HIDDEN_LAYERS:
+training_strategy: pod
+output_handling: split_outputs
+basis_functions: 30
+branch_architecture: resnet
+branch_activation: silu
+branch_degree: 8
+branch_hidden_layers:
   - 100 
   - 100 
   - 100 
@@ -17,10 +15,10 @@ BRANCH_HIDDEN_LAYERS:
   - 100 
   - 100 
 
-TRUNK_ARCHITECTURE: resnet
-TRUNK_ACTIVATION: silu
-TRUNK_DEGREE: 8
-TRUNK_HIDDEN_LAYERS:
+trunk_architecture: resnet
+trunk_activation: silu
+trunk_degree: 8
+trunk_hidden_layers:
   - 100 
   - 100 
   - 100 
@@ -28,73 +26,82 @@ TRUNK_HIDDEN_LAYERS:
   - 100 
   - 100 
 
-LOSS_FUNCTION: mse
-INPUT_NORMALIZATION: 'minmax_0_1'  # Options: 'minmax_0_1', 'minmax_-1_1', 'standardize', 'none'
-OUTPUT_NORMALIZATION: 'none'
-TRUNK_FEATURE_EXPANSION: 20
-RESCALING: none # p = number of basis functions. Can be none, 1/p or 1/sqrt(p)
+loss_function: mse
+transforms:
+  branch:
+    normalization: null
+    feature_expansion: null
+  trunk:
+    normalization: 0_1_min_max  # 0_1_min_max, -1_1_min_max, standardize, null
+    feature_expansion:
+      type: cosine
+      size: 10
+  output_normalization: null
+rescaling: 
+  type: null
+  exponent: -1 #  Used to rescale the output of the DeepONet by the number of basis functions to the power of the exponent (use exponent < 0).
 
 # ------------------- Parameters for vanilla training ------------------
-LEARNING_RATE: 0.001
-EPOCHS: 10
-BRANCH_BATCH_SIZE: 50
-TRUNK_BATCH_SIZE: null
-ERROR_NORM: 2
-STANDARD_PROGRESS_BAR_COLOR: 'green'
-GLOBAL_OPTIMIZER_SCHEDULE:
-  - EPOCHS: 5000
-    OPTIMIZER: adam
-    LEARNING_RATE: 0.0001
-    L2_REGULARIZATION: 0.0001
-    LR_SCHEDULER:
-      STEP_SIZE: 1000
-      GAMMA: 0.7
+learning_rate: 0.001
+epochs: 10
+branch_batch_size: 50
+trunk_batch_size: null
+error: vector_l2
+standard_progress_bar_color: 'green'
+global_optimizer_schedule:
+  - epochs: 5000
+    optimizer: adam
+    learning_rate: 0.0001
+    l2_regularization: 0.0001
+    lr_scheduler:
+      step_size: 1000
+      gamma: 0.7
 
 # ------------------- Parameters for POD training ----------------------
-VAR_SHARE: 0.99999
+var_share: 0.99999
 
 # ------------------- Parameters for two step training ------------------
-TRUNK_TRAIN_EPOCHS: 150
-BRANCH_TRAIN_EPOCHS: 500
+trunk_epochs: 150
+branch_epochs: 500
 
-TRUNK_DECOMPOSITION: svd
+trunk_decomposition: svd
 
-PHASE_OPTIMIZER_SCHEDULE:
+phase_optimizer_schedule:
   trunk:
-    - EPOCHS: 10000
-      OPTIMIZER: adam
-      LEARNING_RATE: 0.001
-      L2_REGULARIZATION: 0.00001
-    - EPOCHS: 30000
-      OPTIMIZER: adam
-      LEARNING_RATE: 0.001
-      L2_REGULARIZATION: 0.00001
-      LR_SCHEDULER:
-        STEP_SIZE: 5000
-        GAMMA: 0.7
-    - EPOCHS: 110000
-      OPTIMIZER: adam
-      LEARNING_RATE: 0.0005
-      L2_REGULARIZATION: 0.00001
+    - epochs: 10000
+      optimizer: adam
+      learning_rate: 0.001
+      l2_regularization: 0.00001
+    - epochs: 30000
+      optimizer: adam
+      learning_rate: 0.001
+      l2_regularization: 0.00001
+      lr_scheduler:
+        step_size: 5000
+        gamma: 0.7
+    - epochs: 110000
+      optimizer: adam
+      learning_rate: 0.0005
+      l2_regularization: 0.00001
   branch:
-    - EPOCHS: 50000
-      OPTIMIZER: adam
-      LEARNING_RATE: 0.001
-      L2_REGULARIZATION: 0.00001
-      LR_SCHEDULER:
-        STEP_SIZE: 5000
-        GAMMA: 0.7
-    - EPOCHS: 50000
-      OPTIMIZER: adam
-      LEARNING_RATE: 0.0001
-      L2_REGULARIZATION: 0.00001
-      LR_SCHEDULER:
-        STEP_SIZE: 10000
-        GAMMA: 0.5
-    - EPOCHS: 50000
-      OPTIMIZER: adam
-      LEARNING_RATE: 0.0001
-      L2_REGULARIZATION: 0.00001
-      LR_SCHEDULER:
-        STEP_SIZE: 10000
-        GAMMA: 0.5
+    - epochs: 50000
+      optimizer: adam
+      learning_rate: 0.001
+      l2_regularization: 0.00001
+      lr_scheduleR:
+        step_size: 5000
+        gamma: 0.7
+    - epochs: 50000
+      optimizer: adam
+      learning_rate: 0.0001
+      l2_regularization: 0.00001
+      lr_scheduler:
+        step_size: 10000
+        gamma: 0.5
+    - epochs: 50000
+      optimizer: adam
+      learning_rate: 0.0001
+      l2_regularization: 0.00001
+      lr_scheduler:
+        step_size: 10000
+        gamma: 0.5

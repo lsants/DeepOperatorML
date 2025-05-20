@@ -1,27 +1,27 @@
-PRECISION: float32
-DEVICE: cpu
+precision: float32
+device: cpu
 
 # Location of dataset to test
-DATASET_VERSION:
+experiment_version:
 
 # Location of outputs (data, metrics) - Set this if testing a pretrained model
-OUTPUT_PATH: ./output/kelvin/
+output_path: ./output/kelvin/
 
-PLOT_FIELD: true
-PLOT_AXIS: true
-PLOT_BASIS: true
+plot_field: true
+plot_axis: true
+plot_basis: true
 
-AXES_TO_PLOT:
+axes_to_plot:
   - x
   - y
   - z
 
 # Plot every X percentile (e.g every 10th percentile of the input functions)
-PLOT_PERCENTILES: 10
+plot_percentiles: 10
 
-INFERENCE_ON: test
-SAMPLES_TO_PLOT: 5
-BASIS_TO_PLOT: all
-PRINCIPAL_MODES_TO_PLOT: 4
-PLOT_FIELD_BAR_COLOR: cyan
-PLOT_BASIS_BAR_COLOR: magenta
+inference_on: test
+samples_to_plot: 5
+basis_to_plot: all
+principal_modes_to_plot: 4
+plot_field_bar_color: cyan
+plot_basis_bar_color: magenta

@@ -1,0 +1,69 @@
+flowchart TD
+    %% ===== Configuration Stage =====
+    subgraph ConfigStage["Configuration"]
+        direction TB
+        A[Problem YAML] --> V[Config Validator]
+        B[Training YAML] --> V
+        V --> C{Validation}
+        C -->|Valid| D[ProblemConfig]
+        C -->|Valid| E[TrainingConfig]
+        D --> F[TransformConfig]
+        E --> F
+    end
+
+    %% ===== Data Preparation =====
+    subgraph DataStage["Data Preparation"]
+        direction LR
+        G[Raw Data] --> H[TransformManager]
+        H -->|fit/transform| I[Transformed Data]
+        H --> J[TransformPipeline]
+        J --> K[Feature Expansion]
+        J --> L[Normalization]
+    end
+
+    %% ===== Model Initialization =====
+    subgraph ModelStage["Model Creation"]
+        direction TB
+        M[ModelFactory] --> N[ComponentRegistry]
+        N --> O[Branch]
+        N --> P[Trunk]
+        M --> Q[TrainingStrategy]
+        Q --> R[OutputHandler]
+        O --> S[InputDim: Transformed Features]
+        P --> S
+    end
+
+    %% ===== Training Core =====
+    subgraph TrainStage["Training Execution"]
+        direction LR
+        T[TrainingLoop] --> U[Phase Manager]
+        U --> V1[Phase 1: Trunk]
+        U --> V2[Phase 2: Branch]
+        T --> W[OptimizerManager]
+        W --> X[Adam]
+        W --> Y[SGD]
+        T --> Z[MetricsHandler]
+        Z --> AA[Loss]
+        Z --> AB[Custom Metrics]
+        T --> AC[CheckpointManager]
+    end
+
+    %% ===== Inference Flow =====
+    subgraph InferStage["Inference"]
+        direction RL
+        AD[Checkpoint] --> AE[TransformManager]
+        AE --> AF[Inverse Transforms]
+        AD --> AG[ModelLoader]
+        AG --> AH[Strategy]
+        AH --> AI[ComponentRegistry]
+        AI --> AJ[Predictions]
+        AF --> AJ
+    end
+
+    %% ===== Full Pipeline Flow =====
+    ConfigStage --> DataStage
+    DataStage --> ModelStage
+    ModelStage --> TrainStage
+    TrainStage --> InferStage
+    TrainStage -->|save| AD
+    InferStage -->|load| AD

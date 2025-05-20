@@ -6,7 +6,7 @@ import numpy as np
 import logging
 from ...modules.pipe.saving import Saver
 from ..data_processing.transforms import ToTensor
-from ..model.factories.model_factory import ModelFactory
+from ..model.model_factory import ModelFactory
 from ..data_processing.deeponet_dataset import DeepONetDataset
 from ..model.training_strategies import TwoStepTrainingStrategy, PODTrainingStrategy
 from typing import TYPE_CHECKING, Any
