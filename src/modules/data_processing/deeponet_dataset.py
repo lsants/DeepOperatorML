@@ -13,7 +13,6 @@ class DeepONetDataset(torch.utils.data.Dataset):  # type: ignore
         feature_labels: list[str],
         output_labels: list[str],
     ) -> None:
-        print(feature_labels, data.keys())
         self.branch_data = data[feature_labels[0]]
         self.trunk_data = data[feature_labels[1]]
         self.feature_labels = feature_labels

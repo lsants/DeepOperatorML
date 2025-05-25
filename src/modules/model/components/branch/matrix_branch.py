@@ -1,13 +1,14 @@
-from ..config import ComponentConfig
-from .branch_factory import BranchRegistry
-from .base import Branch
 import torch
+from ..registry import ComponentRegistry
 
-@BranchRegistry.register("matrix")
-class MatrixBranch(Branch):
-    def __init__(self, config: ComponentConfig):
-        self.weights = torch.nn.Parameter(torch.randn(config.input_dim, 
-                                                config.output_dim))
+
+@ComponentRegistry.register(component_type='matrix')
+class MatrixBranch(torch.nn.Module):
+    """For two-step phase 1 training (trainable matrix)"""
+
+    def __init__(self, input_dim: int, output_dim: int):
+        super().__init__()
+        self.weights = torch.nn.Parameter(torch.randn(output_dim, input_dim))
 
     def forward(self, x):
-        return x @ self.weights
+        return x @ self.weights.T

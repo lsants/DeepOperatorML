@@ -1,21 +1,14 @@
-from __future__ import annotations
 from dataclasses import dataclass
-from typing import Any
+from typing import Literal
+
 
 @dataclass
-class ComponentConfig:
-    architecture: str
-    layers: list[int] = None # Specific to neural networks
-    activation: str = None # Specific to Universal Approximation Theorem-based architectures
-    degree: int = None # KAN-specific
-    params: dict[str, Any] = None
+class OutputConfig:
+    handler_type: Literal["split", "shared", "single"]
+    num_channels: int = 1
+    basis_adjust: bool = True  # Whether to modify trunk layers
 
-    def validate_architecture(self):
-        valid_archs = {'resnet', 'kan', 'pod', 'mlp'}
-        if self.architecture not in valid_archs:
-            raise ValueError(f"Invalid architecture {self.architecture}")
-    # add a POD-specific?
-
-
-
-    
+@dataclass
+class RescalingConfig:
+    exponent: float
+    basis_functions: int

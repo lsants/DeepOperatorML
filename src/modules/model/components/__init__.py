@@ -1,5 +1,9 @@
-from .branch.matrix_branch import MatrixBranch
-from .trunk.trunk_network import TrunkNetwork
-from .branch.branch_network import BranchNetwork
-from .trunk.decomposed_trunk import DecomposedTrunk
-from .trunk.pod_trunk import PODTrunk
+# components/__init__.py
+from typing import TYPE_CHECKING
+from .registry import ComponentRegistry  # Explicit export
+from .component_factory import BranchFactory, TrunkFactory
+__all__ = ['ComponentRegistry', 'BranchFactory', 'TrunkFactory']
+
+if TYPE_CHECKING:
+    from .trunk.mlp_trunk import MLPTrunk
+    from .trunk.pod_trunk import PODTrunk

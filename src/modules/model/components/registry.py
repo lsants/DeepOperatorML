@@ -1,17 +1,37 @@
-from typing import Any, Type
-from collections.abc import Callable
-from .config import ComponentConfig
+from typing import Dict, Tuple, Optional, Type
+import torch
+import inspect
 
 class ComponentRegistry:
-    _registry: dict[str, Type] = {}
+    """Handles registration/retrieval of components with composite keys (type, architecture)"""
+    _registry: Dict[Tuple[str, Optional[str]], Type[torch.nn.Module]] = {}
 
     @classmethod
-    def register(cls, name: str) -> Callable[..., Any]:
-        def decorator(component_class) -> Any:
-            cls._registry[name] = component_class
+    def register(cls,
+                 component_type: str,
+                 architecture: Optional[str] = None
+                 ):
+        """Decorator for registering components with type + optional architecture"""
+        def decorator(component_class: Type[torch.nn.Module]):
+            key = (component_type, architecture)
+            if key in cls._registry:
+                raise ValueError(f"Component {key} already registered")
+            cls._registry[key] = {
+                "class": component_class,
+                "required_params": list(inspect.signature(component_class.__init__).parameters.keys())
+            }
             return component_class
         return decorator
-    
+
     @classmethod
-    def create(cls, name: str, config: ComponentConfig):
-        return cls._registry[name](config)
+    def get(
+        cls,
+        component_type: str,
+        architecture: Optional[str] = None
+    ) -> Tuple[Type[torch.nn.Module], list[str]]:  # Return tuple instead of dict
+        key = (component_type, architecture)
+        if key not in cls._registry:
+            raise ValueError(f"Component {key} not registered")
+            
+        entry = cls._registry[key]
+        return entry["class"], entry["required_params"]  # Explicit tuple return

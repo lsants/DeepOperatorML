@@ -28,6 +28,7 @@ class FeatureExpansionRegistry:
 class FeatureExpansionConfig:
     type: Optional[Literal["cosine", "polynomial"]] = None
     size: Optional[int] = None
+    original_dim: Optional[int] = None
 
     def __post_init__(self):
         if self.type and not self.size:

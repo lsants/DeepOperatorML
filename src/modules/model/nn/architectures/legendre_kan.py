@@ -34,3 +34,24 @@ class LegendreKANLayer(nn.Module):
 
         output = torch.sum(weighted_basis, dim=1)
         return output
+    
+class LegendreKAN(nn.Module):
+    def __init__(self):
+        super(LegendreKAN, self).__init__()
+        self.legendre_kan_layer1 = LegendreKANLayer(2, 16, 100, 5)
+        self.act1 = nn.Tanh()
+        self.legendre_kan_layer2 = LegendreKANLayer(16, 16,100, 5)
+        self.act2 = nn.Tanh()
+        self.legendre_kan_layer3 = LegendreKANLayer(16, 3, 100, 5)
+        #self.output_weights = nn.Parameter(torch.empty(hidden_dim, output_dim))
+        #init.xavier_uniform_(self.output_weights)
+
+    def forward(self, x):
+        x = self.legendre_kan_layer1(x)
+        x = self.act1(x)
+        x = self.legendre_kan_layer2(x)
+        x = self.act2(x)
+        x = self.legendre_kan_layer3(x)
+#        x = F.relu(x)
+#        x = torch.matmul(x, self.output_weights)
+        return x

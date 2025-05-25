@@ -27,22 +27,21 @@ def main() -> None:
 
     problem_path = os.path.join("./configs/problems/", args.problem)
     train_config_path = args.train_config_path
-    experiment_config_path = os.path.join(problem_path, "config_problem.yaml")
+    experiment_config_path = os.path.join(problem_path, "config_experiment.yaml")
     problem_test_config_path = os.path.join(problem_path, "config_test.yaml")
 
-    train_cfg = TrainConfig.from_config_files(
-            exp_cfg_path=experiment_config_path, 
-            train_cfg_path=train_config_path
-        )
     data_cfg = DataConfig.from_experiment_config(
             problem=args.problem,
             exp_cfg=yaml.safe_load(open(experiment_config_path))
         )
+    train_cfg = TrainConfig.from_config_files(
+            exp_cfg_path=experiment_config_path, 
+            train_cfg_path=train_config_path,
+            data_cfg=data_cfg
+        )
 
     # Validate individual configs
-    validation.validate_data_config(data_cfg)
     validation.validate_train_config(train_cfg)
-    
     # Cross-config validation
     validation.validate_config_compatibility(data_cfg, train_cfg)
 

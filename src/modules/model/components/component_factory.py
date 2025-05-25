@@ -1,35 +1,63 @@
-from typing import Any, Dict
-from ..optimization.loss_functions.loss_factory import LossFactory
-from ..training_strategies.strategy_factory import StrategyFactory
-from ..nn.activation_functions.activation_factory import ActivationFactory
+import torch
+from .registry import ComponentRegistry
+from .trunk.config import TrunkConfig, TrunkConfigValidator
+from .branch.config import BranchConfig, BranchConfigValidator
+from typing import Type, Dict, TypeVar, Tuple, Optional
+import inspect
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
+    from .trunk.config import TrunkConfig
+    from .branch.config import BranchConfig
 
+T = TypeVar('T')
 
-def trunk_factory(config: Dict[str, Any]) -> Trunk:
-    """
-    Creates a trunk instance based on configuration.
-    Expected keys:
-      - 'type': one of ['trainable', 'pretrained', 'data']
-      - Depending on type, the config should include 'module' or 'fixed_tensor'
-    """
-    trunk_type = config.get("type", "trainable")
-    if trunk_type == "trainable":
-        return TrainableTrunk(config["module"])
-    elif trunk_type == "pretrained":
-        return PretrainedTrunk(config["fixed_tensor"])
-    elif trunk_type == "data":
-        return PODTrunk(**config["data"])
-    else:
-        raise ValueError(f"Unknown trunk type: {trunk_type}")
+class BranchFactory:
+    @classmethod
+    def build(cls, config: BranchConfig) -> torch.nn.Module:
+        # Validate config first
+        BranchConfigValidator.validate(config)
+        # Get component class
+        if config.component_type == "branch_neural":
+            component_class, _ = ComponentRegistry.get(
+                component_type="branch_neural",
+                architecture=config.architecture
+            )
+        else:
+            component_class, _ = ComponentRegistry.get(
+                component_type=config.component_type,
+                architecture=None
+            )
+        # Filter valid constructor parameters
+        sig = inspect.signature(component_class.__init__)
+        valid_params = {
+            k: v for k, v in config.__dict__.items()
+            if k in sig.parameters and k != "self"
+        }
 
-def branch_factory(config: Dict[str, Any]) -> Branch:
-    """
-    Creates a branch instance based on configuration.
-    Expected keys:
-      - 'type': for now, typically 'trainable'
-      - 'module': a torch.nn.Module for the branch.
-    """
-    branch_type = config.get("type", "trainable")
-    if branch_type == "trainable":
-        return TrainableBranch(config["module"])
-    else:
-        raise ValueError(f"Unknown branch type: {branch_type}")
+        return component_class(**valid_params)
+
+class TrunkFactory:
+    @classmethod
+    def build(cls, config: TrunkConfig) -> torch.nn.Module:
+        # Validate config first
+        TrunkConfigValidator.validate(config)
+        # Get component class
+        if config.component_type == "trunk_neural":
+            component_class, _ = ComponentRegistry.get(
+                component_type="trunk_neural",
+                architecture=config.architecture
+            )
+        else:
+            component_class, _ = ComponentRegistry.get(
+                component_type=config.component_type,
+                architecture=None
+            )
+
+        # Filter valid constructor parameters
+        sig = inspect.signature(component_class.__init__)
+        valid_params = {
+            k: v for k, v in config.__dict__.items()
+            if k in sig.parameters and k != "self"
+        }
+
+        return component_class(**valid_params)

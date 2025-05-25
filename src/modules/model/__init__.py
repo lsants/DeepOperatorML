@@ -1,8 +1,9 @@
-from .deeponet import DeepONet
-from . import components
-from . import components
-from . import factories
-from . import nn
-from . import optimization
-from . import output_handling
-from . import training_strategies
+# from .deeponet import DeepONet
+# from . import nn
+# from . import components
+# from . import optimization
+# from .components import output_handler
+# from . import training_strategies
+# from .training_strategies.pod_strategy import PODStrategy, PODConfig
+# from .training_strategies import VanillaStrategy, VanillaConfig
+# from .training_strategies import TwoStepStrategy                                                                                                                                                                                                                                                         , TwoStepConfig

@@ -3,43 +3,40 @@ from __future__ import annotations
 import torch
 import logging
 from typing import TYPE_CHECKING, Any
-
-from src.modules.model import components
 if TYPE_CHECKING:
-    from .output_handling.base import OutputHandling
-    from .training_strategies.base import TrainingStrategy
-    from .components import BaseBranch, BaseTrunk
+    from .components.output_handler.protocol import OutputHandler
+    from .components.rescaling.rescaler import Rescaler
 
 logger = logging.getLogger(__name__)
 
+
 class DeepONet(torch.nn.Module):
-    def __init__(self, branch_config: dict[str, Any], trunk_config: dict[str, Any], output_handling: 'OutputHandling', training_strategy: 'TrainingStrategy', n_outputs: int, n_basis_functions: int) -> None:
-        """Initializes the DeepONet model with specified strategies.
+    def __init__(self, branch: torch.nn.Module,
+                 trunk: torch.nn.Module,
+                 output_handler: OutputHandler,
+                 rescaler: Rescaler):
+        """DeepONet model (Lu, et al. 2019), universal approximation theorem-based architecture composed of a branch and a trunk net.
 
         Args:
-            branch_config (dict): Configuration of the branch networks.
-            trunk_config (dict): Configuration of the trunk networks.
-            output_handling (OutputHandling): Strategy for handling the outputs.
-            training_strategy (TrainingStrategy): Strategy for training.
-            n_outputs (int): Number of outputs.
-            n_basis_functions (int): Number of basis functions.
-
+            branch (torch.nn.Module): Branch network, used to learn an operator's input function.
+            trunk (torch.nn.Module): Trunk network, used to learn the operator's basis mapping.
+            output_handler (OutputHandler): Defines how the DeepONet's inner product will be conducted depending on the number of channels.
+            rescaling (Rescaling): Determines how the DeepONet's output is rescaled in function of the number of basis functions.
         """
-        super(DeepONet, self).__init__()
-        self.n_outputs: int = n_outputs
-        self.n_basis_functions: int = n_basis_functions
-        self.output_handling: 'OutputHandling' = output_handling
-        self.training_strategy: 'TrainingStrategy' = training_strategy
+        super().__init__()
+        self.branch = branch
+        self.trunk = trunk
+        self.output_handler = output_handler
+        self.rescaler = rescaler
 
-        trunk_config = self.training_strategy.get_trunk_config(trunk_config=trunk_config)
-        branch_config = self.training_strategy.get_branch_config(branch_config=branch_config)
-        branch_component, trunk_component = self.output_handling.configure_components(
-            model=self, branch_config=branch_config, trunk_config=trunk_config
-        )
-        self.branch: 'BaseBranch' = branch_component
-        self.trunk: 'BaseTrunk' = trunk_component
+    def forward(self, branch_input: torch.Tensor, trunk_input: torch.Tensor) -> torch.Tensor:
+        # 1. Component processing
+        branch_out = self.branch(branch_input)
+        trunk_out = self.trunk(trunk_input)
 
-        self.training_strategy.prepare_for_training(model=self)
+        # 2. Output handling
+        combined = self.output_handler.combine(
+            branch_out, trunk_out)  # [B, channels]
 
-    def forward(self, branch_input: torch.Tensor | None = None, trunk_input: torch.Tensor | None = None) -> tuple[torch.Tensor]:
-        return self.training_strategy.forward(model=self, branch_input=branch_input, trunk_input=trunk_input)
+        # 3. Rescaling
+        return self.rescaler(combined)

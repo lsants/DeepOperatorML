@@ -22,12 +22,13 @@ class ResidualBlock(torch.nn.Module):
         if self.apply_activation:
             out = self.activation(out)
         return out
-
+    
 class ResNet(torch.nn.Module):
-    def __init__(self, layers, activation):
+    def __init__(self, input_dim, hidden_layers, output_dim, activation):
         super(ResNet, self).__init__()
         self.activation = activation
         self.blocks = torch.nn.ModuleList()
+        layers = [input_dim] + hidden_layers + [output_dim]
         n_blocks = len(layers) - 1
 
         for i in range(n_blocks):

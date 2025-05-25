@@ -1,38 +1,37 @@
 # ------------------- Model architecture ------------------
 seed: 42
-
-training_strategy: pod
-output_handling: split_outputs
-basis_functions: 30
-branch_architecture: resnet
-branch_activation: silu
-branch_degree: 8
-branch_hidden_layers:
-  - 100 
-  - 100 
-  - 100 
-  - 100 
-  - 100 
-  - 100 
-
-trunk_architecture: resnet
-trunk_activation: silu
-trunk_degree: 8
-trunk_hidden_layers:
-  - 100 
-  - 100 
-  - 100 
-  - 100 
-  - 100 
-  - 100 
-
+training_strategy: vanilla
+output_handling: single_output
+num_basis_functions: 30
+branch:
+  architecture: resnet
+  activation: silu
+  degree: 8
+  hidden_layers:
+    - 100 
+    - 100 
+    - 100 
+    - 100 
+    - 100 
+    - 100 
+trunk:
+  architecture: resnet
+  activation: silu
+  degree: 8
+  hidden_layers:
+    - 100 
+    - 100 
+    - 100 
+    - 100 
+    - 100 
+    - 100 
 loss_function: mse
 transforms:
   branch:
     normalization: null
     feature_expansion: null
   trunk:
-    normalization: 0_1_min_max  # 0_1_min_max, -1_1_min_max, standardize, null
+    normalization: min_max_0_1  # min_max_0_1, min_max_-1_1, standardize, null
     feature_expansion:
       type: cosine
       size: 10
@@ -58,15 +57,14 @@ global_optimizer_schedule:
       gamma: 0.7
 
 # ------------------- Parameters for POD training ----------------------
-var_share: 0.99999
+num_pod_modes: 10
 
 # ------------------- Parameters for two step training ------------------
 trunk_epochs: 150
-branch_epochs: 500
+branch_epochs: 500  
+decomposition_type: svd
 
-trunk_decomposition: svd
-
-phase_optimizer_schedule:
+two_step_optimizer_schedule:
   trunk:
     - epochs: 10000
       optimizer: adam
@@ -88,7 +86,7 @@ phase_optimizer_schedule:
       optimizer: adam
       learning_rate: 0.001
       l2_regularization: 0.00001
-      lr_scheduleR:
+      lr_scheduler:
         step_size: 5000
         gamma: 0.7
     - epochs: 50000

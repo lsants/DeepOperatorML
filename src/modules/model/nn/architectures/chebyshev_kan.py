@@ -29,8 +29,9 @@ class ChebyshevKANLayer(torch.nn.Module):
         return y
     
 class ChebyshevKAN(torch.nn.Module):
-    def __init__(self, layers, degree):
+    def __init__(self, input_dim, layers, output_dim, degree):
         super(ChebyshevKAN, self).__init__()
+        layers = [input_dim] + layers + [output_dim]
         self.linears = torch.nn.ModuleList()
         self.degree = degree
         n_layers = len(layers)

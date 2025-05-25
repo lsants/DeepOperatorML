@@ -62,29 +62,33 @@ class DeepONetTransformPipeline:
     def _init_expander(self, expansion_cfg: FeatureExpansionConfig, component: str) -> Optional[Callable]:
         """Retrieve expansion from registry"""
         if not expansion_cfg: return None
-        
         self.expansion_factors[component] = {
-            'original_dim': None,  # Set during first transform
+            'original_dim': expansion_cfg.original_dim,  # Set during first transform
             'expansion_type': expansion_cfg.type,
             'size': expansion_cfg.size
         }
-        
-        return self._get_expansion_fn(expansion_type=expansion_cfg.type) # type: ignore
+
+        return self._get_expansion_fn(expansion_type=expansion_cfg.type, component=component)
     
-    def _get_expansion_fn(self, expansion_type: str) -> Callable:
+    def _get_expansion_fn(self, expansion_type: str, component: str) -> Callable:
         """Registry wrapper with dimension tracking"""
         def expander(x: torch.Tensor) -> torch.Tensor:
             # Record original dimension on first use
-            if not self.expansion_factors['original_dim']:
-                self.expansion_factors['original_dim'] = x.shape[-1]
-                
-            return FeatureExpansionRegistry.get_expansion_fn(name=expansion_type, size=self.expansion_factors['size'])(
+            if self.expansion_factors[component]['original_dim'] is None:  # Changed check
+                self.expansion_factors[component]['original_dim'] = x.shape[-1]
+            
+            # Get expansion function and call it with x
+            expansion_fn = FeatureExpansionRegistry.get_expansion_fn(
+                name=expansion_type,
+                size=self.expansion_factors[component]['size']
             )
+            return expansion_fn(x)  # Now passing x to the expansion function
+            
         return expander
 
 
     def _to_tensor(self, data: np.ndarray) -> torch.Tensor:
-        return torch.as_tensor(data, dtype=self.config.dtype).to(self.config.device)
+        return torch.as_tensor(data, dtype=getattr(torch, self.config.dtype)).to(self.config.device)
 
     def transform_branch(self, xb: np.ndarray) -> torch.Tensor:
         tensor = self._to_tensor(xb)
@@ -128,7 +132,7 @@ class DeepONetTransformPipeline:
                 normalization=state['config']['normalization']['branch'],
                 feature_expansion=FeatureExpansionConfig(
                     **state['config']['branch_feature_expansion']
-                ) if state['config']['branch_feature_expansion'] else None
+                ) if state['config']['branch_feature_expansion'] else None,
             ),
             trunk=ComponentTransformConfig(
                 normalization=state['config']['normalization']['trunk'],

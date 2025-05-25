@@ -4,13 +4,20 @@ import yaml
 import numpy as np
 from pathlib import Path
 from typing import Any, Dict
-from dataclasses import dataclass
-from ..model.config import ModelConfig
-from ..data_processing.config import TransformConfig
-from ..model.components.config import ComponentConfig
-from ..model.training_strategies.config import StrategyConfig
-from ..model.optimization.optimizers.config import OptimizerConfig
 from datetime import datetime
+from dataclasses import dataclass
+from ..model.nn.activation_functions.activation_fns import ACTIVATION_MAP
+from ..data_processing.data_augmentation.feature_expansions import FeatureExpansionConfig
+from ..model.components.output_handler.config import OutputConfig
+from ..model.components.rescaling.config import RescalingConfig
+from ..model.config import ModelConfig
+from ..data_processing.config import ComponentTransformConfig, TransformConfig
+# from ..model.output_handler.config import OutputConfig
+from ..model.components.branch.config import BranchConfig
+from ..model.components.trunk.config import TrunkConfig
+# from ..model.output_handler.rescaling import Rescaling
+from ..model.training_strategies.base import StrategyConfig
+from ..model.optimization.optimizers.config import OptimizerConfig, OptimizerPhaseConfig
 
 @dataclass
 class DataConfig:
@@ -46,7 +53,7 @@ class DataConfig:
             problem=problem,
             dataset_version=exp_cfg['dataset_version'],
             dataset_path=dataset_path,
-            raw_outputs_path = exp_cfg['outputs_path'],
+            raw_outputs_path = exp_cfg['output_path'],
             features=metadata['FEATURES'],
             targets=metadata['TARGETS'],
             shapes=metadata['SHAPES'],
@@ -65,33 +72,91 @@ class TrainConfig:
     model: ModelConfig
     transforms: TransformConfig
     strategy: StrategyConfig
-    optimizers: Dict[str, OptimizerConfig]  # Phase-keyed
+    optimizers: OptimizerConfig  # Phase-keyed
+    loss_function: str
+    rescaling: dict
+    global_optimizer_schedule: list[OptimizerPhaseConfig]
 
     @classmethod
-    def from_config_files(cls, exp_cfg_path: str, train_cfg_path: str):
+    def from_config_files(cls, exp_cfg_path: str, train_cfg_path: str, data_cfg: DataConfig):
         # Load YAML files
         with open(exp_cfg_path) as f:
             exp_cfg = yaml.safe_load(f)
         with open(train_cfg_path) as f:
             train_cfg = yaml.safe_load(f)
 
+        branch_config = BranchConfig(**train_cfg["branch"])
+        branch_config.activation = ACTIVATION_MAP[branch_config.activation.lower()]
+        branch_config.input_dim = data_cfg.shapes[data_cfg.features[0]][1]
+        branch_config.output_dim = train_cfg["num_basis_functions"]
+        
+        trunk_config = TrunkConfig(**train_cfg["trunk"])
+        trunk_config.activation = ACTIVATION_MAP[trunk_config.activation.lower()]
+        trunk_config.input_dim = data_cfg.shapes[data_cfg.features[1]][1]
+        trunk_config.output_dim = train_cfg["num_basis_functions"]
+        output_config = OutputConfig(
+            handler_type=train_cfg["output_handling"],
+            num_channels=len(data_cfg.targets)
+        )
+        rescaling_config = RescalingConfig(
+            num_basis_functions=train_cfg["num_basis_functions"],
+            exponent=train_cfg["rescaling"]["exponent"],
+        )
+        strategy_config = StrategyConfig(name=train_cfg['training_strategy'],
+                                        basis_functions=train_cfg["num_basis_functions"],
+                                        num_pod_modes=train_cfg["num_pod_modes"],
+                                        # pod_basis=train_cfg["pod_basis"],
+                                        two_step_branch_epochs=train_cfg["branch_epochs"],
+                                        two_step_trunk_epochs=train_cfg["trunk_epochs"],
+                                        decomposition_type=train_cfg["decomposition_type"],
+                                        global_schedule=train_cfg["global_optimizer_schedule"],
+                                        two_step_phase_optimizers=train_cfg["two_step_optimizer_schedule"]
+                                        )
 
         # Build sub-configurations
         model_config = ModelConfig(
-            branch=ComponentConfig(**train_cfg.model.branch),
-            trunk=ComponentConfig(**train_cfg.model.trunk),
-            output_handling=train_cfg.model.output_handling,
-            basis_functions=train_cfg.model.basis_functions,
+            branch=branch_config,
+            trunk=trunk_config,
+            output=output_config,
+            rescaling=rescaling_config,
+            strategy=strategy_config
         )
-        transform_config = TransformConfig(**train_cfg["transforms"])
-        strategy_config = StrategyConfig(
-            name=train_cfg["strategy"]["name"],
-            basis_functions=train_cfg["strategy"].basis_functions,
+        branch_normalization = train_cfg["transforms"]["branch"]['normalization']
+        branch_expansions = train_cfg["transforms"]["branch"]['feature_expansion']
+        trunk_normalization = train_cfg["transforms"]["trunk"]['normalization']
+        trunk_expansions = train_cfg["transforms"]["trunk"]['feature_expansion']
+
+        transform_config = TransformConfig(branch=ComponentTransformConfig(normalization=branch_normalization \
+                                                                           if branch_normalization else None,
+                                                                            feature_expansion=FeatureExpansionConfig(type=branch_expansions['type'],
+                                                                                                                     size=branch_expansions['size'],
+                                                                                                                     original_dim=branch_config.input_dim) \
+                                                                                                                        if branch_expansions else None,
+                            ),                                  
+                                         trunk=ComponentTransformConfig(normalization=trunk_normalization \
+                                                                        if trunk_normalization else None,
+                                                                            feature_expansion=FeatureExpansionConfig(type=trunk_expansions['type'],
+                                                                                                                     size=trunk_expansions['size'],
+                                                                                                                      original_dim=trunk_config.input_dim) \
+                                                                                                                        if trunk_expansions else None,
+                            )
         )
-        optimizers = {
-            phase: OptimizerConfig(**params)
-            for phase, params in train_cfg["optimizers"].items()
+        transform_config.device = exp_cfg["device"]
+        transform_config.dtype = exp_cfg["precision"]
+
+        global_optimizers = [
+            OptimizerPhaseConfig(**params)
+            for params in train_cfg['global_optimizer_schedule']
+        ]   
+        phase_optimizers = {
+            phase: [OptimizerPhaseConfig(**p) for p in phases]
+            for phase, phases in train_cfg.get("phase_optimizer_schedule", {}).items()
         }
+
+        optimizer_config = OptimizerConfig(
+            global_schedule=global_optimizers,
+            phase_specific=phase_optimizers
+        )
 
         return cls(
             precision=exp_cfg["precision"],
@@ -101,7 +166,10 @@ class TrainConfig:
             model=model_config,
             transforms=transform_config,
             strategy=strategy_config,
-            optimizers=optimizers
+            optimizers=optimizer_config,
+            global_optimizer_schedule=global_optimizers,
+            loss_function = train_cfg['loss_function'],
+            rescaling=train_cfg['rescaling']
         )
 
 @dataclass
@@ -151,7 +219,7 @@ class ExperimentConfig:
     model: ModelConfig
     transforms: TransformConfig
     strategy: StrategyConfig
-    optimizers: Dict[str, OptimizerConfig]
+    optimizers: OptimizerConfig
 
     @classmethod
     def from_dataclasses(cls, data_cfg: DataConfig, train_cfg: TrainConfig):
@@ -179,7 +247,7 @@ class PathConfig:
 
     @classmethod
     def from_data_config(cls, data_cfg: DataConfig):
-        processed_outputs_path = data_cfg.raw_outputs_path
+        processed_outputs_path = Path(data_cfg.raw_outputs_path)
         experiment_name = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
         return cls(
             outputs_path=processed_outputs_path / data_cfg.problem / experiment_name,

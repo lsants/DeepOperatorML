@@ -1,17 +1,15 @@
-from ..config import ComponentConfig
-from .trunk_factory import TrunkRegistry
-from .base import Trunk
+import torch
+from ..registry import ComponentRegistry
 
 
-@TrunkRegistry.register('decomposed_trunk')
-class DecomposedTrunk(Trunk):
-    """Post-decomposition trunk for phase 2"""
+@ComponentRegistry.register(component_type='decomposed')
+class DecomposedTrunk(torch.nn.Module):
+    """Fixed decomposed trunk (SVD/QR) for phase2 inference"""
 
-    def __init__(self, config: ComponentConfig):
-        self.decomposed_trunk = self._get_decomposed_trunk(config)
-
-    def _get_decomposed_trunk(self, config: ComponentConfig):
-        pass
+    def __init__(self, decomposed_tensor: torch.Tensor):
+        super().__init__()
+        # [input_dim, reduced_dim]
+        self.register_buffer('decomposed_tensor', decomposed_tensor)
 
     def forward(self, x):
-        return x @ self.decomposed_trunk
+        return x @ self.decomposed_tensor  # Projection

@@ -12,10 +12,10 @@ class NetworkFactory:
         constructor = NETWORK_ARCHITECTURES[architecture_name]
 
         required_params_by_arch = {
-            'mlp': {'layers', 'activation'},
-            'resnet': {'layers', 'activation'},
-            'cnn': {'layers', 'activation'}, 
-            'kan': {'layers', 'degree'},
+            'mlp': {'hidden_layers', 'activation'},
+            'resnet': {'hidden_layers', 'activation'},
+            'cnn': {'hidden_layers', 'activation'}, 
+            'chebyshev_kan': {'hidden_layers', 'degree'},
         }
         
         required_params = required_params_by_arch.get(architecture_name, {'layers', 'activation', 'degree'})

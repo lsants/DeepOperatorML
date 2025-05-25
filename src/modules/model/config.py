@@ -1,10 +1,16 @@
+from __future__ import annotations
 from dataclasses import dataclass
-from .components.config import ComponentConfig
-
+from typing import TYPE_CHECKING, Literal
+from .components.branch.config import BranchConfig, BranchConfig
+from .components.trunk.config import TrunkConfig, TrunkConfig
+from .components.output_handler.config import OutputConfig
+from .components.rescaling.config import RescalingConfig
+if TYPE_CHECKING:
+    from .training_strategies.base import StrategyConfig
 @dataclass
 class ModelConfig:
-    """Full model configuration."""
-    branch: ComponentConfig
-    trunk: ComponentConfig
-    output_handling: str  # "single", "split", "shared_trunk"
-    basis_functions: int
+    branch: BranchConfig
+    trunk: TrunkConfig
+    output: OutputConfig
+    rescaling: RescalingConfig
+    strategy: StrategyConfig

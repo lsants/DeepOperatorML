@@ -26,7 +26,6 @@ class TwoStepHelper:
 
     def set_A_matrix(self, branch_batch_size: int, branch_output_size: int) -> torch.Tensor:
         A_dims = (branch_batch_size, branch_output_size)
-        print(A_dims)
         trainable_A_matrix = torch.randn(size=A_dims).to(device=self.device,
                                    dtype=self.precision)
         return trainable_A_matrix

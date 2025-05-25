@@ -1,14 +1,11 @@
-class InvalidStrategyCombinationError(Exception):
-    """ Raised when an invalid combination of training strategy and output handling is used."""
-    def __init__(self, strategy, handling, reason, suggestion):
-        message = (
-            f"'{handling}' is incompatible with '{strategy.__class__.__name__}'.\n"
-            f"Reason: {reason}\n"
-            f"Suggestion: {suggestion}"
-        )
+from __future__ import annotations
+
+class ConfigValidationError(ValueError):
+    """Raised when a configuration fails validation checks"""
+    def __init__(self, message: str, section: str | None = None):
         super().__init__(message)
+        self.section = section  # Track which config section failed
+        self.message = f"[{section}] {message}" if section else message
 
-
-class MissingSettingError(Exception):
-    """Raised when a critical setting is missing for model/data/plots."""
-    pass
+    def __str__(self):
+        return self.message

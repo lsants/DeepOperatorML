@@ -1,4 +1,4 @@
 from .base import TrainingStrategy
-from .standard_training import StandardTrainingStrategy
-from .two_step_training import TwoStepTrainingStrategy
-from .pod_strategy import PODTrainingStrategy
+from .pod_strategy import PODStrategy
+from .vanilla_training import VanillaStrategy
+from .two_step_training import TwoStepStrategy

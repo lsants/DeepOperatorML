@@ -1,12 +1,14 @@
-from .base import Trunk
-from .trunk_factory import TrunkRegistry
-from ..config import ComponentConfig
-from .base import Trunk
+import torch
+from ..registry import ComponentRegistry
 
-@TrunkRegistry.register("pod_trunk")
-class PODTrunk(Trunk):
-    def __init__(self, config: ComponentConfig):
-        self.basis = self._compute_pod_basis(var_share=config.params['var_share'])
 
-    def _compute_pod_basis(self, var_share: float):
-        pass
+@ComponentRegistry.register(component_type='pod')
+class PODTrunk(torch.nn.Module):
+    """Precomputed POD basis trunk"""
+
+    def __init__(self, modes: torch.Tensor, input_dim: int):
+        super().__init__()
+        self.register_buffer('modes', modes)  # [input_dim, num_modes]
+
+    def forward(self, x):
+        return x @ self.modes
