@@ -4,7 +4,7 @@ import logging
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib import _pylab_helpers
-from ..data_processing.scaling import Scaling
+from ..model.components.rescaling.rescaler import Rescaler
 from ..data_processing import data_loader as dtl
 from matplotlib.patches import ConnectionPatch
 from mpl_toolkits.axes_grid1.inset_locator import inset_axes, mark_inset

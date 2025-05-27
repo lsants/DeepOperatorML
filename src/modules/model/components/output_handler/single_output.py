@@ -26,5 +26,4 @@ class SingleOutputHandler(OutputHandler):
         pass
 
     def combine(self, branch_out: torch.Tensor, trunk_out: torch.Tensor) -> torch.Tensor:
-        print(branch_out.shape, trunk_out.shape)
         return torch.einsum('ai,bi->ab', branch_out, trunk_out)

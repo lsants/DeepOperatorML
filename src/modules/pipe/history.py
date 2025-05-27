@@ -12,12 +12,23 @@ class HistoryStorer:
             for phase in phases
         }
 
+    def add_phase(self, phase: str):
+        """Dynamic phase addition"""
+        if phase not in self.history:
+            self.history[phase] = {
+                'train_loss': [], 
+                'train_errors': [], 
+                'val_loss': [], 
+                'val_errors': [],
+                'learning_rate': []
+            }
+
     def store_epoch_train_loss(self, phase: str, loss: float) -> None:
         if phase not in self.history:
             raise ValueError(f"Unknown phase: {phase}")
         self.history[phase]['train_loss'].append(loss)
 
-    def store_epoch_train_errors(self, phase: str, errors) -> None:
+    def store_epoch_train_errors(self, phase: str, errors: dict[str, float]) -> None:
         if phase not in self.history:
             raise ValueError(f"Unknown phase: {phase}")
         self.history[phase]['train_errors'].append(errors)
@@ -27,7 +38,7 @@ class HistoryStorer:
             raise ValueError(f"Unknown phase: {phase}")
         self.history[phase]['val_loss'].append(loss)
 
-    def store_epoch_val_errors(self, phase: str, errors) -> None:
+    def store_epoch_val_errors(self, phase: str, errors: dict[str, float]) -> None:
         if phase not in self.history:
             raise ValueError(f"Unknown phase: {phase}")
         self.history[phase]['val_errors'].append(errors)

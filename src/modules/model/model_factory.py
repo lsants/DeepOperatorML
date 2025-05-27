@@ -1,8 +1,11 @@
 from __future__ import annotations
+import dataclasses
 import logging
 from copy import deepcopy
+from dataclasses import fields, is_dataclass
 from .config import ModelConfig
 from .deeponet import DeepONet
+from typing import TYPE_CHECKING, Any
 from .components.component_factory import TrunkFactory
 from .components.component_factory import BranchFactory
 from ...exceptions import ConfigValidationError
@@ -14,39 +17,42 @@ from .components.output_handler.registry import OutputRegistry
 from .training_strategies.vanilla_training import VanillaStrategy
 from .training_strategies.two_step_training import TwoStepStrategy
 from .training_strategies.pod_strategy import PODStrategy
-from .training_strategies.base import StrategyConfig
+from .training_strategies.config import StrategyConfig, VanillaConfig, PODConfig, TwoStepConfig
+# if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
 class ModelFactory:
     @classmethod
-    def create_for_training(cls, config: ModelConfig) -> DeepONet:
+    def create_for_training(cls, config: ModelConfig) -> tuple[DeepONet, TrainingStrategy]:
         # 1. Clone config to prevent mutation of original
-        train_config = deepcopy(config)
+        model_config = deepcopy(config)
         
         # 2. Instantiate strategy
-        strategy = cls._create_strategy(config=train_config.strategy)
-        strategy.prepare_components(train_config)
+        strategy = cls._create_strategy(config=dataclasses.asdict(model_config))
+        strategy.prepare_components(model_config)
 
         # 3. Output handler adjusts dimensions (e.g., trunk.output_dim *= channels)
-        output_handler = OutputRegistry.create(train_config.output)
-        output_handler.adjust_dimensions(train_config)  # (2) Modifies numeric fields
+        output_handler = OutputRegistry.create(model_config.output)
+        output_handler.adjust_dimensions(model_config)  # (2) Modifies numeric fields
         
         # 4. Validate config post-adjustments
-        BranchConfigValidator.validate(train_config.branch)
-        TrunkConfigValidator.validate(train_config.trunk)
+        BranchConfigValidator.validate(model_config.branch)
+        TrunkConfigValidator.validate(model_config.trunk)
         
         # 5. Build components with finalized dimensions
-        branch = BranchFactory.build(train_config.branch)
-        trunk = TrunkFactory.build(train_config.trunk)
+        branch = BranchFactory.build(model_config.branch)
+        trunk = TrunkFactory.build(model_config.trunk)
         
         # 6. Assemble with strategy-aware components
-        return DeepONet(
-            branch=branch,
-            trunk=trunk,
-            output_handler=output_handler,
-            rescaler=Rescaler(train_config.rescaling)
-        )
+        return (DeepONet(
+                        branch=branch,
+                        trunk=trunk,
+                        output_handler=output_handler,
+                        rescaler=Rescaler(model_config.rescaling)
+                    ),
+                strategy
+                )
 
     @classmethod
     def create_for_inference(cls, saved_config: ModelConfig) -> DeepONet:
@@ -93,14 +99,25 @@ class ModelFactory:
             raise ConfigValidationError(
                 "Inference config must retain output handler basis adjustment"
             )
-        
     @classmethod
-    def _create_strategy(cls, config: StrategyConfig) -> TrainingStrategy:
+    def _create_strategy(cls, config: dict) -> TrainingStrategy:
         strategy_map = {
-            "vanilla": (VanillaStrategy, StrategyConfig),
-            "two_step": (TwoStepStrategy, StrategyConfig),
-            "pod": (PODStrategy, StrategyConfig)
+            "vanilla": (VanillaStrategy, VanillaConfig),
+            "pod": (PODStrategy, PODConfig),
+            "two_step": (TwoStepStrategy, TwoStepConfig)
         }
-        strategy_class, config_class = strategy_map[config.name]
-        validated_config = config_class(**config.__dict__)
+        
+        strategy_name = config['strategy']['name']
+        strategy_class, config_class = strategy_map[strategy_name]
+        
+        # Get valid fields for the target config class
+        valid_fields = {f.name for f in fields(config_class)}
+        
+        # Filter input config to only include valid fields
+        filtered_config = {k: v for k, v in config["strategy"].items() if k in valid_fields}
+
+
+        # Instantiate strategy-specific config
+        validated_config = config_class(**filtered_config)
+
         return strategy_class(validated_config)

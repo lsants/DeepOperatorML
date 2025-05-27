@@ -96,7 +96,7 @@ class Saver:
 
     def save_history(
         self,
-        file_path: str,
+        file_path: str | Path,
         history: Dict[str, Any]
     ) -> None:
         """Save training history or metrics to a YAML or TXT file."""
@@ -108,7 +108,7 @@ class Saver:
 
     def save_plots(
         self,
-        file_path: str,
+        file_path: str | Path,
         figure: plt.Figure
     ) -> None:
         """Save a matplotlib figure to an image file."""
@@ -132,7 +132,7 @@ class Saver:
         if self.full_logging:
             self.logger.info(f"Time information saved to: {file_path}")
 
-    def save_metrics(self, file_path: str, metrics: dict[str, any]) -> None:
+    def save_metrics(self, file_path: str, metrics: dict[str, Any]) -> None:
         """Save metrics to a YAML or TXT file."""
         serializable = self._make_serializable(metrics)
         with open(file_path, 'w') as f:

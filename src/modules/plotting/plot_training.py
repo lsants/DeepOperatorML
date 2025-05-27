@@ -1,130 +1,163 @@
+from __future__ import annotations
+
+"""Utility helpers to visualise *TrainingLoop* histories.
+
+Both helpers are robust to missing validation data or multi‑output error
+metrics (e.g. ``{"real": …, "imag": …}``).
+"""
+
+from collections import defaultdict
+from typing import Any, Dict, List
+
 import matplotlib.pyplot as plt
-import logging
+import numpy as np
 
-logger = logging.getLogger(__name__)
+# ---------------------------------------------------------------------------
+# Alignment helper
+# ---------------------------------------------------------------------------
 
-def align_epochs(history):
+def _pad(seq: List[Any], n: int, pad_val: Any = np.nan) -> List[Any]:
+    """Right‑pad *seq* to length *n* with *pad_val*."""
+    return seq + [pad_val] * (n - len(seq))
+
+
+def align_epochs(raw_history: Dict[str, Dict[str, list]]) -> Dict[str, Dict[str, Any]]:
+    """Convert raw ``HistoryStorer`` output into an epoch‑aligned structure.
+
+    Returned dict (per phase)::
+        {
+            "epochs": [...],
+            "train_loss": [...],
+            "val_loss": [...],
+            "learning_rate": [...],
+            "train_errors": {key: [...]},
+            "val_errors":   {key: [...]},
+            "output_keys": [...],
+        }
     """
-    Aligns epochs across phases and aggregates metrics for plotting.
+    aligned: Dict[str, Dict[str, Any]] = {}
 
-    Args:
-        history (dict): Training and validation history across phases.
+    for phase, metrics in raw_history.items():
+        train_loss = metrics.get("train_loss", [])
+        val_loss = metrics.get("val_loss", [])
+        lr_hist = metrics.get("learning_rate", [])
+        train_err = metrics.get("train_errors", [])
+        val_err = metrics.get("val_errors", [])
 
-    Returns:
-        dict: Dictionary with per-phase aligned data.
-    """
-    aligned_data = {}
+        # Collect all error keys that ever appeared in this phase.
+        keys: set[str] = set()
+        for record in train_err + val_err:
+            if isinstance(record, dict):
+                keys.update(record.keys())
+        output_keys = sorted(keys)
 
-    for phase, metrics in history.items():
-        train_loss = metrics.get('train_loss', [])
-        val_loss = metrics.get('val_loss', [])
-        train_errors = metrics.get('train_errors', [])
-        val_errors = metrics.get('val_errors', [])
-        learning_rate = metrics.get('learning_rate', [])
-        
-        if train_errors and isinstance(train_errors[0], dict):
-            output_keys = list(train_errors[0].keys())
-        else:
-            output_keys = []
+        # Build aligned per‑key lists, filling missing entries with nan.
+        train_err_aligned: Dict[str, List[float]] = defaultdict(list)
+        val_err_aligned: Dict[str, List[float]] = defaultdict(list)
 
-        aligned_train_errors = {}
-        aligned_val_errors = {}
-        for key in output_keys:
-            aligned_train_errors[key] = [e.get(key) for e in train_errors if isinstance(e, dict)]
-            aligned_val_errors[key] = [e.get(key) for e in val_errors if isinstance(e, dict)]
+        for record in train_err:
+            for k in output_keys:
+                val = record.get(k) if isinstance(record, dict) else record
+                train_err_aligned[k].append(val if val is not None else np.nan)
+        for record in val_err:
+            for k in output_keys:
+                val = record.get(k) if isinstance(record, dict) else record
+                val_err_aligned[k].append(val if val is not None else np.nan)
 
-        n_epochs = max(len(train_loss), len(val_loss))
+        # Determine maximum epoch count across all series.
+        n_epochs = max(
+            len(train_loss),
+            len(val_loss),
+            len(lr_hist),
+            max((len(v) for v in train_err_aligned.values()), default=0),
+            max((len(v) for v in val_err_aligned.values()), default=0),
+        )
         epochs = list(range(n_epochs))
 
-        def extend_list(lst):
-            return lst + [None] * (n_epochs - len(lst))
+        # Pad lists to common length and replace None with nan.
+        train_loss = _pad([np.nan if v is None else v for v in train_loss], n_epochs)
+        val_loss = _pad([np.nan if v is None else v for v in val_loss], n_epochs)
+        lr_hist = _pad([np.nan if v is None else v for v in lr_hist], n_epochs)
+        for k in output_keys:
+            train_err_aligned[k] = _pad(train_err_aligned[k], n_epochs)
+            val_err_aligned[k] = _pad(val_err_aligned[k], n_epochs)
 
-        train_loss = extend_list(train_loss)
-        val_loss = extend_list(val_loss)
-        for key in output_keys:
-            aligned_train_errors[key] = extend_list(aligned_train_errors[key])
-            aligned_val_errors[key] = extend_list(aligned_val_errors[key])
-        learning_rate = extend_list(learning_rate)
-
-        aligned_data[phase] = {
-            'epochs': epochs,
-            'train_loss': train_loss,
-            'val_loss': val_loss,
-            'learning_rate': learning_rate,
-            'train_errors': aligned_train_errors,
-            'val_errors': aligned_val_errors,
-            'output_keys': output_keys
+        aligned[phase] = {
+            "epochs": epochs,
+            "train_loss": train_loss,
+            "val_loss": val_loss,
+            "learning_rate": lr_hist,
+            "train_errors": train_err_aligned,
+            "val_errors": val_err_aligned,
+            "output_keys": output_keys,
         }
 
-    return aligned_data
+    return aligned
 
+# ---------------------------------------------------------------------------
+# Plotting helper
+# ---------------------------------------------------------------------------
 
-def plot_training(history):
+def plot_training(history: Dict[str, Dict[str, list]]) -> plt.Figure:
+    """Plot training curves for each phase.
+
+    Accepts either raw ``HistoryStorer`` dict or the output of
+    :func:`align_epochs`. The function auto‑detects and aligns as needed.
     """
-    Plots training and validation metrics over epochs.
-    
-    For each phase, the first column shows the loss, and each subsequent column shows
-    the error for one output (e.g. real, imaginary, or any other target as defined).
-    
-    Args:
-        history (dict): Training and validation history, as output from align_epochs.
-        
-    Returns:
-        matplotlib.figure.Figure: The resulting figure.
-    """
-    n_phases = len(history)
-    max_outputs = 0
-    for phase, metrics in history.items():
-        max_outputs = max(max_outputs, len(metrics.get('output_keys', [])))
+    # Auto‑align if necessary
+    if "epochs" not in next(iter(history.values())):
+        data = align_epochs(history)
+    else:
+        data = history  # type: ignore[assignment]
 
-    n_cols = 1 + max_outputs
+    n_phases = len(data)
+    max_outputs = max(len(m["output_keys"]) for m in data.values())
+    n_cols = 1 + max_outputs  # first column reserved for loss
 
-    fig, axes = plt.subplots(nrows=n_phases, ncols=n_cols, figsize=(5 * n_cols, 5 * n_phases))
+    fig, axes = plt.subplots(
+        nrows=n_phases,
+        ncols=n_cols,
+        figsize=(4.5 * n_cols, 4.0 * n_phases),
+        squeeze=False,
+    )
 
+    for row, (phase, m) in enumerate(data.items()):
+        epochs = m["epochs"]
+        train_loss = np.asarray(m["train_loss"], dtype=float)
+        val_loss = np.asarray(m["val_loss"], dtype=float)
+        lr_hist = np.asarray(m["learning_rate"], dtype=float)
 
-    if n_phases == 1:
-        axes = [axes]
-
-    for i, (phase, metrics) in enumerate(history.items()):
-        epochs = metrics['epochs']
-        train_loss = metrics['train_loss']
-        val_loss = metrics['val_loss']
-        learning_rate = metrics['learning_rate']
-        output_keys = metrics.get('output_keys', [])
-
-        # ----- Column 0: Loss plot -----
-        ax_loss = axes[i][0] if n_cols > 1 else axes[i]
-        ax_loss.plot(epochs, train_loss, label='Train Loss', color='blue')
-
-        if any(v is not None for v in val_loss):
-            ax_loss.plot(epochs, val_loss, label='Val Loss', color='orange')
-        ax_loss.set_title(f"Phase: {phase} - Loss")
-        ax_loss.set_yscale('log')
+        # ---------------------- Loss column ----------------------
+        ax_loss = axes[row][0]
+        ax_loss.plot(epochs, train_loss, label="Train", lw=1.2)
+        if not np.isnan(val_loss).all():
+            ax_loss.plot(epochs, val_loss, label="Val", lw=1.2)
+        ax_loss.set_title(f"{phase} – Loss")
+        ax_loss.set_yscale("log")
         ax_loss.legend()
 
-        ax_loss_lr = ax_loss.twinx()
-        ax_loss_lr.plot(epochs, learning_rate, label='Learning Rate', color='black', linewidth=0.5)
-        ax_loss_lr.set_ylabel("Learning Rate")
-        ax_loss_lr.set_yscale('log')
+        ax_lr = ax_loss.twinx()
+        ax_lr.plot(epochs, lr_hist, color="black", lw=0.6)
+        ax_lr.set_ylabel("LR")
+        ax_lr.set_yscale("log")
 
-        # ----- Columns 1 and onward: Error plots per output key -----
-        for col, key in enumerate(output_keys, start=1):
-            ax = axes[i][col] if n_cols > 1 else axes[i]
-            train_err = metrics['train_errors'][key]
-            val_err = metrics['val_errors'][key]
-            if any(e is not None for e in train_err):
-                ax.plot(epochs, train_err, label=f"Train Error ({key})", color='blue')
-            if any(e is not None for e in val_err):
-                ax.plot(epochs, val_err, label=f"Val Error ({key})", color='orange')
-            ax.set_title(f"Phase: {phase} - Error ({key})")
-            ax.set_yscale('log')
+        # -------------------- Error columns ----------------------
+        for col, key in enumerate(m["output_keys"], start=1):
+            train_err = np.asarray(m["train_errors"][key], dtype=float)
+            val_err = np.asarray(m["val_errors"][key], dtype=float)
+
+            ax = axes[row][col]
+            if not np.isnan(train_err).all():
+                ax.plot(epochs, train_err, label="Train", lw=1.2)
+            if not np.isnan(val_err).all():
+                ax.plot(epochs, val_err, label="Val", lw=1.2)
+            ax.set_title(f"{phase} – {key} error")
+            ax.set_yscale("log")
             ax.legend()
 
-            ax_lr = ax.twinx()
-            ax_lr.plot(epochs, learning_rate, label='Learning Rate', color='black', linewidth=0.5)
-            ax_lr.set_ylabel("Learning Rate")
-            ax_lr.set_yscale('log')
-
+            ax_lr2 = ax.twinx()
+            ax_lr2.plot(epochs, lr_hist, color="black", lw=0.6)
+            ax_lr2.set_yscale("log")
 
     fig.tight_layout()
     return fig

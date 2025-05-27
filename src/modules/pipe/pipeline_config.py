@@ -1,9 +1,10 @@
 from __future__ import annotations
 import os
+import torch
 import yaml
 import numpy as np
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 from datetime import datetime
 from dataclasses import dataclass
 from ..model.nn.activation_functions.activation_fns import ACTIVATION_MAP
@@ -16,8 +17,8 @@ from ..data_processing.config import ComponentTransformConfig, TransformConfig
 from ..model.components.branch.config import BranchConfig
 from ..model.components.trunk.config import TrunkConfig
 # from ..model.output_handler.rescaling import Rescaling
-from ..model.training_strategies.base import StrategyConfig
-from ..model.optimization.optimizers.config import OptimizerConfig, OptimizerPhaseConfig
+from ..model.training_strategies.config import StrategyConfig
+from ..model.optimization.optimizers.config import OptimizerConfig, OptimizerSpec
 
 @dataclass
 class DataConfig:
@@ -32,6 +33,7 @@ class DataConfig:
     data: Dict[str, np.ndarray]# From data.npz
     split_indices: Dict[str, np.ndarray]  # From split_indices.npz
     scalers: Dict[str, np.ndarray]        # From scalers.npz
+    pod_computed_data: Optional[np.ndarray] = None      # From pod_data.npz
 
     @classmethod
     def from_experiment_config(cls, problem: str, exp_cfg: Dict):
@@ -39,8 +41,9 @@ class DataConfig:
             f"data/processed/{problem}_{exp_cfg['dataset_version']}"
         )
         # Validate critical files
-        required_files = ['metadata.yaml', 'data.npz', 
-                         'split_indices.npz', 'scalers.npz']
+        required_files = ['metadata.yaml', 'data.npz', # Add pod data here
+                         'split_indices.npz', 'scalers.npz', # 'pod_data.npz'
+                         ]
         for f in required_files:
             if not (dataset_path / f).exists():
                 raise FileNotFoundError(f"Missing {f} in {dataset_path}")
@@ -59,23 +62,23 @@ class DataConfig:
             shapes=metadata['SHAPES'],
             data=dict(np.load(dataset_path / "data.npz")),
             split_indices=dict(np.load(dataset_path / "split_indices.npz")),
-            scalers=dict(np.load(dataset_path / "scalers.npz"))
+            scalers=dict(np.load(dataset_path / "scalers.npz")),
+            pod_computed_data=None
         )
 
 @dataclass
 class TrainConfig:
     """Aggregate training configuration."""
     precision: str
-    device: str
+    device: str | torch.device
+    seed: int
+    epochs: int
     branch_batch_size: int
     trunk_batch_size: int
     model: ModelConfig
     transforms: TransformConfig
-    strategy: StrategyConfig
-    optimizers: OptimizerConfig  # Phase-keyed
-    loss_function: str
+    strategy: dict
     rescaling: dict
-    global_optimizer_schedule: list[OptimizerPhaseConfig]
 
     @classmethod
     def from_config_files(cls, exp_cfg_path: str, train_cfg_path: str, data_cfg: DataConfig):
@@ -86,14 +89,17 @@ class TrainConfig:
             train_cfg = yaml.safe_load(f)
 
         branch_config = BranchConfig(**train_cfg["branch"])
-        branch_config.activation = ACTIVATION_MAP[branch_config.activation.lower()]
+        if branch_config.activation is not None:
+            branch_config.activation = ACTIVATION_MAP[branch_config.activation.lower()]
         branch_config.input_dim = data_cfg.shapes[data_cfg.features[0]][1]
         branch_config.output_dim = train_cfg["num_basis_functions"]
         
         trunk_config = TrunkConfig(**train_cfg["trunk"])
-        trunk_config.activation = ACTIVATION_MAP[trunk_config.activation.lower()]
+        if trunk_config.activation is not None:
+            trunk_config.activation = ACTIVATION_MAP[trunk_config.activation.lower()]
         trunk_config.input_dim = data_cfg.shapes[data_cfg.features[1]][1]
         trunk_config.output_dim = train_cfg["num_basis_functions"]
+
         output_config = OutputConfig(
             handler_type=train_cfg["output_handling"],
             num_channels=len(data_cfg.targets)
@@ -102,16 +108,25 @@ class TrainConfig:
             num_basis_functions=train_cfg["num_basis_functions"],
             exponent=train_cfg["rescaling"]["exponent"],
         )
-        strategy_config = StrategyConfig(name=train_cfg['training_strategy'],
-                                        basis_functions=train_cfg["num_basis_functions"],
-                                        num_pod_modes=train_cfg["num_pod_modes"],
-                                        # pod_basis=train_cfg["pod_basis"],
-                                        two_step_branch_epochs=train_cfg["branch_epochs"],
-                                        two_step_trunk_epochs=train_cfg["trunk_epochs"],
-                                        decomposition_type=train_cfg["decomposition_type"],
-                                        global_schedule=train_cfg["global_optimizer_schedule"],
-                                        two_step_phase_optimizers=train_cfg["two_step_optimizer_schedule"]
-                                        )
+        one_step_optimizer = [
+            OptimizerSpec(**params)
+            for params in train_cfg['optimizer_schedule']
+        ]   
+        multi_step_optimizer = {
+            phase: [OptimizerSpec(**p) for p in phases]
+            for phase, phases in train_cfg.get("two_step_optimizer_schedule", {}).items()
+        }
+
+        strategy_config = {
+            'name': train_cfg['training_strategy'],
+            'error': train_cfg['error'],
+            'loss': train_cfg['loss_function'],
+            'optimizer_scheduler': one_step_optimizer,
+            'num_pod_modes': train_cfg['num_pod_modes'],
+            'precomputed_pod_basis': np.arange(3000).reshape(100, 30), # should actually be data_cfg['pre_computed_pod_modes] or something
+            'two_step_optimizer_scheduler': multi_step_optimizer,
+            'decomposition_type': train_cfg['decomposition_type']
+        }
 
         # Build sub-configurations
         model_config = ModelConfig(
@@ -119,57 +134,31 @@ class TrainConfig:
             trunk=trunk_config,
             output=output_config,
             rescaling=rescaling_config,
-            strategy=strategy_config
+            strategy=strategy_config # type: ignore
         )
-        branch_normalization = train_cfg["transforms"]["branch"]['normalization']
-        branch_expansions = train_cfg["transforms"]["branch"]['feature_expansion']
-        trunk_normalization = train_cfg["transforms"]["trunk"]['normalization']
-        trunk_expansions = train_cfg["transforms"]["trunk"]['feature_expansion']
 
-        transform_config = TransformConfig(branch=ComponentTransformConfig(normalization=branch_normalization \
-                                                                           if branch_normalization else None,
-                                                                            feature_expansion=FeatureExpansionConfig(type=branch_expansions['type'],
-                                                                                                                     size=branch_expansions['size'],
-                                                                                                                     original_dim=branch_config.input_dim) \
-                                                                                                                        if branch_expansions else None,
-                            ),                                  
-                                         trunk=ComponentTransformConfig(normalization=trunk_normalization \
-                                                                        if trunk_normalization else None,
-                                                                            feature_expansion=FeatureExpansionConfig(type=trunk_expansions['type'],
-                                                                                                                     size=trunk_expansions['size'],
-                                                                                                                      original_dim=trunk_config.input_dim) \
-                                                                                                                        if trunk_expansions else None,
-                            )
-        )
-        transform_config.device = exp_cfg["device"]
-        transform_config.dtype = exp_cfg["precision"]
+        device = torch.device(exp_cfg["device"])
+        dtype = getattr(torch, exp_cfg["precision"])
 
-        global_optimizers = [
-            OptimizerPhaseConfig(**params)
-            for params in train_cfg['global_optimizer_schedule']
-        ]   
-        phase_optimizers = {
-            phase: [OptimizerPhaseConfig(**p) for p in phases]
-            for phase, phases in train_cfg.get("phase_optimizer_schedule", {}).items()
-        }
-
-        optimizer_config = OptimizerConfig(
-            global_schedule=global_optimizers,
-            phase_specific=phase_optimizers
+        transform_config = TransformConfig.from_train_config(
+                branch_transforms=train_cfg["transforms"]["branch"],
+                trunk_transforms=train_cfg["transforms"]["trunk"],
+                target_transforms=train_cfg["transforms"]["target"]["normalization"],
+                device=device,
+                dtype=dtype
         )
 
         return cls(
-            precision=exp_cfg["precision"],
-            device=exp_cfg["device"],
+            precision=dtype,
+            device=device,
+            seed=train_cfg['seed'],
+            epochs=train_cfg['epochs'],
             branch_batch_size=train_cfg["branch_batch_size"],   
             trunk_batch_size=train_cfg["trunk_batch_size"],   
             model=model_config,
             transforms=transform_config,
             strategy=strategy_config,
-            optimizers=optimizer_config,
-            global_optimizer_schedule=global_optimizers,
-            loss_function = train_cfg['loss_function'],
-            rescaling=train_cfg['rescaling']
+            rescaling=train_cfg['rescaling'],
         )
 
 @dataclass
@@ -200,7 +189,7 @@ class ConfigValidator:
 class TestConfig:
     """Aggregate testing configuration."""
     precision: str
-    device: str
+    device: str | torch.device
     output_path: Path
     experiment_version: str
     @classmethod
@@ -214,12 +203,11 @@ class ExperimentConfig:
     """Aggregate configuration for the experiment."""
     problem: str
     dataset_version: str
-    device: str
+    device: str | torch.device
     precision: str
     model: ModelConfig
     transforms: TransformConfig
     strategy: StrategyConfig
-    optimizers: OptimizerConfig
 
     @classmethod
     def from_dataclasses(cls, data_cfg: DataConfig, train_cfg: TrainConfig):
@@ -230,8 +218,7 @@ class ExperimentConfig:
             precision=train_cfg.precision,
             model=train_cfg.model,
             transforms=train_cfg.transforms,
-            strategy=train_cfg.strategy,
-            optimizers=train_cfg.optimizers
+            strategy=train_cfg.strategy, # type: ignore
         )
     
 @dataclass
@@ -249,15 +236,16 @@ class PathConfig:
     def from_data_config(cls, data_cfg: DataConfig):
         processed_outputs_path = Path(data_cfg.raw_outputs_path)
         experiment_name = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+        outputs_path = processed_outputs_path / data_cfg.problem / experiment_name
         return cls(
-            outputs_path=processed_outputs_path / data_cfg.problem / experiment_name,
-            checkpoints_path=processed_outputs_path / "checkpoints",
-            auxiliary_data_path=processed_outputs_path / 'aux',
-            model_info_path=processed_outputs_path / 'config.yaml',
-            dataset_indices_path=processed_outputs_path / 'aux' / 'split_indices.yaml',
-            norm_params_path=processed_outputs_path / 'aux' / 'norm_params.yaml',
-            metrics_path=processed_outputs_path / 'metrics',
-            plots_path=processed_outputs_path / 'plots'
+            outputs_path=outputs_path,
+            checkpoints_path=outputs_path / "checkpoints",
+            auxiliary_data_path=outputs_path / 'aux',
+            model_info_path=outputs_path / 'config.yaml',
+            dataset_indices_path=outputs_path / 'aux' / 'split_indices.yaml',
+            norm_params_path=outputs_path / 'aux' / 'norm_params.yaml',
+            metrics_path=outputs_path / 'metrics',
+            plots_path=outputs_path / 'plots'
         )
     
     @classmethod

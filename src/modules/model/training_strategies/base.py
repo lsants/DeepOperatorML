@@ -1,60 +1,109 @@
 from __future__ import annotations
 import torch
 from abc import ABC, abstractmethod
-from dataclasses import dataclass
-from typing import TYPE_CHECKING, Optional, List, Dict
+from collections.abc import Callable
+from typing import TYPE_CHECKING, Optional, List, Dict, Any
+from ..optimization.loss_functions.get_loss_function import get_loss_function
+from ...utilities.metrics.errors import ERROR_METRICS
 if TYPE_CHECKING:
     from ...model.deeponet import DeepONet
     from ..config import ModelConfig
-
-@dataclass
-class StrategyConfig:
-    # Common to ALL strategies
-    name: str  # "vanilla", "pod", "two_step"
-    basis_functions: int
-    
-    # POD-specific (only used when name="pod")
-    num_pod_modes: Optional[float] = None
-    pod_basis: Optional[torch.Tensor] = None
-    pod_means: Optional[torch.Tensor] = None
-    
-    # TwoStep-specific (only used when name="two_step")
-    two_step_phase_optimizers: Optional[Dict[str, List[dict]]] = None
-    two_step_trunk_epochs: Optional[int] = None
-    two_step_branch_epochs: Optional[int] = None
-    decomposition_type: Optional[str] = None
-    
-    # Vanilla-specific
-    global_schedule: Optional[List[dict]] = None
-
-    def __post_init__(self):
-        self._validate()
-
-    def _validate(self):
-        """Enforce strategy-specific parameter requirements"""
-
-        if self.name == "two_step":
-            if not self.two_step_phase_optimizers:
-                raise ValueError("TwoStep requires phase_optimizers")
-            if not self.two_step_trunk_epochs:
-                raise ValueError("TwoStep requires trunk_epochs")
-
-        elif self.name == "vanilla":
-            if not self.global_schedule:
-                raise ValueError("Vanilla requires global_schedule")
+    from .config import StrategyConfig
 
 class TrainingStrategy(ABC):
     def __init__(self, config: StrategyConfig):
         self.config = config
+        self.error_metric = ERROR_METRICS[config.error.lower()]
+        self.loss = self.get_criterion()
     
     @abstractmethod
-    def prepare_components(self, model_config: ModelConfig): ...
+    def prepare_components(self, model_config: ModelConfig): 
+        """Modifies the components configuration for the strategy before model initialization.
+        """
+        pass
 
     @abstractmethod
-    def setup_training(self, model: DeepONet): ...
+    def get_phases(self) -> List[str]:
+        """Return phase names (e.g., ['phase1', 'phase2'])"""
+        pass
+
+    @abstractmethod
+    def apply_gradient_constraints(self, model: DeepONet):
+        """Optional gradient clipping/normalization"""
+        pass
+
+    def state_dict(self) -> Dict:
+        """Strategy-specific state for checkpoints"""
+        return {}
+
+    @abstractmethod
+    def setup_training(self, model: DeepONet):
+        """Initialize optimizer based on the strategy.
+        """
+        pass
+
+    @abstractmethod
+    def get_train_schedule(self) -> List[tuple[int, torch.optim.Optimizer, torch.optim.lr_scheduler._LRScheduler | None]]:
+        """Returns the training schedule for the strategy.
+        Each tuple contains (epochs, optimizer, scheduler).
+        """
+        pass
+
+    @abstractmethod
+    def check_phase_transition(self, epoch: int) -> bool:
+        """Check if the model should transition to a new training phase.
+        Returns True if a transition is needed, False otherwise.
+        """
+        pass
     
     @abstractmethod
-    def check_phase_transition(self, model: DeepONet, epoch: int) -> bool: ...
-    
+    def execute_phase_transition(self, model: DeepONet, full_trunk_batch: Optional[torch.Tensor] = None):
+        """Perform the actual phase transition, such as decomposing the trunk or updating components.
+        This should only be called if check_phase_transition returned True.
+        """
+        pass
+
     @abstractmethod
-    def execute_phase_transition(self, model: DeepONet): ...
+    def get_optimizer_scheduler(self):...
+
+    def get_criterion(self) -> Callable[[torch.Tensor, torch.Tensor], torch.Tensor]:
+        """Default implementation using strategy's config"""
+        return get_loss_function(name=self.config.loss)
+
+    @abstractmethod
+    def validation_enabled(self) -> bool:
+        """Whether to use validation set during training"""
+        pass
+
+
+    @abstractmethod
+    def strategy_specific_metrics(self, y_true: torch.Tensor,
+                                  y_pred: torch.Tensor) -> dict[str, float]:
+        """Strategy-specific metrics to be computed during training"""
+        pass
+
+    def compute_loss(self, model: DeepONet,
+                     x_branch: torch.Tensor,
+                     x_trunk: torch.Tensor,
+                     y_true: torch.Tensor) -> tuple[torch.Tensor, ...]:
+        """Computes the loss for the given model and data"""
+        y_pred = model(x_branch, x_trunk)
+        loss = self.loss(y_pred, y_true)
+        return y_pred, loss
+
+    def calculate_metrics(self, y_true: torch.Tensor, 
+                        y_pred: torch.Tensor, loss: float,
+                        train: bool) -> Dict[str, float]:
+        """Combines base and strategy-specific metrics"""
+        metrics = self.base_metrics(y_true, y_pred, loss)
+        metrics.update(self.strategy_specific_metrics(y_true, y_pred))
+        return metrics    
+    
+    def base_metrics(self, y_true: torch.Tensor, y_pred: torch.Tensor, loss: float) -> Dict[str, float]:
+        """Common metrics for all strategies"""
+        with torch.no_grad():
+            error = self.error_metric(y_pred - y_true).item()
+        return {
+            'loss': loss,
+            'error': error
+        }

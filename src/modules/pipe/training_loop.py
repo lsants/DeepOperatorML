@@ -1,280 +1,293 @@
 from __future__ import annotations
-import os
-import time
+
 import torch
 import logging
-from tqdm.auto import tqdm
-from typing import Any
-from .store_outputs import HistoryStorer
+from collections import defaultdict
+from pathlib import Path
+from typing import Dict, List, Optional, Tuple
+from torch.utils.data import DataLoader
+from .history import HistoryStorer
+from ..model.training_strategies.base import TrainingStrategy
 from ..model.deeponet import DeepONet
-from ..plotting.plot_training import plot_training, align_epochs
-from ..model.training_strategies.helpers import OptimizerSchedulerManager
-from ..model.training_strategies import (
-    TrainingStrategy,
-    StandardTrainingStrategy,
-    TwoStepTrainingStrategy,
-    PODTrainingStrategy
-)
 
 logger = logging.getLogger(__name__)
 
 
 class TrainingLoop:
-    def __init__(self, model: DeepONet, training_params: dict) -> None:
-        """
-        Initializes the TrainingLoop.
+    """Strategy‑aware training driver for *DeepONet*.
 
-        Args:
-            model (torch.nn.Module): The model to train.
-            training_strategy (TrainingStrategy): The training strategy to use.
-            saver (Saver): The saver for saving models and outputs.
-            training_params (dict): Training parameters.
-        """
-        self.model = model
-        self.training_strategy = model.training_strategy
-        self.training_params = training_params
-        if hasattr(self.training_strategy, "get_phases"):
-            self.phases = self.training_strategy.get_phases()  # type: ignore
-        else:
-            self.phases = [training_params["TRAINING_STRATEGY"].capitalize()]
-        self.storer = HistoryStorer(phases=self.phases)
-        self.training_strategy.prepare_for_training(
-            model=self.model, training_params=self.training_params)
-        self.optimizer_manager = OptimizerSchedulerManager(
-            model_config=self.training_params, model=self.model)
+    The loop itself is deliberately thin: it orchestrates epochs, delegates
+    all model‑specific behaviour to the provided ``TrainingStrategy`` and keeps
+    a clean metric history through ``HistoryStorer``.
+    """
 
-    def train(self, train_dataloader: dict[str, torch.Tensor], val_dataloader: dict[str, torch.Tensor] | None = None) -> dict:
-        """
-        Executes the training loop. The configuration (via training_params) defines the pipeline:
-         - TRAINING_PHASES: list of phase names (e.g., ["trunk", "branch"] for two-step; ["final"] for single-phase).
+    # ---------------------------------------------------------------------
+    # Construction helpers
+    # ---------------------------------------------------------------------
+    def __init__(
+        self,
+        model: DeepONet,
+        strategy: TrainingStrategy,
+        train_loader: DataLoader,
+        val_loader: Optional[DataLoader] = None,
+        device: str | torch.device = "cpu",
+        checkpoint_dir: str | Path = "checkpoints",
+    ) -> None:
+        # Core references --------------------------------------------------
+        self.device: torch.device = torch.device(device)
+        self.model: DeepONet = model.to(self.device)
+        self.strategy: TrainingStrategy = strategy
+        self.train_loader: DataLoader = train_loader
+        self.val_loader: Optional[DataLoader] = val_loader
 
-        The loop iterates over phases, and for each phase:
-         - Notifies the training strategy of the current phase.
-         - Iterates for the given number of epochs, calling:
-           * The model’s forward pass.
-           * The training strategy’s loss and error computations.
-           * Optimizer steps and scheduler updates.
-         - Logs metrics via HistoryStorer.
-        """
+        # Let strategy freeze layers / register hooks / etc.
+        self.strategy.setup_training(self.model)
 
-        if isinstance(self.training_strategy, TwoStepTrainingStrategy):
-            epochs_list = [self.training_params["TRUNK_TRAIN_EPOCHS"],
-                           self.training_params["BRANCH_TRAIN_EPOCHS"]]
-        else:
-            epochs_list = [self.training_params["EPOCHS"]]
+        # Optimisation schedule [(n_epochs, optimiser, scheduler?), ...]
+        self.optimizer_specs: List[
+            Tuple[int, torch.optim.Optimizer, Optional[torch.optim.lr_scheduler._LRScheduler]]
+        ] = self.strategy.get_train_schedule()
+        if not self.optimizer_specs:
+            raise ValueError("Strategy produced an empty training schedule.")
 
-        if len(self.phases) != len(epochs_list):
-            raise ValueError(
-                "List of epochs don't match number of training phases.")
+        # Phase bookkeeping -----------------------------------------------
+        self.phases: List[str] = self.strategy.get_phases()
+        self.current_phase: int = 1  # 1‑indexed for readability
+        self.current_spec_idx: int = 0
+        self.epochs_in_current_spec: int = 0
+        self._init_current_optimizer()
 
-        best_model_checkpoint = None
+        # History + checkpoints -------------------------------------------
+        self.history = HistoryStorer(phases=self.phases)
+        self.checkpoint_dir = Path(checkpoint_dir)
+        self.checkpoint_dir.mkdir(parents=True, exist_ok=True)
 
-        phase_count = -1
+    # ------------------------------------------------------------------ private
+    def _init_current_optimizer(self) -> None:
+        epochs, opt, sch = self.optimizer_specs[self.current_spec_idx]
+        self.epochs_per_spec: int = epochs
+        self.optimizer: torch.optim.Optimizer = opt
+        self.scheduler: Optional[torch.optim.lr_scheduler._LRScheduler] = sch
 
-        for phase_idx, phase in enumerate(self.phases):
-            phase_epochs = epochs_list[phase_idx]
-            logger.info(f"Starting phase '{phase}' for {phase_epochs} epochs.")
+        # Ensure optimiser params reside on correct device
+        for group in self.optimizer.param_groups:
+            for p in group["params"]:
+                p.data = p.data.to(self.device)
+                if p.grad is not None:
+                    p.grad = p.grad.to(self.device)
 
-            self.training_strategy.update_training_phase(phase)
-            self.training_strategy.prepare_for_phase(self.model,
-                                                     training_params=self.training_params,
-                                                     train_batch=bt.prepare_batch(
-                                                         train_batch,
-                                                         self.training_params)
-                                                     )
+        logger.debug(
+            "Switched to optimiser spec %d | epochs=%d | lr=%g",
+            self.current_spec_idx,
+            self.epochs_per_spec,
+            self.optimizer.param_groups[0]["lr"],
+        )
 
-            best_train_loss = float('inf')
+    # ----------------------------------------------------------------- training
+    def run(self, total_epochs: int) -> None:
+        for epoch in range(1, total_epochs + 1):
+            # — progression BEFORE epoch —
+            self._handle_spec_progression()
 
-            phase_start = time.time()
-            for epoch in tqdm(range(phase_epochs), desc=f"Phase: {phase}", colour=self.training_params.get("STANDARD_PROGRESS_BAR_COLOR", 'blue')):
-                active_optimizer = self.optimizer_manager.get_active_optimizer(epoch, phase)[
-                    "active"]
-                active_scheduler = self.optimizer_manager.get_active_scheduler(epoch, phase)[
-                    "active"]
+            # ---------------- train ----------------
+            train_metrics = self._run_epoch(train=True)
+            self._store_metrics(train_metrics, train=True)
 
-                batch = bt.prepare_batch(train_batch, self.training_params)
-                outputs = self.model(batch["xb"], batch["xt"])
+            # ---------------- validate --------------
+            val_metrics: Dict[str, float] = {}
+            if self.strategy.validation_enabled() and self.val_loader is not None:
+                val_metrics = self._run_epoch(train=False)
+                self._store_metrics(val_metrics, train=False)
 
-                loss = self.training_strategy.compute_loss(
-                    outputs, batch, self.model, training_params=self.training_params)
-
-                if epoch % 100 == 0 and epoch > 0:
-                    print(f"Loss: {loss:.2E}")
-
-                active_optimizer.zero_grad()
-                loss.backward()
-                active_optimizer.step()
-                if active_scheduler is not None:
-                    self.optimizer_manager.step_scheduler(active_scheduler)
-
-                errors = self.training_strategy.compute_errors(
-                    outputs, batch, self.model, training_params=self.training_params)
-                self.storer.store_epoch_train_loss(phase, loss.item())
-                self.storer.store_epoch_train_errors(phase, errors)
-                self.storer.store_learning_rate(
-                    phase, active_optimizer.param_groups[-1]["lr"])
-
-                self._validate(val_batch, phase)
-
-                model_checkpoint = {
-                    'model_state_dict': self.model.state_dict(),
-                    'optimizer_state_dict': active_optimizer.state_dict(),
-                    'train_loss': loss.item(),
-                    'train_errors': errors,
-                    'epoch': epoch
-                }
-                if isinstance(self.training_strategy, TwoStepTrainingStrategy):
-                    if phase == 'branch':
-                        model_checkpoint['trained_trunk'] = self.model.trunk.trained_tensor
-                if isinstance(self.training_strategy, PODTrainingStrategy):
-                    model_checkpoint['pod_basis'] = self.model.trunk.basis
-                    model_checkpoint['mean_functions'] = self.model.trunk.mean
-
-                if loss.item() < best_train_loss:
-                    best_train_loss = loss
-                    best_model_checkpoint = {
-                        'model_state_dict': self.model.state_dict(),
-                        'optimizer_state_dict': active_optimizer.state_dict(),
-                        'train_loss': best_train_loss,
-                        'train_errors': errors,
-                        'epoch': epoch
-                    }
-                    if isinstance(self.training_strategy, TwoStepTrainingStrategy):
-                        if phase == 'branch':
-                            best_model_checkpoint['trained_trunk'] = self.model.trunk.trained_tensor
-                    if isinstance(self.training_strategy, PODTrainingStrategy):
-                        best_model_checkpoint['pod_basis'] = self.model.trunk.basis
-
-                        best_model_checkpoint['mean_functions'] = self.model.trunk.mean
-                self.training_strategy.after_epoch(
-                    epoch, self.model, self.training_params, train_batch=batch["xt"])
-
-            phase_duration = time.time() - phase_start
-            logger.info(
-                f"Phase '{phase}' completed in {phase_duration:.2f} seconds.")
-
-        phase_count += 1
-
-        trained_model_config = self._finalize_training(
-            phase_count, model_checkpoint, best_model_checkpoint, phase_duration)
-
-        return trained_model_config
-
-    def _validate(self, val_batch: dict[str, torch.Tensor], phase: str) -> dict[float, float] | None:
-        if isinstance(self.training_strategy, TwoStepTrainingStrategy):
-            return
-        self.model.eval()
-        val_batch_processed = bt.prepare_batch(
-            val_batch, training_params=self.training_params)
-        with torch.no_grad():
-            val_outputs = self.model(
-                val_batch_processed['xb'], val_batch_processed['xt'])
-            val_loss = self.training_strategy.compute_loss(
-                val_outputs, val_batch_processed, self.model, training_params=self.training_params)
-            val_errors = self.training_strategy.compute_errors(
-                val_outputs, val_batch_processed, self.model, training_params=self.training_params)
-            print(val_errors['g_u'])
-        self.storer.store_epoch_val_loss(phase, val_loss.item())
-        self.storer.store_epoch_val_errors(phase, val_errors)
-
-    def _log_epoch_metrics(self, epoch: int, train_loss: float, train_errors: dict[str, list[float]], val_metrics: dict[str, list[float]]) -> None:
-        output_errors_str = ", ".join(
-            [f"{key}: {train_errors.get(key, 0):.3E}" for key in self.training_params['OUTPUT_KEYS']])
-        log_msg = f"Epoch {epoch}: Train Loss: {train_loss:.3E}, Train Errors: {output_errors_str}"
-        if val_metrics:
-            val_output_errors_str = ", ".join(
-                [f"{key}: {val_metrics.get('val_error_' + key, 0):.3E}" for key in self.training_params['OUTPUT_KEYS']]
+            # LR bookkeeping
+            self.history.store_learning_rate(
+                phase=self.phases[self.current_phase - 1],
+                learning_rate=self.optimizer.param_groups[0]["lr"],
             )
-            log_msg += f", Val Loss: {val_metrics['val_loss']:.3E}, Val Errors: {val_output_errors_str}"
-        logger.info(log_msg)
 
-    def _finalize_training(self, phase_count: int, final_model_checkpoint: dict, best_model_checkpoint: dict, training_time: float) -> dict[str, Any]:
-        """
-        Finalizes training for the current phase, saving metrics and generating plots.
-        """
-        history = self.storer.get_history()
+            # Strategy hook (early‑stopping, logging, …)
+            if hasattr(self.strategy, "on_epoch_end"):
+                self.strategy.on_epoch_end(  # type: ignore[attr-defined]
+                    epoch=epoch,
+                    model=self.model,
+                    optimizer=self.optimizer,
+                    metrics={"train": train_metrics, "val": val_metrics},
+                )
 
-        valid_history = {phase: metrics for phase,
-                         metrics in history.items() if metrics.get('train_loss')}
+            # Scheduler step
+            if self.scheduler is not None:
+                self.scheduler.step()
 
-        if not valid_history:
-            raise ValueError(
-                "There's no history to save. There's an error somewhere when generating the history.")
+            # Logging ------------------------------------------------------
+            self._log_progress(epoch, train_metrics, val_metrics)
 
-        aligned_history = align_epochs(history=valid_history)
-        fig = plot_training(history=aligned_history)
+            # epoch counter for spec
+            self.epochs_in_current_spec += 1
 
-        if isinstance(self.training_strategy, TwoStepTrainingStrategy):
-            phase = self.phases[phase_count]
+    # --------------------------------------------------------------- core epoch
+    def _run_epoch(self, *, train: bool) -> Dict[str, float]:
+        self.model.train(mode=train)
+        loader: DataLoader = self.train_loader if train else self.val_loader  # type: ignore[assignment]
+        assert loader is not None, "Validation loader requested but not provided."
+
+        aggregated: Dict[str, float] = defaultdict(float)
+        dataset_size = len(loader.dataset[:]['g_u'])  # type: ignore[arg-type]
+
+        context = torch.enable_grad() if train else torch.inference_mode()
+        with context:
+            for batch in loader:
+                x_branch, x_trunk, y_true = self._prepare_batch(batch)
+
+                # Forward + loss
+                y_pred, loss = self.strategy.compute_loss(self.model, x_branch, x_trunk, y_true)
+
+                if train:
+                    self.optimizer.zero_grad(set_to_none=True)
+                    loss.backward()
+                    self.strategy.apply_gradient_constraints(self.model)
+                    self.optimizer.step()
+
+                # Per‑batch metrics
+                batch_metrics = self.strategy.calculate_metrics(
+                    y_true=y_true,
+                    y_pred=y_pred,
+                    loss=loss.item(),
+                    train=train,
+                )
+
+                bs = y_true.shape[0]
+                for k, v in batch_metrics.items():
+                    aggregated[k] += v * bs
+
+        # Normalise
+        return {k: v / dataset_size for k, v in aggregated.items()}
+
+    # ---------------------------------------------------------------- metrics
+    def _store_metrics(self, metrics: Dict[str, float], *, train: bool) -> None:
+        """Persist epoch‑level metrics inside :class:`HistoryStorer`."""
+        if not metrics:
+            return
+        phase = self.phases[self.current_phase - 1]
+
+        # Standard fields --------------------------------------------------
+        if "loss" in metrics:
+            if train:
+                self.history.store_epoch_train_loss(phase, metrics["loss"])
+            else:
+                self.history.store_epoch_val_loss(phase, metrics["loss"])
+        if "error" in metrics:
+            if train:
+                self.history.store_epoch_train_errors(phase, {"error": metrics["error"]})
+            else:
+                self.history.store_epoch_val_errors(phase, {"error": metrics["error"]})
+
+        # Any extra keys are treated as error‑like (extend as needed)
+        for k, v in metrics.items():
+            if k in {"loss", "error"}:
+                continue
+            if train:
+                self.history.store_epoch_train_errors(phase, {k: v})
+            else:
+                self.history.store_epoch_val_errors(phase, {k: v})
+
+    # ---------------------------------------------------------------- batch util
+    def _prepare_batch(
+        self,
+        batch: Tuple[torch.Tensor, torch.Tensor, torch.Tensor] | Dict[str, torch.Tensor],
+    ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+        if isinstance(batch, dict):
+            xb, xt, y = batch["xb"], batch["xt"], batch["g_u"]
         else:
-            phase = ''
+            xb, xt, y = batch  # type: ignore[misc]
 
-        best_epoch = best_model_checkpoint['epoch']
-        final_epoch = final_model_checkpoint['epoch']
-
-        final_checkpoint_path = os.path.join(
-            self.training_params["CHECKPOINTS_PATH"],
-            f'epoch_{final_epoch}.pth'
-        )
-        best_checkpoint_path = os.path.join(
-            self.training_params["CHECKPOINTS_PATH"],
-            f'epoch_{best_epoch}.pth'
-        )
-        best_model_path = os.path.join(self.training_params["CHECKPOINTS_PATH"],
-                                       f'best_model_state.pth'
-                                       )
-        fig_path = os.path.join(self.training_params["PLOTS_PATH"],
-                                f'training_{phase}_plot.png'
-                                )
-        history_path = os.path.join(self.training_params["METRICS_PATH"],
-                                    f'training_{phase}_history.txt'
-                                    )
-        time_path = os.path.join(self.training_params["METRICS_PATH"],
-                                 f'training_{phase}_time.txt'
-                                 )
-
-        self.saver.save_checkpoint(
-            file_path=final_checkpoint_path,
-            model_dict=final_model_checkpoint
-        )
-        self.saver.save_checkpoint(
-            file_path=best_checkpoint_path,
-            model_dict=best_model_checkpoint
+        return (
+            xb.to(self.device, non_blocking=True),
+            xt.to(self.device, non_blocking=True),
+            y.to(self.device, non_blocking=True),
         )
 
-        self.saver.save_model_state(
-            file_path=best_model_path,
-            model_state=best_model_checkpoint['model_state_dict']
+    # -------------------------------------------------------------- progression
+    def _handle_spec_progression(self) -> None:
+        if self.epochs_in_current_spec < self.epochs_per_spec:
+            return
+
+        # Move to next spec within same phase
+        if self.current_spec_idx < len(self.optimizer_specs) - 1:
+            self.current_spec_idx += 1
+            self.epochs_in_current_spec = 0
+            self._init_current_optimizer()
+            return
+
+        # Otherwise trigger phase transition
+        self._handle_phase_transition()
+
+    def _handle_phase_transition(self) -> None:
+        prev_phase_name = self.phases[self.current_phase - 1]
+        logger.info("Phase '%s' completed. Transitioning …", prev_phase_name)
+
+        # Strategy‑specific transition (may mutate model)
+        self.strategy.execute_phase_transition(
+            model=self.model,
+            full_trunk_batch=self._get_full_trunk_batch()  # Provided for POD modes
         )
 
-        self.saver.save_model_info(
-            file_path=self.training_params['MODEL_INFO_PATH'],
-            model_info=self.training_params
-        )
+        # Prepare next phase ----------------------------------------------
+        self.current_phase += 1
+        if self.current_phase > len(self.phases):
+            raise RuntimeError("All phases completed but training asked to continue.")
+        self.history.add_phase(self.phases[self.current_phase - 1])
 
-        self.saver.save_indices(
-            file_path=self.training_params['DATASET_INDICES_PATH'],
-            indices=self.training_params['TRAIN_INDICES']
-        )
+        # Refresh optimisation schedule as strategy may change it
+        self.optimizer_specs = self.strategy.get_train_schedule()
+        self.current_spec_idx = 0
+        self.epochs_in_current_spec = 0
+        self._init_current_optimizer()
 
-        self.saver.save_norm_params(
-            file_path=self.training_params['NORM_PARAMS_PATH'],
-            norm_params=self.training_params['NORMALIZATION_PARAMETERS']
-        )
+        # Checkpoint
+        self._save_checkpoint(f"phase_{prev_phase_name}_end.pt")
 
-        self.saver.save_plots(
-            file_path=fig_path,
-            figure=fig
+    # -------------------------------------------------------------- persistence
+    def _save_checkpoint(self, filename: str) -> None:
+        path = self.checkpoint_dir / filename
+        torch.save(
+            {
+                "model": self.model.state_dict(),
+                "optimizer": self.optimizer.state_dict(),
+                "scheduler": self.scheduler.state_dict() if self.scheduler else None,
+                "strategy": self.strategy.state_dict(),
+                "history": self.history.get_history(),
+                "phase": self.current_phase,
+            },
+            path,
         )
+        logger.info("Saved checkpoint → %s", path)
 
-        self.saver.save_history(
-            file_path=history_path,
-            history=valid_history
+    # --------------------------------------------------------------- utilities
+    def _log_progress(
+        self,
+        epoch: int,
+        train_metrics: Dict[str, float],
+        val_metrics: Dict[str, float],
+    ) -> None:
+        msg = (
+            f"[{self.strategy.get_phases()[self.current_phase - 1]} | Epoch {epoch}] "
+            f"train_loss={train_metrics.get('loss', float('nan')):.4e} "
+            f"train_err={train_metrics.get('error', float('nan')):.4e}"
         )
+        if val_metrics:
+            msg += (
+                # f" | val_loss={val_metrics.get('loss', float('nan')):.4e} "
+                f"val_err={val_metrics.get('error', float('nan')):.4e}"
+            )
+        logger.info(msg)
 
-        self.saver.save_time(
-            file_path=time_path,
-            times=training_time
-        )
+    def _get_full_trunk_batch(self) -> torch.Tensor:
+        xs = []
+        for _, x_trunk, _ in self.train_loader:  # type: ignore[misc]
+            xs.append(x_trunk)
+        return torch.cat(xs, dim=0).to(self.device)
 
-        return self.training_params
+    # ------------------------------------------------------------------- public
+    def get_history(self) -> Dict[str, Dict[str, list]]:
+        """Return accumulated training/validation history."""
+        return self.history.get_history()

@@ -11,8 +11,8 @@ def validate_train_config(cfg: TrainConfig):
     
     # Validate strategy exists
     valid_strategies = ["pod", "two_step", "vanilla"]
-    if cfg.strategy.name not in valid_strategies:
-        raise ValueError(f"Invalid strategy: {cfg.strategy.name}")
+    if cfg.model.strategy.name not in valid_strategies:
+        raise ValueError(f"Invalid strategy: {cfg.model.strategy.name}")
 
 def validate_config_compatibility(
     data_cfg: DataConfig,
@@ -33,8 +33,8 @@ def validate_config_compatibility(
         )
     
     # Strategy-specific rules
-    if train_cfg.strategy.name == 'pod':
-        if train_cfg.transforms.output_normalization != 'none':
+    if train_cfg.model.strategy.name == 'pod':
+        if train_cfg.transforms.target_normalization != 'none':
             raise ValueError("POD requires unnormalized outputs")
         
 
@@ -52,11 +52,11 @@ def validate_normalization(
             raise ValueError("Missing input_std in scalers")
 
     # Output normalization
-    if transform_cfg.output_normalization == 'minmax':
-        if 'output_min' not in data_cfg.scalers:
-            raise ValueError("Missing output_min in scalers")
-        if 'output_max' not in data_cfg.scalers:
-            raise ValueError("Missing output_max in scalers")
+    if transform_cfg.target_normalization == 'minmax':
+        if 'target_min' not in data_cfg.scalers:
+            raise ValueError("Missing target_min in scalers")
+        if 'target_max' not in data_cfg.scalers:
+            raise ValueError("Missing target_max in scalers")
         
         
 def validate_feature_expansion(transform_cfg: TransformConfig, 

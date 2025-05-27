@@ -1,36 +1,33 @@
-from collections.abc import Iterable
+# loss_fns.py
 import torch
 
-def mse_loss(targets: Iterable[torch.Tensor], preds: Iterable[torch.Tensor]) -> torch.Tensor:
-    loss = torch.tensor(0.0)
-    for target, pred in zip(targets, preds):
-         loss = loss.to(dtype=pred.dtype,
-                    device=pred.device)
-         loss += torch.mean((pred - target) ** 2)
-    return loss
+def mse_loss(y_pred: torch.Tensor, y_true: torch.Tensor) -> torch.Tensor:
+    """Handles multi-channel outputs via mean over all dimensions"""
+    return torch.mean((y_pred - y_true) ** 2)
 
-def rmse_loss(targets: Iterable[torch.Tensor], preds: Iterable[torch.Tensor]) -> torch.Tensor:
-    loss = torch.tensor(0.0)
-    for target, pred in zip(targets, preds):
-         loss = loss.to(dtype=pred.dtype,
-                         device=pred.device)
-         loss += torch.sqrt(torch.mean((pred - target) ** 2))
-    return loss
+def rmse_loss(y_pred: torch.Tensor, y_true: torch.Tensor) -> torch.Tensor:
+    return torch.sqrt(mse_loss(y_pred, y_true))
 
-def mag_phase_loss(targets: Iterable[torch.Tensor], preds: Iterable[torch.Tensor]) -> torch.Tensor:
-     if len(targets) < 2 or len(preds) < 2:
-          raise ValueError("Magnitude-Phase loss requires complex (2-sized) output.")
-     mag_target = torch.sqrt(targets[0] ** 2 + targets[1] ** 2)
-     phase_target = torch.atan2(targets[1], targets[0])
-     mag_pred = torch.sqrt(preds[0] ** 2 + preds[1] ** 2)
-     phase_pred = torch.atan2(preds[1], preds[0])
-
-     loss = torch.mean((mag_target - mag_pred) ** 2 + \
-          torch.min(abs(phase_target - phase_pred), 2 * torch.pi - abs(phase_target - phase_pred)))
-     return loss
+def mag_phase_loss(y_pred: torch.Tensor, y_true: torch.Tensor) -> torch.Tensor:
+    """Expects 2-channel output: [real, imaginary]"""
+    if y_pred.shape[1] != 2 or y_true.shape[1] != 2:
+        raise ValueError("Mag-phase loss requires 2 output channels (real & imaginary)")
+    
+    # Compute magnitudes and phases
+    mag_pred = torch.norm(y_pred, dim=1)
+    phase_pred = torch.atan2(y_pred[:,1], y_pred[:,0])
+    
+    mag_true = torch.norm(y_true, dim=1)
+    phase_true = torch.atan2(y_true[:,1], y_true[:,0])
+    
+    # Phase difference with periodicity handling
+    phase_diff = torch.atan2(torch.sin(phase_true - phase_pred),
+                             torch.cos(phase_true - phase_pred))
+    
+    return torch.mean((mag_true - mag_pred)**2) + torch.mean(phase_diff**2)
 
 LOSS_FUNCTIONS = {
-     "mse" : mse_loss,
-     "rmse" : rmse_loss,
-     "mag_phase" : mag_phase_loss
+    "mse": mse_loss,
+    "rmse": rmse_loss,
+    "mag_phase": mag_phase_loss
 }
