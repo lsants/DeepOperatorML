@@ -60,30 +60,23 @@ def preprocess_raw_data(raw_npz_filename: str,
     branch_input = input_function_encoding(input_funcs=input_funcs)
     trunk_input = format_to_don(coords)
     
-    result = {processed_dataset_keys['FEATURES'][0]: branch_input, 
-              processed_dataset_keys['FEATURES'][1]: trunk_input}
+    result = {processed_dataset_keys['features'][0]: branch_input, 
+              processed_dataset_keys['features'][1]: trunk_input}
     
     load_index = coordinate_keys.index(load_direction)
 
-    if processed_dataset_keys['TARGETS'][0] in data:
-        result[processed_dataset_keys['TARGETS'][0]] = data[processed_dataset_keys['TARGETS'][0]][..., load_index]
+    if processed_dataset_keys['targets'][0] in data:
+        result[processed_dataset_keys['targets'][0]] = data[processed_dataset_keys['targets'][0]][..., load_index]
         num_samples = len(branch_input)
-        result[processed_dataset_keys['TARGETS'][0]] = result[processed_dataset_keys['TARGETS'][0]].reshape(num_samples, -1)
+        result[processed_dataset_keys['targets'][0]] = result[processed_dataset_keys['targets'][0]].reshape(num_samples, -1)
     else:
-        raise KeyError(f"Operator target '{processed_dataset_keys['TARGETS'][0]}' must be present in the dataset keys")
+        raise KeyError(f"Operator target '{processed_dataset_keys['targets'][0]}' must be present in the dataset keys")
     return result
 
 def run_preprocessing(problem_settings: dict[str, Any]) -> dict[str, npt.ArrayLike]:
-    processed_data = preprocess_raw_data(raw_npz_filename=problem_settings['RAW_DATA_PATH'],
-                                         input_function_keys=problem_settings['INPUT_FUNCTION_KEYS'],
-                                         coordinate_keys=problem_settings['COORDINATE_KEYS'],
-                                         processed_dataset_keys=problem_settings['DATA_LABELS'],
-                                         load_direction=problem_settings['DIRECTION'])
+    processed_data = preprocess_raw_data(raw_npz_filename=problem_settings['raw_data_path'],
+                                         input_function_keys=problem_settings['input_function_keys'],
+                                         coordinate_keys=problem_settings['coordinate_keys'],
+                                         processed_dataset_keys=problem_settings['data_labels'],
+                                         load_direction=problem_settings['load_direction'])
     return processed_data # type: ignore
-
-if __name__ == '__main__':
-    problem = 'kelvin'
-    problem_path = "./configs/problems/" + 'kelvin' + '/' + "config_problem.yaml"
-    with open(file=problem_path) as f:
-        problem_cfg = yaml.safe_load(stream=f)
-    run_preprocessing(problem_settings=problem_cfg)

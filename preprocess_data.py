@@ -53,18 +53,18 @@ def preprocess_data():
 
         feature_splits = helper_functions.split_features(
             sample_sizes=features_sample_sizes,
-            split_ratios=problem_config['SPLITTING']['RATIOS'],
-            seed=problem_config['SPLITTING']['SEED']
+            split_ratios=problem_config['splitting']['ratios'],
+            seed=problem_config['splitting']['seed']
         )
     
         train_indices = {
-            feature: feature_splits[feature]['TRAIN']
-            for feature in problem_config['DATA_LABELS']['FEATURES']
+            feature: feature_splits[feature]['train']
+            for feature in problem_config['data_labels']['features']
         }
         
-        for target in problem_config['DATA_LABELS']['TARGETS']:
+        for target in problem_config['data_labels']['targets']:
             # Assuming targets use the first feature's splits (branch)
-            train_indices[target] = feature_splits[problem_config['DATA_LABELS']['FEATURES'][0]]['TRAIN']
+            train_indices[target] = feature_splits[problem_config['data_labels']['features'][0]]['train']
         
         scalers = helper_functions.compute_scalers(
             data=processed_data,
@@ -72,7 +72,7 @@ def preprocess_data():
         )
         # Generate versioned output directory
         version_hash = helper_functions.generate_version_hash(
-            raw_data_path=Path(problem_config['RAW_DATA_PATH']),
+            raw_data_path=Path(problem_config['raw_data_path']),
             problem_config=problem_config
         )
         output_dir = Path(f"data/processed/{args.problem}_{version_hash}")

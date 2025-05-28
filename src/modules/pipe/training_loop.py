@@ -1,11 +1,11 @@
 from __future__ import annotations
-
 import torch
 import logging
 from collections import defaultdict
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 from torch.utils.data import DataLoader
+from ..data_processing.deeponet_sampler import DeepONetSampler
 from .history import HistoryStorer
 from ..model.training_strategies.base import TrainingStrategy
 from ..model.deeponet import DeepONet
@@ -29,6 +29,7 @@ class TrainingLoop:
         model: DeepONet,
         strategy: TrainingStrategy,
         train_loader: DataLoader,
+        sampler: DeepONetSampler,
         val_loader: Optional[DataLoader] = None,
         device: str | torch.device = "cpu",
         checkpoint_dir: str | Path = "checkpoints",
@@ -39,6 +40,7 @@ class TrainingLoop:
         self.strategy: TrainingStrategy = strategy
         self.train_loader: DataLoader = train_loader
         self.val_loader: Optional[DataLoader] = val_loader
+        self.sampler: DeepONetSampler = sampler
 
         # Let strategy freeze layers / register hooks / etc.
         self.strategy.setup_training(self.model)
@@ -90,6 +92,7 @@ class TrainingLoop:
             self._handle_spec_progression()
 
             # ---------------- train ----------------
+            logger.info(f"\n\n\n\n================= Epoch {epoch} ===================== \n\n\n\n")
             train_metrics = self._run_epoch(train=True)
             self._store_metrics(train_metrics, train=True)
 
@@ -131,16 +134,29 @@ class TrainingLoop:
         assert loader is not None, "Validation loader requested but not provided."
 
         aggregated: Dict[str, float] = defaultdict(float)
-        dataset_size = len(loader.dataset[:]['g_u'])  # type: ignore[arg-type]
+        num_branch_samples = len(loader.dataset[:]['xb'])  # type: ignore[arg-type]
+        num_trunk_samples = len(loader.dataset[:]['xt'])  # type: ignore[arg-type]
+
+        branch_batch_size = self.sampler.branch_batch_size
+        trunk_batch_size = self.sampler.trunk_batch_size
+        num_branch_batches = num_branch_samples / branch_batch_size
+
+        if trunk_batch_size is None: 
+            trunk_batch_size = num_trunk_samples
+
+        num_trunk_batches = num_trunk_samples / trunk_batch_size
+        num_batches = num_branch_batches * num_trunk_batches
 
         context = torch.enable_grad() if train else torch.inference_mode()
         with context:
-            for batch in loader:
+            for i, batch in enumerate(loader):
                 x_branch, x_trunk, y_true = self._prepare_batch(batch)
-
                 # Forward + loss
                 y_pred, loss = self.strategy.compute_loss(self.model, x_branch, x_trunk, y_true)
 
+                if i % 500 == 0:
+                    print(f"Loss: {loss:.4E} for batch {i + 1}")
+                
                 if train:
                     self.optimizer.zero_grad(set_to_none=True)
                     loss.backward()
@@ -160,7 +176,7 @@ class TrainingLoop:
                     aggregated[k] += v * bs
 
         # Normalise
-        return {k: v / dataset_size for k, v in aggregated.items()}
+        return {k: v / (num_batches * bs) for k, v in aggregated.items()}
 
     # ---------------------------------------------------------------- metrics
     def _store_metrics(self, metrics: Dict[str, float], *, train: bool) -> None:

@@ -132,7 +132,7 @@ def plot_training(history: Dict[str, Dict[str, list]]) -> plt.Figure:
         ax_loss.plot(epochs, train_loss, label="Train", lw=1.2)
         if not np.isnan(val_loss).all():
             ax_loss.plot(epochs, val_loss, label="Val", lw=1.2)
-        ax_loss.set_title(f"{phase} – Loss")
+        ax_loss.set_title(f"{phase.capitalize()} – Loss")
         ax_loss.set_yscale("log")
         ax_loss.legend()
 
@@ -151,7 +151,7 @@ def plot_training(history: Dict[str, Dict[str, list]]) -> plt.Figure:
                 ax.plot(epochs, train_err, label="Train", lw=1.2)
             if not np.isnan(val_err).all():
                 ax.plot(epochs, val_err, label="Val", lw=1.2)
-            ax.set_title(f"{phase} – {key} error")
+            ax.set_title(f"{phase.capitalize()} – {key.capitalize()}")
             ax.set_yscale("log")
             ax.legend()
 

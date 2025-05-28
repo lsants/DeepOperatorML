@@ -2,33 +2,39 @@
 seed: 42
 training_strategy: vanilla
 output_handling: single_output
-num_basis_functions: 30
+num_basis_functions: 100
 branch:
   architecture: resnet
   activation: silu
   degree: 8
   hidden_layers:
-    - 100 
-    - 100 
-    - 100 
-    - 100 
-    - 100 
-    - 100 
+    - 500 
+    - 500 
+    - 500 
+    - 500 
+    - 500 
+    - 500 
+    - 500 
+    - 500 
+    - 500 
 trunk:
   architecture: resnet
   activation: silu
   degree: 8
   hidden_layers:
-    - 100 
-    - 100 
-    - 100 
-    - 100 
-    - 100 
-    - 100 
+    - 500 
+    - 500 
+    - 500 
+    - 500 
+    - 500 
+    - 500 
+    - 500 
+    - 500 
+    - 500 
 loss_function: mse
 transforms:
   branch:
-    normalization: null
+    normalization: min_max_0_1
     feature_expansion: null
   trunk:
     normalization: min_max_0_1  # min_max_0_1, min_max_-1_1, standardize, null
@@ -39,26 +45,26 @@ transforms:
     normalization: null
 rescaling: 
   type: null
-  exponent: -1 #  Used to rescale the output of the DeepONet by the number of basis functions to the power of the exponent (use exponent < 0).
+  exponent: 0 #  Used to rescale the output of the DeepONet by the number of basis functions to the power of the exponent (use exponent < 0).
 
 # ------------------- Parameters for vanilla training ------------------
-epochs: 10
-branch_batch_size: 100
-trunk_batch_size: null
+epochs: 2000
+branch_batch_size: 64
+trunk_batch_size: 64
 error: vector_l2
 optimizer_schedule:
-  - epochs: 5000
+  - epochs: 1000
     optimizer_type: adam
-    learning_rate: 0.001
+    learning_rate: 0.0001
     l2_regularization: 0.0001
     lr_scheduler:
       type: step
-      step_size: 1000
+      step_size: 2000
       gamma: 0.7
   - epochs: 1000
     optimizer_type: sgd
-    learning_rate: 0.0001
-    l2_regularization: 0.0001
+    learning_rate: 0.001
+    l2_regularization: 0.00001
     lr_scheduler:
       type: step
       step_size: 1000
@@ -75,8 +81,8 @@ decomposition_type: svd
 two_step_optimizer_schedule:
   trunk_phase:
     - epochs: 10000
-      optimizer_type: adam
-      learning_rate: 0.001
+      optimizer_type: sgd
+      learning_rate: 0.01
       l2_regularization: 0.00001
     - epochs: 30000
       optimizer_type: adam

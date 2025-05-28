@@ -1,11 +1,11 @@
 #  ----------------------Location of .npz data files ----------------
-raw_data_path: ./data/raw/kelvin/kelvin_v1.npz
-dataset_version: d5230a4f
+raw_data_path: ./data/raw/kelvin/kelvin_v3.npz
+dataset_version: 
 
 # ------------------------- Dataset parameters ----------------
 problem: kelvin
 splitting:
-  rations: [0.8, 0.1, 0.1]
+  ratios: [0.8, 0.1, 0.1]
   seed: 42
 
 data_labels:

@@ -95,9 +95,9 @@ class DeepONetTransformPipeline:
             
         if norm_type == "standardize":
             return (data - stats["mean"]) / stats["std"]
-        if norm_type == "0_1_min_max":
+        if norm_type == "min_max_0_1":
             return (data - stats["min"]) / (stats["max"] - stats["min"])
-        if norm_type == "-1_1_min_max":
+        if norm_type == "min_max_-1_1":
             return 2 * (data - stats["min"]) / (stats["max"] - stats["min"]) - 1
         return data
 

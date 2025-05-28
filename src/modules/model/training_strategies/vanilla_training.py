@@ -62,7 +62,7 @@ class VanillaStrategy(TrainingStrategy):
     # def on_epoch_end(self, epoch: int, model: 'DeepONet', optimizer: torch.optim.Optimizer,)
 
     def strategy_specific_metrics(self, y_true: torch.Tensor, y_pred: torch.Tensor) -> dict[str, float]:
-        relative_error = {'rel_error' : (self.error_metric(y_true - y_pred) / self.error_metric(y_true)).item()}
+        relative_error = {'error' : (self.error_metric(y_true - y_pred) / self.error_metric(y_true)).item()}
 
         return relative_error
 

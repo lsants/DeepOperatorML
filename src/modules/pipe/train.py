@@ -1,4 +1,3 @@
-from os import path
 import time
 import torch
 import logging
@@ -22,9 +21,9 @@ def get_split_data(data: Any, split_indices: dict[str, np.ndarray], features_key
     branch_key = features_keys[0]
     trunk_key = features_keys[1]
 
-    train_indices = (split_indices[f'{branch_key}_train'.upper()], split_indices[f'{trunk_key}_train'.upper()])
-    val_indices = (split_indices[f'{branch_key}_val'.upper()],        split_indices[f'{trunk_key}_val'.upper()])
-    test_indices = (split_indices[f'{branch_key}_test'.upper()],        split_indices[f'{trunk_key}_test'.upper()])
+    train_indices = (split_indices[f'{branch_key.upper()}_train'], split_indices[f'{trunk_key.upper()}_train'])
+    val_indices = (split_indices[f'{branch_key.upper()}_val'],        split_indices[f'{trunk_key.upper()}_val'])
+    test_indices = (split_indices[f'{branch_key.upper()}_test'],        split_indices[f'{trunk_key.upper()}_test'])
 
     train_data = dtl.slice_data(
         data=data, 
@@ -83,19 +82,13 @@ def train_model(
 
     torch.random.manual_seed(train_cfg.seed)
     path_cfg = PathConfig.from_data_config(data_cfg=data_cfg)
-    PathConfig.create_directories(path_cfg)
-
-    saver = Saver()
 
     stats = get_stats(data=data_cfg.scalers, 
                       keys=data_cfg.features + data_cfg.targets)
 
     transform_pipeline = DeepONetTransformPipeline(config=train_cfg.transforms)
 
-    saver.save_transform_pipeline(
-        file_path = path_cfg.checkpoints_path,
-        transform_pipeline = transform_pipeline,
-    )
+
     transform_pipeline.set_branch_stats(
         stats=stats[data_cfg.features[0]]
     )
@@ -163,6 +156,7 @@ def train_model(
         sampler=val_sampler,
         collate_fn=lambda x : x[0]
     )
+
     # ------------------------------------ Initialize model & train loop -----------------------------
 
     model, train_strategy = ModelFactory.create_for_training(
@@ -181,6 +175,7 @@ def train_model(
         train_loader=train_dataloader,
         val_loader=val_dataloader,
         device=train_cfg.device,
+        sampler=train_sampler
     )
 
     # ----------------------------------------- Train loop ---------------------------------
@@ -196,6 +191,14 @@ def train_model(
 
     fig = plot_training(history)
     
+    PathConfig.create_directories(path_cfg)
+
+    saver = Saver()
+
+    saver.save_transform_pipeline(
+        file_path = path_cfg.checkpoints_path,
+        transform_pipeline = transform_pipeline,
+    )
     saver.save_plots(
         file_path=path_cfg.plots_path / 'training_history.png',
         figure=fig
@@ -205,4 +208,6 @@ def train_model(
         file_path=path_cfg.metrics_path / 'train_metrics.csv',
         history=history
     )
+    logger.info(msg=f"Experiment saved at {path_cfg.outputs_path}")
+    
     logger.info(msg=f"\n----------------------------------------Training concluded in: {training_time:.2f} seconds---------------------------\n")

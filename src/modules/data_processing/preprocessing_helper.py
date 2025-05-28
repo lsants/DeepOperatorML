@@ -10,8 +10,8 @@ from .deeponet_dataset import DeepONetDataset
 
 def validate_data_structure(data: dict, config: dict) -> dict:
     """Validate feature/target dimensions based on config relationships."""
-    features = config['DATA_LABELS']['FEATURES']
-    targets = config['DATA_LABELS']['TARGETS']
+    features = config['data_labels']['features']
+    targets = config['data_labels']['targets']
     
     for name in features + targets:
         if name not in data:
@@ -35,8 +35,8 @@ def validate_data_structure(data: dict, config: dict) -> dict:
 
 def get_data_shapes(data: dict[str, Any], config: dict[str, Any]) -> dict[str, tuple[int]]:
     """Get dataset shapes."""
-    features = config['DATA_LABELS']['FEATURES']
-    targets = config['DATA_LABELS']['TARGETS']
+    features = config['data_labels']['features']
+    targets = config['data_labels']['targets']
     data_shapes = {f: data[f].shape for f in features} | {t: data[t].shape for t in targets}
     return data_shapes
 
@@ -54,8 +54,8 @@ def split_features(
     
     Returns:
         {
-            'xb': {'TRAIN': ..., 'VAL': ..., 'TEST': ...},
-            'xt': {'TRAIN': ..., 'VAL': ..., 'TEST': ...},
+            'xb': {'train': ..., 'val': ..., 'test': ...},
+            'xt': {'train': ..., 'val': ..., 'test': ...},
             ...
         }
     """
@@ -69,9 +69,9 @@ def split_features(
         val_end = train_end + int(split_ratios[1] * num_samples)
         
         splits[feature] = {
-            'TRAIN': indices[:train_end],
-            'VAL': indices[train_end:val_end],
-            'TEST': indices[val_end:]
+            'train': indices[:train_end],
+            'val': indices[train_end:val_end],
+            'test': indices[val_end:]
         }
     
     return splits
@@ -98,7 +98,7 @@ def compute_scalers(
 def generate_version_hash(raw_data_path: str | Path, problem_config: dict) -> str:
     hash_obj = hashlib.sha256()
     hash_obj.update(Path(raw_data_path).name.encode())
-    problem_config_yaml = yaml.safe_dump(problem_config['SPLITTING'] | problem_config['DATA_LABELS'], sort_keys=True)
+    problem_config_yaml = yaml.safe_dump(problem_config['splitting'] | problem_config['data_labels'], sort_keys=True)
     hash_obj.update(problem_config_yaml.encode())
     return hash_obj.hexdigest()[:8]
 
@@ -125,16 +125,16 @@ def save_artifacts(
     np.savez(output_dir / 'scalers.npz', **scalers)
     
     metadata = {
-        'DATASET_VERSION': output_dir.name.split('_')[-1],
-        'CREATION_DATE': datetime.now().isoformat(),
-        'RAW_DATA_SOURCE': str(config['RAW_DATA_PATH']),
-        'SPLIT_RATIOS': config['SPLITTING']['RATIOS'],
-        'SPLIT_SEED': config['SPLITTING']['SEED'],
-        'FEATURES': config['DATA_LABELS']['FEATURES'],
-        'TARGETS': config['DATA_LABELS']['TARGETS'],
-        'INPUT_FUNCTIONS': config['INPUT_FUNCTION_LABELS'],
-        'COORDINATES': config['COORDINATE_KEYS'],
-        'SHAPES': shapes
+        'dataset_version': output_dir.name.split('_')[-1],
+        'creation_date': datetime.now().isoformat(),
+        'raw_data_source': str(config['raw_data_path']),
+        'split_ratios': config['splitting']['ratios'],
+        'split_seed': config['splitting']['seed'],
+        'features': config['data_labels']['features'],
+        'targets': config['data_labels']['targets'],
+        'input_functions': config['input_function_labels'],
+        'coordinates': config['coordinate_keys'],
+        'shapes': shapes
     }
     
     with (output_dir / 'metadata.yaml').open('w') as f:
@@ -148,14 +148,14 @@ def update_version_registry(processed_dir: Path, config: dict) -> None:
     if registry_path.exists():
         with registry_path.open() as f:
             registry = yaml.safe_load(f) or {}
-    dataset_name = config['PROBLEM']
+    dataset_name = config['problem']
     entry = {
-        'PATH': str(processed_dir),
-        'CREATED': datetime.now().isoformat(),
-        'HASH': processed_dir.name.split('_')[-1],
-        'CONFIG_SNAPSHOT': {
-            'SPLITTING': config['SPLITTING'],
-            'DATA_LABELS': config['DATA_LABELS']
+        'path': str(processed_dir),
+        'created': datetime.now().isoformat(),
+        'hash': processed_dir.name.split('_')[-1],
+        'config_snapshot': {
+            'splitting': config['splitting'],
+            'data_labels': config['data_labels']
         }
     }
     
