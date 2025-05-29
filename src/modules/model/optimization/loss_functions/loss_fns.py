@@ -1,5 +1,6 @@
 # loss_fns.py
 import torch
+from torch.nn.functional import huber_loss as _huber_loss
 
 def mse_loss(y_pred: torch.Tensor, y_true: torch.Tensor) -> torch.Tensor:
     """Handles multi-channel outputs via mean over all dimensions"""
@@ -26,8 +27,13 @@ def mag_phase_loss(y_pred: torch.Tensor, y_true: torch.Tensor) -> torch.Tensor:
     
     return torch.mean((mag_true - mag_pred)**2) + torch.mean(phase_diff**2)
 
+
+def huber_loss(y_pred: torch.Tensor, y_true: torch.Tensor, delta: float = 1.5, reduction: str = 'mean') -> torch.Tensor:
+    return _huber_loss(y_pred, y_true, delta=delta, reduction=reduction)
+
 LOSS_FUNCTIONS = {
     "mse": mse_loss,
     "rmse": rmse_loss,
-    "mag_phase": mag_phase_loss
+    "mag_phase": mag_phase_loss,
+    'huber': huber_loss
 }

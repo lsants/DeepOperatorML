@@ -46,18 +46,28 @@ def validate_normalization(
     # Input normalization
     if transform_cfg.branch.normalization == 'standardize' or \
     transform_cfg.trunk.normalization == 'standardize':
-        if 'input_mean' not in data_cfg.scalers:
-            raise ValueError("Missing input_mean in scalers")
-        if 'input_std' not in data_cfg.scalers:
-            raise ValueError("Missing input_std in scalers")
+        if f'{data_cfg.features[0]}_mean' not in data_cfg.scalers:
+            raise ValueError(f"Missing '{data_cfg.features[0]}_mean' in scalers")
+        if f'{data_cfg.features[0]}_std' not in data_cfg.scalers:
+            raise ValueError(f"Missing '{data_cfg.features[0]}_std' in scalers")
+        if f'{data_cfg.features[1]}_mean' not in data_cfg.scalers:
+            raise ValueError(f"Missing '{data_cfg.features[1]}_std' in scalers")
+        if f'{data_cfg.features[1]}_std' not in data_cfg.scalers:
+            raise ValueError(f"Missing '{data_cfg.features[1]}_std' in scalers")
 
     # Output normalization
-    if transform_cfg.target_normalization == 'minmax':
-        if 'target_min' not in data_cfg.scalers:
-            raise ValueError("Missing target_min in scalers")
-        if 'target_max' not in data_cfg.scalers:
-            raise ValueError("Missing target_max in scalers")
+    if transform_cfg.target_normalization == 'minmax_0_1' or \
+        transform_cfg.target_normalization == 'minmax_-1_1':
+        if f'{data_cfg.targets[0]}_min' not in data_cfg.scalers:
+            raise ValueError(f"Missing '{data_cfg.targets[0]}_min' in scalers")
+        if f'{data_cfg.targets[0]}_max' not in data_cfg.scalers:
+            raise ValueError(f"Missing '{data_cfg.targets[0]}_min' in scalers")
         
+    if transform_cfg.target_normalization == 'standardize':
+        if f'{data_cfg.targets[0]}_mean' not in data_cfg.scalers:
+            raise ValueError(f"Missing '{data_cfg.targets[0]}_mean' in scalers")
+        if f'{data_cfg.targets[0]}_std' not in data_cfg.scalers:
+            raise ValueError(f"Missing '{data_cfg.targets[0]}_std' in scalers")
         
 def validate_feature_expansion(transform_cfg: TransformConfig, 
                               model_cfg: ModelConfig, 

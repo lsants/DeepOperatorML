@@ -28,7 +28,7 @@ class TransformConfig:
                           dtype: torch.dtype):
         target_normalization = None
         if target_transforms is not None:
-            target_normalization = target_transforms.get("normalization")
+            target_normalization = target_transforms
         
         branch_expansion_type, branch_expansion_size = None, None
         trunk_expansion_type, trunk_expansion_size = None, None

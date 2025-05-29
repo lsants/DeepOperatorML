@@ -123,7 +123,6 @@ class TrainConfig:
             'loss': train_cfg['loss_function'],
             'optimizer_scheduler': one_step_optimizer,
             'num_pod_modes': train_cfg['num_pod_modes'],
-            'precomputed_pod_basis': np.arange(3000).reshape(100, 30), # should actually be data_cfg['pre_computed_pod_modes] or something
             'two_step_optimizer_scheduler': multi_step_optimizer,
             'decomposition_type': train_cfg['decomposition_type']
         }
@@ -203,6 +202,7 @@ class ExperimentConfig:
     """Aggregate configuration for the experiment."""
     problem: str
     dataset_version: str
+    experiment_version: str
     device: str | torch.device
     precision: str
     model: ModelConfig
@@ -210,10 +210,11 @@ class ExperimentConfig:
     strategy: StrategyConfig
 
     @classmethod
-    def from_dataclasses(cls, data_cfg: DataConfig, train_cfg: TrainConfig):
+    def from_dataclasses(cls, data_cfg: DataConfig, train_cfg: TrainConfig, path_cfg: PathConfig):
         return cls(
             problem=data_cfg.problem,
             dataset_version=data_cfg.dataset_version,
+            experiment_version=path_cfg.experiment_version,
             device=train_cfg.device,
             precision=train_cfg.precision,
             model=train_cfg.model,
@@ -223,6 +224,7 @@ class ExperimentConfig:
     
 @dataclass
 class PathConfig:
+    experiment_version: str
     outputs_path: Path
     checkpoints_path: Path
     auxiliary_data_path: Path
@@ -238,6 +240,7 @@ class PathConfig:
         experiment_name = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
         outputs_path = processed_outputs_path / data_cfg.problem / experiment_name
         return cls(
+            experiment_version=experiment_name,
             outputs_path=outputs_path,
             checkpoints_path=outputs_path / "checkpoints",
             auxiliary_data_path=outputs_path / 'aux',

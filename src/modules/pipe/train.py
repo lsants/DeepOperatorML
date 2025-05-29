@@ -1,6 +1,7 @@
 import time
 import torch
 import logging
+import dataclasses
 import numpy as np
 from typing import Any
 from .saving import Saver
@@ -82,6 +83,8 @@ def train_model(
 
     torch.random.manual_seed(train_cfg.seed)
     path_cfg = PathConfig.from_data_config(data_cfg=data_cfg)
+
+    exp_cfg = ExperimentConfig.from_dataclasses(data_cfg=data_cfg, train_cfg=train_cfg, path_cfg=path_cfg)
 
     stats = get_stats(data=data_cfg.scalers, 
                       keys=data_cfg.features + data_cfg.targets)
@@ -169,12 +172,22 @@ def train_model(
         )
     )
 
+    PathConfig.create_directories(path_cfg)
+
+    saver = Saver()
+
+    saver.save_transform_pipeline(
+        file_path = path_cfg.checkpoints_path,
+        transform_pipeline = transform_pipeline,
+    )
+
     loop = TrainingLoop(
         model=model,
         strategy=train_strategy,
         train_loader=train_dataloader,
         val_loader=val_dataloader,
         device=train_cfg.device,
+        checkpoint_dir=path_cfg.checkpoints_path,
         sampler=train_sampler
     )
 
@@ -189,16 +202,14 @@ def train_model(
 
     history = loop.history.get_history()
 
-    fig = plot_training(history)
+    fig = plot_training(history=history, plot_config=dataclasses.asdict(train_cfg))
     
-    PathConfig.create_directories(path_cfg)
 
-    saver = Saver()
-
-    saver.save_transform_pipeline(
-        file_path = path_cfg.checkpoints_path,
-        transform_pipeline = transform_pipeline,
+    saver.save_model_info(
+        file_path=path_cfg.outputs_path / 'model_info.yaml',
+            model_info=dataclasses.asdict(exp_cfg)
     )
+
     saver.save_plots(
         file_path=path_cfg.plots_path / 'training_history.png',
         figure=fig

@@ -63,13 +63,15 @@ def preprocess_data():
         }
         
         for target in problem_config['data_labels']['targets']:
-            # Assuming targets use the first feature's splits (branch)
-            train_indices[target] = feature_splits[problem_config['data_labels']['features'][0]]['train']
-        
+            train_indices_target_rows = feature_splits[problem_config['data_labels']['features'][0]]['train']
+            train_indices_target_cols = feature_splits[problem_config['data_labels']['features'][1]]['train']
+            train_indices[target] = (train_indices_target_rows, train_indices_target_cols)
+
         scalers = helper_functions.compute_scalers(
             data=processed_data,
             train_indices=train_indices
         )
+
         # Generate versioned output directory
         version_hash = helper_functions.generate_version_hash(
             raw_data_path=Path(problem_config['raw_data_path']),

@@ -78,21 +78,36 @@ def split_features(
 
 def compute_scalers(
     data: dict[str, np.ndarray],
-    train_indices: dict[str, np.ndarray],
+    train_indices: dict[str, np.ndarray | tuple[np.ndarray, np.ndarray]],
 ) -> dict[str, np.ndarray]:
     scalers = {}
-    for feature, indices in train_indices.items():
-        if feature not in data:
-            raise ValueError(f"Feature '{feature}' not found in data.")
+    for feature_or_target, indices in train_indices.items():
+        if feature_or_target not in data:
+            raise ValueError(f"Feature/target '{feature_or_target}' not found in data.")
         
-        if np.max(indices) >= data[feature].shape[0]:
-            raise IndexError(f"Indices for feature '{feature}' exceed its data dimensions.")
-        
-        train_data = data[feature][indices]
-        scalers[f"{feature}_min"] = np.min(train_data, axis=0)
-        scalers[f"{feature}_max"] = np.max(train_data, axis=0)
-        scalers[f"{feature}_mean"] = np.mean(train_data, axis=0)
-        scalers[f"{feature}_std"] = np.std(train_data, axis=0)
+        if isinstance(indices, tuple):
+            if np.max(indices[0]) >= data[feature_or_target].shape[0] or \
+                np.max(indices[1]) >= data[feature_or_target].shape[1]:
+                raise IndexError(f"Indices for feature / target '{feature_or_target}' exceed its data dimensions.")
+            
+            train_data = data[feature_or_target][indices[0]][ : , indices[1]]
+
+            scalers[f"{feature_or_target}_min"] = np.min(train_data)
+            scalers[f"{feature_or_target}_max"] = np.max(train_data)
+            scalers[f"{feature_or_target}_mean"] = np.mean(train_data)
+            scalers[f"{feature_or_target}_std"] = np.std(train_data)
+
+        else:
+            if np.max(indices) >= data[feature_or_target].shape[0]:
+                raise IndexError(f"Indices for feature / target '{feature_or_target}' exceed its data dimensions.")
+            
+            train_data = data[feature_or_target][indices]
+
+            scalers[f"{feature_or_target}_min"] = np.min(train_data, axis=0)
+            scalers[f"{feature_or_target}_max"] = np.max(train_data, axis=0)
+            scalers[f"{feature_or_target}_mean"] = np.mean(train_data, axis=0)
+            scalers[f"{feature_or_target}_std"] = np.std(train_data, axis=0)
+
     return scalers
 
 def generate_version_hash(raw_data_path: str | Path, problem_config: dict) -> str:

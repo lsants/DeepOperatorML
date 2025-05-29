@@ -13,6 +13,7 @@ class TrunkConfig:
     output_dim: Optional[int] = None
     # Neural architecture params
     hidden_layers: Optional[list[int]] = None
+    dropout_rates: Optional[list[float]] = None
     activation: Optional[Callable | str] = None    
     degree: Optional[int] = None
     # POD/Decomposed params
@@ -42,5 +43,5 @@ class TrunkConfigValidator:
             raise ConfigValidationError(f"Invalid branch configuration: {e}") from e
 
         # Architecture-specific validation
-        if 'kan' in str(config.architecture) and config.degree < 1:
+        if 'kan' in str(config.architecture) and config.degree < 1: # type: ignore
             raise ConfigValidationError("KAN requires degree >= 1")

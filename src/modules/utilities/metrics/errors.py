@@ -10,5 +10,5 @@ ERROR_METRICS = {
     'matrix_l1': partial(torch.linalg.norm, ord=1),
     'matrix_largest_svd': partial(torch.linalg.norm, ord=2),
     'matrix_linf': partial(torch.linalg.norm, ord=float('inf')),
-    'scalar': torch.abs
+    'scalar': torch.abs 
 }

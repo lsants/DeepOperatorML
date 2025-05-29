@@ -12,6 +12,15 @@ from typing import Any, Dict, List
 import matplotlib.pyplot as plt
 import numpy as np
 
+error_label_map = {
+    'vector_l2': r'$L_{2} [\%]$'
+}
+
+loss_label_map = {
+    'mse': f'MSE',
+    'huber': f'Huber'
+}
+
 # ---------------------------------------------------------------------------
 # Alignment helper
 # ---------------------------------------------------------------------------
@@ -98,7 +107,7 @@ def align_epochs(raw_history: Dict[str, Dict[str, list]]) -> Dict[str, Dict[str,
 # Plotting helper
 # ---------------------------------------------------------------------------
 
-def plot_training(history: Dict[str, Dict[str, list]]) -> plt.Figure:
+def plot_training(history: Dict[str, Dict[str, list]], plot_config: dict[str, Any]) -> plt.Figure:
     """Plot training curves for each phase.
 
     Accepts either raw ``HistoryStorer`` dict or the output of
@@ -129,16 +138,18 @@ def plot_training(history: Dict[str, Dict[str, list]]) -> plt.Figure:
 
         # ---------------------- Loss column ----------------------
         ax_loss = axes[row][0]
-        ax_loss.plot(epochs, train_loss, label="Train", lw=1.2)
+        ax_loss.plot(epochs, train_loss, label="Train", lw=1.2, color='blue')
         if not np.isnan(val_loss).all():
-            ax_loss.plot(epochs, val_loss, label="Val", lw=1.2)
+            ax_loss.plot(epochs, val_loss, label="Val", lw=1.2, color='orange')
         ax_loss.set_title(f"{phase.capitalize()} – Loss")
+        ax_loss.set_xlabel('Epochs')
+        ax_loss.set_ylabel(loss_label_map[plot_config['strategy']['loss']])
         ax_loss.set_yscale("log")
         ax_loss.legend()
 
         ax_lr = ax_loss.twinx()
-        ax_lr.plot(epochs, lr_hist, color="black", lw=0.6)
-        ax_lr.set_ylabel("LR")
+        ax_lr.plot(epochs, lr_hist, color="black", lw=0.5)
+        ax_lr.set_ylabel("Learning rate")
         ax_lr.set_yscale("log")
 
         # -------------------- Error columns ----------------------
@@ -148,15 +159,18 @@ def plot_training(history: Dict[str, Dict[str, list]]) -> plt.Figure:
 
             ax = axes[row][col]
             if not np.isnan(train_err).all():
-                ax.plot(epochs, train_err, label="Train", lw=1.2)
+                ax.plot(epochs, train_err, label=f"Train", lw=1.2, color='blue')
             if not np.isnan(val_err).all():
-                ax.plot(epochs, val_err, label="Val", lw=1.2)
+                ax.plot(epochs, val_err, label=f"Val", lw=1.2, color='orange')
             ax.set_title(f"{phase.capitalize()} – {key.capitalize()}")
+            ax.set_xlabel('Epochs')
+            ax.set_ylabel(error_label_map[plot_config['strategy']['error']])
             ax.set_yscale("log")
             ax.legend()
 
             ax_lr2 = ax.twinx()
-            ax_lr2.plot(epochs, lr_hist, color="black", lw=0.6)
+            ax_lr2.plot(epochs, lr_hist, color="black", lw=0.5)
+            ax_lr2.set_ylabel("Learning rate")
             ax_lr2.set_yscale("log")
 
     fig.tight_layout()

@@ -13,6 +13,7 @@ class BranchConfig:
     output_dim: Optional[int] = None
     # Architecture-specific parameters (for neural)
     hidden_layers: Optional[list[int]] = None
+    dropout_rates: Optional[list[float]] = None
     activation: Optional[Callable | str] = None
     degree: Optional[int] = None
     # Matrix-specific parameters
@@ -43,5 +44,5 @@ class BranchConfigValidator:
             raise ConfigValidationError(f"Invalid branch configuration: {e}") from e
 
         # Architecture-specific validation
-        if 'kan' in str(config.architecture) and config.degree < 1:
+        if 'kan' in str(config.architecture) and config.degree < 1: # type: ignore
             raise ConfigValidationError("KAN requires degree >= 1")

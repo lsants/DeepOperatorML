@@ -30,9 +30,9 @@ class TrainingLoop:
         strategy: TrainingStrategy,
         train_loader: DataLoader,
         sampler: DeepONetSampler,
+        checkpoint_dir: str | Path,
         val_loader: Optional[DataLoader] = None,
         device: str | torch.device = "cpu",
-        checkpoint_dir: str | Path = "checkpoints",
     ) -> None:
         # Core references --------------------------------------------------
         self.device: torch.device = torch.device(device)
@@ -62,7 +62,6 @@ class TrainingLoop:
         # History + checkpoints -------------------------------------------
         self.history = HistoryStorer(phases=self.phases)
         self.checkpoint_dir = Path(checkpoint_dir)
-        self.checkpoint_dir.mkdir(parents=True, exist_ok=True)
 
     # ------------------------------------------------------------------ private
     def _init_current_optimizer(self) -> None:
@@ -90,7 +89,6 @@ class TrainingLoop:
         for epoch in range(1, total_epochs + 1):
             # — progression BEFORE epoch —
             self._handle_spec_progression()
-
             # ---------------- train ----------------
             logger.info(f"\n\n\n\n================= Epoch {epoch} ===================== \n\n\n\n")
             train_metrics = self._run_epoch(train=True)
@@ -127,56 +125,93 @@ class TrainingLoop:
             # epoch counter for spec
             self.epochs_in_current_spec += 1
 
-    # --------------------------------------------------------------- core epoch
+        exp_path = self.checkpoint_dir / 'experiment.pt'
+        torch.save(
+            {
+                "model": self.model.state_dict(),
+                "optimizer": self.optimizer.state_dict(),
+                "scheduler": self.scheduler.state_dict() if self.scheduler else None,
+                "strategy": self.strategy,
+                "history": self.history.get_history(),
+                "phase": self.current_phase,
+            },
+            exp_path,
+        )
+
+    # -------------------------------------------------------------- core epoch
     def _run_epoch(self, *, train: bool) -> Dict[str, float]:
         self.model.train(mode=train)
         loader: DataLoader = self.train_loader if train else self.val_loader  # type: ignore[assignment]
         assert loader is not None, "Validation loader requested but not provided."
 
         aggregated: Dict[str, float] = defaultdict(float)
-        num_branch_samples = len(loader.dataset[:]['xb'])  # type: ignore[arg-type]
-        num_trunk_samples = len(loader.dataset[:]['xt'])  # type: ignore[arg-type]
+        processed_samples = 0  # will replace old bs*num_batches logic
 
-        branch_batch_size = self.sampler.branch_batch_size
-        trunk_batch_size = self.sampler.trunk_batch_size
-        num_branch_batches = num_branch_samples / branch_batch_size
+        # Derive total sample count for later normalisation -----------------
+        aggregated: Dict[str, float] = defaultdict(float)
 
-        if trunk_batch_size is None: 
-            trunk_batch_size = num_trunk_samples
-
-        num_trunk_batches = num_trunk_samples / trunk_batch_size
-        num_batches = num_branch_batches * num_trunk_batches
+        processed_samples = 0
 
         context = torch.enable_grad() if train else torch.inference_mode()
-        with context:
-            for i, batch in enumerate(loader):
-                x_branch, x_trunk, y_true = self._prepare_batch(batch)
-                # Forward + loss
-                y_pred, loss = self.strategy.compute_loss(self.model, x_branch, x_trunk, y_true)
+        try:
+            with context:
+                for i, batch in enumerate(loader):
+                    x_branch, x_trunk, y_true = self._prepare_batch(batch)
 
-                if i % 500 == 0:
+                    # Forward + loss
+                    y_pred, loss = self.strategy.compute_loss(
+                        self.model, x_branch, x_trunk, y_true
+                    )
+
+                    # if i % 10 == 0:
+                    #     print(f"Loss: {loss:.4E} for batch {i + 1}")
                     print(f"Loss: {loss:.4E} for batch {i + 1}")
-                
-                if train:
-                    self.optimizer.zero_grad(set_to_none=True)
-                    loss.backward()
-                    self.strategy.apply_gradient_constraints(self.model)
-                    self.optimizer.step()
 
-                # Per‑batch metrics
-                batch_metrics = self.strategy.calculate_metrics(
-                    y_true=y_true,
-                    y_pred=y_pred,
-                    loss=loss.item(),
-                    train=train,
-                )
+                    if train:
+                        self.optimizer.zero_grad(set_to_none=True)
+                        loss.backward()
+                        self.strategy.apply_gradient_constraints(self.model)
+                        self.optimizer.step()
 
-                bs = y_true.shape[0]
-                for k, v in batch_metrics.items():
-                    aggregated[k] += v * bs
+                    # Per-batch metrics ------------------------------------
+                    batch_metrics = self.strategy.calculate_metrics(
+                        y_true=y_true,
+                        y_pred=y_pred,
+                        loss=loss.item(),
+                        train=train,
+                    )
 
-        # Normalise
-        return {k: v / (num_batches * bs) for k, v in aggregated.items()}
+                    bs = y_true.size(0)
+
+                    processed_samples += bs
+                    for k, v in batch_metrics.items():
+                        aggregated[k] += v * bs
+
+        # --------------- Ctrl-C handling --------------------------
+        except KeyboardInterrupt:
+            print("\nInterrupted by user – saving checkpoint …")
+            # Save *partial* metrics inside checkpoint for later inspection
+            partial_epoch_metrics = {
+                k: (v / processed_samples if processed_samples else float("nan"))
+                for k, v in aggregated.items()
+            }
+            torch.save(
+                {
+                    "model": self.model.state_dict(),
+                    "optimizer": self.optimizer.state_dict(),
+                    "scheduler": self.scheduler.state_dict() if self.scheduler else None,
+                    "history": self.history.get_history(),
+                    "partial_epoch_metrics": partial_epoch_metrics,
+                },
+                self.checkpoint_dir / "INTERRUPTED.pt",
+            )
+            print(f"Checkpoint written to {self.checkpoint_dir/'INTERRUPTED.pt'}")
+            raise  # bubble up so outer loop can exit cleanly
+
+        # --------------- epoch-level normalisation -------------------------
+
+        return {k: v / processed_samples for k, v in aggregated.items()}
+
 
     # ---------------------------------------------------------------- metrics
     def _store_metrics(self, metrics: Dict[str, float], *, train: bool) -> None:
