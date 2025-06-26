@@ -13,6 +13,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(name=__name__)
 
+
 class PODStrategy(TrainingStrategy):
     def __init__(self, config: 'PODConfig'):
         super().__init__(config)
@@ -21,8 +22,8 @@ class PODStrategy(TrainingStrategy):
     def prepare_components(self, model_config: 'ModelConfig'):
         if not isinstance(self.config, PODConfig):
             raise TypeError("PODStrategy requires PODConfig")
-        model_config.branch.component_type = "branch_neural"
-        model_config.trunk.component_type = "pod"
+        model_config.branch.component_type = "neural_branch"
+        model_config.trunk.component_type = "pod_trunk"
         model_config.trunk.basis = self.config.pod_basis
 
     def setup_training(self, model: 'DeepONet'):
@@ -33,7 +34,7 @@ class PODStrategy(TrainingStrategy):
         for spec in self.config.optimizer_scheduler:
             optimizer = create_optimizer(spec, trainable_params)
             scheduler = create_scheduler(spec, optimizer)
-            self.train_schedule.append((optimizer, scheduler, spec.epochs))
+            self.train_schedule.append((spec.epochs, optimizer, scheduler))
 
     def _get_trainable_parameters(self, model: 'DeepONet'):
         trainable_params = []
@@ -44,21 +45,23 @@ class PODStrategy(TrainingStrategy):
 
     def get_train_schedule(self) -> list[tuple[torch.optim.Optimizer, torch.optim.lr_scheduler._LRScheduler, int]]:
         if not hasattr(self, 'train_schedule'):
-            raise ValueError("Training schedule not set up. Call setup_training first.")
+            raise ValueError(
+                "Training schedule not set up. Call setup_training first.")
         return self.train_schedule
-
-    def check_phase_transition(self, epoch: int) -> bool:
-        return False
 
     def execute_phase_transition(self, model: 'DeepONet'):
         raise NotImplementedError("POD strategy has no phase transitions")
 
     def validation_enabled(self) -> bool:
         return True
-    
+
     def strategy_specific_metrics(self, y_true: torch.Tensor, y_pred: torch.Tensor) -> dict[str, float]:
-        relative_error = (self.error_metric(y_true - y_pred) / self.error_metric(y_true))
-        return relative_error.item()
+        relative_error = (self.error_metric(
+            y_true - y_pred) / self.error_metric(y_true))
+        return {'error': relative_error.item()}
 
     def get_optimizer_scheduler(self):
         return self.config.optimizer_scheduler
+
+    def should_transition_phase(self, current_phase: int, current_epoch: int) -> bool:
+        return False

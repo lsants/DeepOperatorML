@@ -2,7 +2,7 @@ from dataclasses import dataclass
 from typing import Dict, Any, Optional
 from ..data_processing.config import TransformConfig
 from ..model.config import ModelConfig
-from ..pipe.pipeline_config import DataConfig, TrainConfig
+from ..pipe.pipeline_config import DataConfig, ExperimentConfig, TestConfig, TrainConfig
 
 def validate_train_config(cfg: TrainConfig):
     # Validate device/precision compatibility
@@ -95,3 +95,7 @@ def validate_feature_expansion(transform_cfg: TransformConfig,
             f"≠ original {original_trunk_dim}"
         )
         
+def validate_test(test_cfg: TestConfig, exp_cfg: ExperimentConfig) -> None:
+    if test_cfg.experiment_version != exp_cfg.experiment_version:
+        raise ValueError("Incompatible data configs. Experiment version on Test and Experiment configs don't match.")
+

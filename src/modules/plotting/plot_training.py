@@ -13,7 +13,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 error_label_map = {
-    'vector_l2': r'$L_{2} [\%]$'
+    'vector_l2': r'$L_{2} [\%]$',
+    'matrix_fro': r'$L_{F} [\%]$',
 }
 
 loss_label_map = {
@@ -24,6 +25,7 @@ loss_label_map = {
 # ---------------------------------------------------------------------------
 # Alignment helper
 # ---------------------------------------------------------------------------
+
 
 def _pad(seq: List[Any], n: int, pad_val: Any = np.nan) -> List[Any]:
     """Right‑pad *seq* to length *n* with *pad_val*."""
@@ -84,8 +86,10 @@ def align_epochs(raw_history: Dict[str, Dict[str, list]]) -> Dict[str, Dict[str,
         epochs = list(range(n_epochs))
 
         # Pad lists to common length and replace None with nan.
-        train_loss = _pad([np.nan if v is None else v for v in train_loss], n_epochs)
-        val_loss = _pad([np.nan if v is None else v for v in val_loss], n_epochs)
+        train_loss = _pad(
+            [np.nan if v is None else v for v in train_loss], n_epochs)
+        val_loss = _pad(
+            [np.nan if v is None else v for v in val_loss], n_epochs)
         lr_hist = _pad([np.nan if v is None else v for v in lr_hist], n_epochs)
         for k in output_keys:
             train_err_aligned[k] = _pad(train_err_aligned[k], n_epochs)
@@ -106,6 +110,7 @@ def align_epochs(raw_history: Dict[str, Dict[str, list]]) -> Dict[str, Dict[str,
 # ---------------------------------------------------------------------------
 # Plotting helper
 # ---------------------------------------------------------------------------
+
 
 def plot_training(history: Dict[str, Dict[str, list]], plot_config: dict[str, Any]) -> plt.Figure:
     """Plot training curves for each phase.
@@ -159,7 +164,8 @@ def plot_training(history: Dict[str, Dict[str, list]], plot_config: dict[str, An
 
             ax = axes[row][col]
             if not np.isnan(train_err).all():
-                ax.plot(epochs, train_err, label=f"Train", lw=1.2, color='blue')
+                ax.plot(epochs, train_err, label=f"Train",
+                        lw=1.2, color='blue')
             if not np.isnan(val_err).all():
                 ax.plot(epochs, val_err, label=f"Val", lw=1.2, color='orange')
             ax.set_title(f"{phase.capitalize()} – {key.capitalize()}")

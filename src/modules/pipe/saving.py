@@ -65,7 +65,7 @@ class Saver:
 
     def save_model_info(
         self,
-        file_path: str,
+        file_path: str | Path,
         model_info: Dict[str, Any]
     ) -> None:
         """Save model metadata or hyperparameters to a YAML file."""
@@ -116,7 +116,7 @@ class Saver:
         if self.full_logging:
             self.logger.info(f"Figure saved to: {file_path}")
 
-    def save_errors(self, file_path: str, errors: Dict[str, Any]) -> None:
+    def save_errors(self, file_path: str | Path, errors: Dict[str, Any]) -> None:
         """Save error logs or dictionaries to a YAML or TXT file."""
         serializable = self._make_serializable(errors)
         with open(file_path, 'w') as f:

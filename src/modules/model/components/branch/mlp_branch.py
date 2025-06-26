@@ -2,7 +2,7 @@ import torch
 from ..registry import ComponentRegistry
 from ...nn.architectures import MLP
 
-@ComponentRegistry.register(component_type='branch_neural', architecture='mlp')
+@ComponentRegistry.register(component_type='neural_branch', architecture='mlp')
 class MLPBranch(torch.nn.Module):
     """Standard MLP implementation"""
 

@@ -3,7 +3,7 @@ from ..registry import ComponentRegistry
 from ...nn.architectures import ResNet
 
 
-@ComponentRegistry.register(component_type='trunk_neural', architecture='resnet')
+@ComponentRegistry.register(component_type='neural_trunk', architecture='resnet')
 class ResNetTrunk(torch.nn.Module):
     """ResNet architecture for vanilla/phase2 training"""
 

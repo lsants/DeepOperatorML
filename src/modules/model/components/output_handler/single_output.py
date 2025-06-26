@@ -3,7 +3,6 @@ import torch
 import logging
 from .protocol import OutputHandler
 from .config import OutputConfig
-from .....exceptions import ConfigValidationError
 from ..output_handler.registry import OutputRegistry
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
@@ -12,13 +11,13 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+
 @OutputRegistry.register("single_output")
 class SingleOutputHandler(OutputHandler):
     def __init__(self, config: OutputConfig):
         if config.num_channels != 1:
-            raise ConfigValidationError(
-                "Single output requires exactly 1 channel",
-                section="output"
+            raise ValueError(
+                "Single output requires exactly 1 channel"
             )
 
     def adjust_dimensions(self, config: 'ModelConfig'):

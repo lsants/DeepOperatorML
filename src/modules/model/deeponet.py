@@ -28,15 +28,14 @@ class DeepONet(torch.nn.Module):
         self.trunk = trunk
         self.output_handler = output_handler
         self.rescaler = rescaler
+        self.bias = torch.nn.Parameter(
+            torch.zeros(self.output_handler.num_channels))
 
     def forward(self, branch_input: torch.Tensor, trunk_input: torch.Tensor) -> torch.Tensor:
-        # 1. Component processing
         branch_out = self.branch(branch_input)
         trunk_out = self.trunk(trunk_input)
 
-        # 2. Output handling
         combined = self.output_handler.combine(
-            branch_out, trunk_out)  # [B, channels]
+            branch_out, trunk_out)
 
-        # 3. Rescaling
         return self.rescaler(combined)

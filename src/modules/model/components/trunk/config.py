@@ -1,47 +1,113 @@
 from __future__ import annotations
 import torch
+import numpy
 from typing import Literal, Optional, Callable
 from dataclasses import dataclass
 from ..registry import ComponentRegistry
-from .....exceptions import ConfigValidationError
+
 
 @dataclass
 class TrunkConfig:
-    component_type: Literal["trunk_neural", "pod", "decomposed"] = "trunk_neural"
-    architecture: Optional[Literal["resnet", "mlp", "chebyshev_kan"]] = None  # Only for neural
+    architecture: Optional[Literal["resnet", "mlp",
+                                   "chebyshev_kan", "pretrained"]]
+    component_type: Literal["neural_trunk",
+                            "pod_trunk", "orthonormal_trunk"] = "neural_trunk"
     input_dim: Optional[int] = None
     output_dim: Optional[int] = None
     # Neural architecture params
     hidden_layers: Optional[list[int]] = None
     dropout_rates: Optional[list[float]] = None
-    activation: Optional[Callable | str] = None    
+    activation: Optional[Callable | str] = None
     degree: Optional[int] = None
     # POD/Decomposed params
-    basis: Optional[torch.Tensor] = None
-    num_modes: Optional[float] = None
+    inner_config: Optional[TrunkConfig] = None
+    T_matrix: Optional[torch.Tensor] = None
+    pod_modes: Optional[torch.Tensor] = None
+    pod_means: Optional[torch.Tensor] = None
 
 
 class TrunkConfigValidator:
     @staticmethod
     def validate(config: TrunkConfig):
+        if config.component_type == "orthonormal_trunk":
+            TrunkConfigValidator._validate_orthonormal(config)
+            return
+        elif config.component_type == "pod_trunk":
+            TrunkConfigValidator._validate_pod(config)
+            return
+
         try:
             component_class, required_params = ComponentRegistry.get(
                 component_type=config.component_type,
                 architecture=config.architecture
             )
-            
-            # Remove "self" from required parameters
+
             required_params = [p for p in required_params if p != "self"]
-            # Check for missing parameters
             missing = [p for p in required_params if not hasattr(config, p)]
             if missing:
-                raise ConfigValidationError(
+                raise ValueError(
                     f"Missing required parameters for {config.architecture}: {missing}"
                 )
-                
+
         except ValueError as e:
-            raise ConfigValidationError(f"Invalid branch configuration: {e}") from e
+            raise ValueError(f"Invalid trunk configuration: {e}") from e
 
         # Architecture-specific validation
-        if 'kan' in str(config.architecture) and config.degree < 1: # type: ignore
-            raise ConfigValidationError("KAN requires degree >= 1")
+        if 'kan' in str(config.architecture) and config.degree < 1:  # type: ignore
+            raise ValueError("KAN requires degree >= 1")
+
+    @staticmethod
+    def _validate_orthonormal(config: TrunkConfig):
+        """Special validation for orthonormal trunk configuration"""
+        errors = []
+
+        if not hasattr(config, "inner_config"):
+            errors.append("Missing inner_config for orthonormal trunk")
+        if not hasattr(config, "T_matrix"):
+            errors.append("Missing basis matrix for orthonormal trunk")
+
+        if hasattr(config, "T_matrix"):
+            T_matrix = config.T_matrix
+            if not isinstance(T_matrix, (torch.Tensor)):
+                errors.append("Basis matrix must be Tensor")
+            elif T_matrix is None:
+                errors.append("Basis matrix cannot be empty")
+
+        if hasattr(config, "inner_config"):
+            try:
+                TrunkConfigValidator.validate(config.inner_config)
+            except ValueError as e:
+                errors.append(f"Invalid inner trunk config: {str(e)}")
+
+        if errors:
+            raise ValueError(f"Orthonormal trunk errors: {', '.join(errors)}")
+
+    @staticmethod
+    def _validate_pod(config: TrunkConfig):
+        """Special validation for POD trunk configuration"""
+        errors = []
+
+        if not hasattr(config, "pod_modes"):
+            errors.append("Missing pod_modes for POD trunk")
+        if not hasattr(config, "pod_means"):
+            errors.append("Missing pod_means for POD trunk")
+
+        if hasattr(config, "pod_modes"):
+            pod_modes = config.pod_modes
+            if not isinstance(pod_modes, (torch.Tensor)):
+                errors.append("POD modes must be Tensor")
+            elif pod_modes is None:
+                errors.append("Basis matrix cannot be empty")
+            elif pod_modes.shape[1] != config.output_dim:
+                errors.append(
+                    "POD modes' second dimension must match the trunk's output dimension")
+
+        if hasattr(config, "pod_means"):
+            pod_means = config.pod_means
+            if not isinstance(pod_means, (torch.Tensor)):
+                errors.append("POD means must be Tensor")
+            elif pod_means is None:
+                errors.append("POD means cannot be empty")
+
+        if errors:
+            raise ValueError(f"POD trunk errors: {', '.join(errors)}")

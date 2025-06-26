@@ -1,5 +1,5 @@
 #  ----------------------Location of .npz data files ----------------
-raw_data_path: ./data/raw/kelvin/kelvin_v3.npz
+raw_data_path: ./data/raw/kelvin/kelvin_v2.npz
 dataset_version: 
 
 # ------------------------- Dataset parameters ----------------

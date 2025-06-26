@@ -1,24 +1,26 @@
-DATA_PATH: ./data/raw/kelvin/kelvin_v3.npz
+DATA_PATH: ./data/raw/kelvin/kelvin_v2.npz
 
 SEED: 42
 
 # -------------------------- Kelvin Problem -----------------------
 
-N: 2000
-F_MIN: 6        # log10 [N] (1 MN)
-F_MAX: 7        # log10 [N] (10 MN)
-MU_MIN: 5       # log10 [Pa] (0.1 MPa)
-MU_MAX: 6   # log10 [Pa] (100 MPa)
+N: 10
+F_MIN: 5        # log10 [N] (100 kN)
+F_MAX: 6        # log10 [N] (1 MN)
+MU_MIN: 6       # log10 [Pa] (1 MPa)
+MU_MAX: 8   # log10 [Pa] (100 MPa)
 NU_MIN: 0.1
-NU_MAX: 0.45
+NU_MAX: 0.499
 
-N_X: 30
-N_Y: 30
-N_Z: 50
-X_MIN: 0.01
-X_MAX: 1
-Y_MIN: 0.01
-Y_MAX: 1
-Z_MIN: 0.1
-Z_MAX: 1
+N_X: 10
+N_Y: 10
+N_Z: 10
+X_MIN: 0.001
+X_MAX: 0.999
+Y_MIN: 0.001
+Y_MAX: 0.999
+Z_MIN: 0.001
+Z_MAX: 0.999
 LOAD_DIRECTION: z
+
+SCALER: 30 # Scale parameter for mesh transformation

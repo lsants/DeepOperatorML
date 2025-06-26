@@ -15,7 +15,7 @@ class DeepONetTransformPipeline:
         self.branch_stats: dict = {}
         self.trunk_stats: dict = {}
         self.target_stats: dict = {}
-        self.expansion_info: dict = {"trunk": None, "branch": None}
+        self.dimension_info: dict = {"trunk": None, "branch": None}
 
     def fit_branch(self, branch_data: np.ndarray) -> None:
         """Compute statistics for branch normalization"""
@@ -58,9 +58,9 @@ class DeepONetTransformPipeline:
         """Set precomputed target statistics directly"""
         self.target_stats = self._convert_stats_to_tensor(stats)
 
-    def set_expansion_info(self, component: Literal["branch", "trunk"], original_dim: int) -> None:
+    def set_dimension_info(self, component: Literal["branch", "trunk"], original_dim: int) -> None:
         """Set precomputed expansion information"""
-        self.expansion_info[component] = original_dim
+        self.dimension_info[component] = original_dim
 
     def _convert_stats_to_tensor(self, stats: dict) -> dict[str, torch.Tensor]:
         """Convert numpy arrays to properly configured tensors"""
@@ -78,6 +78,8 @@ class DeepONetTransformPipeline:
     def transform_branch(self, xb: np.ndarray) -> torch.Tensor:
         """Apply branch normalization"""
         tensor = self._to_tensor(xb)
+        self.set_dimension_info(
+            component="branch", original_dim=tensor.shape[-1])
         return self._apply_normalization(data=tensor, norm_type=self.config.branch.normalization, stats=self.branch_stats)
 
     def transform_trunk(self, xt: np.ndarray) -> torch.Tensor:
@@ -85,6 +87,8 @@ class DeepONetTransformPipeline:
         tensor = self._to_tensor(xt)
         tensor = self._apply_normalization(
             data=tensor, norm_type=self.config.trunk.normalization, stats=self.trunk_stats)
+        self.set_dimension_info(
+            component="trunk", original_dim=tensor.shape[-1])
         return self._apply_expansion(data=tensor, component="trunk")
 
     def transform_target(self, y: np.ndarray) -> torch.Tensor:
@@ -111,8 +115,8 @@ class DeepONetTransformPipeline:
             return data
 
         # Store original dimension on first application
-        if self.expansion_info[component] is None:
-            self.expansion_info[component] = data.shape[-1]
+        if self.dimension_info[component] is None:
+            self.dimension_info[component] = data.shape[-1]
 
         expansion_fn = FeatureExpansionRegistry.get_expansion_fn(
             expansion_cfg.type, expansion_cfg.size
@@ -122,8 +126,8 @@ class DeepONetTransformPipeline:
     def inverse_transform(self, component: Literal["branch", "trunk"], tensor: torch.Tensor) -> torch.Tensor:
         """Reverse transformations in correct order"""
         # Reverse expansion first
-        if self.expansion_info.get(component):
-            tensor = tensor[..., :self.expansion_info[component]]
+        if self.dimension_info.get(component):
+            tensor = tensor[..., :self.dimension_info[component]]
 
         # Reverse normalization
         stats = getattr(self, f"{component}_stats")
@@ -156,7 +160,7 @@ class DeepONetTransformPipeline:
             "branch_stats": self.branch_stats,
             "trunk_stats": self.trunk_stats,
             "target_stats": self.target_stats,
-            "expansion_info": self.expansion_info,
+            "dimension_info": self.dimension_info,
         }
         torch.save(state, path / "transform_state.pt")
 
@@ -196,5 +200,5 @@ class DeepONetTransformPipeline:
         pipeline.branch_stats = state["branch_stats"]
         pipeline.trunk_stats = state["trunk_stats"]
         pipeline.target_stats = state["target_stats"]
-        pipeline.expansion_info = state["expansion_info"]
+        pipeline.dimension_info = state["dimension_info"]
         return pipeline

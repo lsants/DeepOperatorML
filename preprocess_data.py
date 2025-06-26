@@ -77,7 +77,7 @@ def preprocess_data():
             raw_data_path=Path(problem_config['raw_data_path']),
             problem_config=problem_config
         )
-        output_dir = Path(f"data/processed/{args.problem}_{version_hash}")
+        output_dir = Path(f"data/processed/{args.problem}/{version_hash}")
         
         helper_functions.save_artifacts(
             output_dir=output_dir,

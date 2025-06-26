@@ -2,10 +2,11 @@ precision: float32
 device: cpu
 
 # Location of dataset to test
-experiment_version:
+experiment_version: 2025-06-25_20-43-10
 
 # Location of outputs (data, metrics) - Set this if testing a pretrained model
-output_path: /Volumes/tmh/outputs
+output_path: ./output
+processed_data_path: ./data/processed
 
 plot_field: true
 plot_axis: true
@@ -18,7 +19,6 @@ axes_to_plot:
 
 # Plot every X percentile (e.g every 10th percentile of the input functions)
 plot_percentiles: 10
-
 inference_on: test
 samples_to_plot: 5
 basis_to_plot: all

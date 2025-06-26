@@ -3,7 +3,7 @@ from ..registry import ComponentRegistry
 from ...nn.architectures import MLP
 
 
-@ComponentRegistry.register(component_type='trunk_neural', architecture='mlp')
+@ComponentRegistry.register(component_type='neural_trunk', architecture='mlp')
 class MLPTrunk(torch.nn.Module):
     """Trainable neural network trunk"""
 

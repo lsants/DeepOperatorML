@@ -2,7 +2,7 @@ import torch
 from ..registry import ComponentRegistry
 
 
-@ComponentRegistry.register(component_type='matrix')
+@ComponentRegistry.register(component_type='matrix_branch', architecture="trainable_matrix")
 class MatrixBranch(torch.nn.Module):
     """For two-step phase 1 training (trainable matrix)"""
 

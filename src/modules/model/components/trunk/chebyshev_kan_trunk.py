@@ -2,7 +2,8 @@ import torch
 from ..registry import ComponentRegistry
 from ...nn.architectures import ChebyshevKAN
 
-@ComponentRegistry.register(component_type='trunk_neural', architecture='chebyshev_kan')
+
+@ComponentRegistry.register(component_type='neural_trunk', architecture='chebyshev_kan')
 class ChebyshevKANTrunk(torch.nn.Module):
     """KAN architecture implementation"""
 

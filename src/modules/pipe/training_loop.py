@@ -3,6 +3,7 @@ import torch
 import logging
 from collections import defaultdict
 from pathlib import Path
+from dataclasses import asdict
 from typing import Dict, List, Optional, Tuple
 from torch.utils.data import DataLoader
 from ..data_processing.deeponet_sampler import DeepONetSampler
@@ -47,7 +48,8 @@ class TrainingLoop:
 
         # Optimisation schedule [(n_epochs, optimiser, scheduler?), ...]
         self.optimizer_specs: List[
-            Tuple[int, torch.optim.Optimizer, Optional[torch.optim.lr_scheduler._LRScheduler]]
+            Tuple[int, torch.optim.Optimizer,
+                  Optional[torch.optim.lr_scheduler._LRScheduler]]
         ] = self.strategy.get_train_schedule()
         if not self.optimizer_specs:
             raise ValueError("Strategy produced an empty training schedule.")
@@ -63,10 +65,16 @@ class TrainingLoop:
         self.history = HistoryStorer(phases=self.phases)
         self.checkpoint_dir = Path(checkpoint_dir)
 
+        self.strategy_dict = asdict(self.strategy.config)
+        if self.strategy.config.name == 'two_step':
+            self.strategy_dict.update(
+                {'inner_config': self.strategy._original_trunk_cfg})  # type: ignore
+
     # ------------------------------------------------------------------ private
     def _init_current_optimizer(self) -> None:
         epochs, opt, sch = self.optimizer_specs[self.current_spec_idx]
         self.epochs_per_spec: int = epochs
+
         self.optimizer: torch.optim.Optimizer = opt
         self.scheduler: Optional[torch.optim.lr_scheduler._LRScheduler] = sch
 
@@ -85,12 +93,22 @@ class TrainingLoop:
         )
 
     # ----------------------------------------------------------------- training
-    def run(self, total_epochs: int) -> None:
-        for epoch in range(1, total_epochs + 1):
-            # — progression BEFORE epoch —
-            self._handle_spec_progression()
+    def run(self) -> None:
+        epoch = 0
+        while not self.strategy.training_complete():
+            epoch += 1
+            if self.epochs_in_current_spec >= self.epochs_per_spec:
+                if self.current_spec_idx < len(self.optimizer_specs) - 1:
+                    self.current_spec_idx += 1
+                    self.epochs_in_current_spec = 0
+                    self._init_current_optimizer()
+
+                elif self.strategy.should_transition_phase(current_phase=self.current_phase, current_epoch=epoch):
+                    self._handle_phase_transition()
+
             # ---------------- train ----------------
-            logger.info(f"\n\n\n\n================= Epoch {epoch} ===================== \n\n\n\n")
+            logger.info(
+                f"\n\n\n\n================= Epoch {epoch} ===================== \n\n\n\n")
             train_metrics = self._run_epoch(train=True)
             self._store_metrics(train_metrics, train=True)
 
@@ -100,13 +118,11 @@ class TrainingLoop:
                 val_metrics = self._run_epoch(train=False)
                 self._store_metrics(val_metrics, train=False)
 
-            # LR bookkeeping
             self.history.store_learning_rate(
                 phase=self.phases[self.current_phase - 1],
                 learning_rate=self.optimizer.param_groups[0]["lr"],
             )
 
-            # Strategy hook (early‑stopping, logging, …)
             if hasattr(self.strategy, "on_epoch_end"):
                 self.strategy.on_epoch_end(  # type: ignore[attr-defined]
                     epoch=epoch,
@@ -122,7 +138,6 @@ class TrainingLoop:
             # Logging ------------------------------------------------------
             self._log_progress(epoch, train_metrics, val_metrics)
 
-            # epoch counter for spec
             self.epochs_in_current_spec += 1
 
         exp_path = self.checkpoint_dir / 'experiment.pt'
@@ -131,9 +146,9 @@ class TrainingLoop:
                 "model": self.model.state_dict(),
                 "optimizer": self.optimizer.state_dict(),
                 "scheduler": self.scheduler.state_dict() if self.scheduler else None,
-                "strategy": self.strategy,
                 "history": self.history.get_history(),
                 "phase": self.current_phase,
+                "strategy": self.strategy_dict,  # Save strategy config
             },
             exp_path,
         )
@@ -141,7 +156,8 @@ class TrainingLoop:
     # -------------------------------------------------------------- core epoch
     def _run_epoch(self, *, train: bool) -> Dict[str, float]:
         self.model.train(mode=train)
-        loader: DataLoader = self.train_loader if train else self.val_loader  # type: ignore[assignment]
+        # type: ignore[assignment]
+        loader: DataLoader = self.train_loader if train else self.val_loader
         assert loader is not None, "Validation loader requested but not provided."
 
         aggregated: Dict[str, float] = defaultdict(float)
@@ -179,6 +195,7 @@ class TrainingLoop:
                         y_pred=y_pred,
                         loss=loss.item(),
                         train=train,
+                        branch_input=x_branch,
                     )
 
                     bs = y_true.size(0)
@@ -195,25 +212,28 @@ class TrainingLoop:
                 k: (v / processed_samples if processed_samples else float("nan"))
                 for k, v in aggregated.items()
             }
+
             torch.save(
                 {
                     "model": self.model.state_dict(),
                     "optimizer": self.optimizer.state_dict(),
                     "scheduler": self.scheduler.state_dict() if self.scheduler else None,
                     "history": self.history.get_history(),
+                    "strategy": self.strategy_dict,  #
                     "partial_epoch_metrics": partial_epoch_metrics,
                 },
                 self.checkpoint_dir / "INTERRUPTED.pt",
             )
-            print(f"Checkpoint written to {self.checkpoint_dir/'INTERRUPTED.pt'}")
+            print(
+                f"Checkpoint written to {self.checkpoint_dir/'INTERRUPTED.pt'}")
             raise  # bubble up so outer loop can exit cleanly
 
         # --------------- epoch-level normalisation -------------------------
 
         return {k: v / processed_samples for k, v in aggregated.items()}
 
-
     # ---------------------------------------------------------------- metrics
+
     def _store_metrics(self, metrics: Dict[str, float], *, train: bool) -> None:
         """Persist epoch‑level metrics inside :class:`HistoryStorer`."""
         if not metrics:
@@ -228,9 +248,11 @@ class TrainingLoop:
                 self.history.store_epoch_val_loss(phase, metrics["loss"])
         if "error" in metrics:
             if train:
-                self.history.store_epoch_train_errors(phase, {"error": metrics["error"]})
+                self.history.store_epoch_train_errors(
+                    phase, {"error": metrics["error"]})
             else:
-                self.history.store_epoch_val_errors(phase, {"error": metrics["error"]})
+                self.history.store_epoch_val_errors(
+                    phase, {"error": metrics["error"]})
 
         # Any extra keys are treated as error‑like (extend as needed)
         for k, v in metrics.items():
@@ -257,44 +279,26 @@ class TrainingLoop:
             y.to(self.device, non_blocking=True),
         )
 
-    # -------------------------------------------------------------- progression
-    def _handle_spec_progression(self) -> None:
-        if self.epochs_in_current_spec < self.epochs_per_spec:
-            return
-
-        # Move to next spec within same phase
-        if self.current_spec_idx < len(self.optimizer_specs) - 1:
-            self.current_spec_idx += 1
-            self.epochs_in_current_spec = 0
-            self._init_current_optimizer()
-            return
-
-        # Otherwise trigger phase transition
-        self._handle_phase_transition()
-
     def _handle_phase_transition(self) -> None:
         prev_phase_name = self.phases[self.current_phase - 1]
         logger.info("Phase '%s' completed. Transitioning …", prev_phase_name)
 
-        # Strategy‑specific transition (may mutate model)
         self.strategy.execute_phase_transition(
             model=self.model,
-            full_trunk_batch=self._get_full_trunk_batch()  # Provided for POD modes
+            full_branch_batch=self._get_full_branch_batch(),
+            full_trunk_batch=self._get_full_trunk_batch()
         )
-
-        # Prepare next phase ----------------------------------------------
         self.current_phase += 1
         if self.current_phase > len(self.phases):
-            raise RuntimeError("All phases completed but training asked to continue.")
+            raise RuntimeError(
+                "All phases completed but training asked to continue.")
         self.history.add_phase(self.phases[self.current_phase - 1])
-
-        # Refresh optimisation schedule as strategy may change it
         self.optimizer_specs = self.strategy.get_train_schedule()
         self.current_spec_idx = 0
         self.epochs_in_current_spec = 0
+
         self._init_current_optimizer()
 
-        # Checkpoint
         self._save_checkpoint(f"phase_{prev_phase_name}_end.pt")
 
     # -------------------------------------------------------------- persistence
@@ -305,8 +309,8 @@ class TrainingLoop:
                 "model": self.model.state_dict(),
                 "optimizer": self.optimizer.state_dict(),
                 "scheduler": self.scheduler.state_dict() if self.scheduler else None,
-                "strategy": self.strategy.state_dict(),
                 "history": self.history.get_history(),
+                "strategy": self.strategy_dict,
                 "phase": self.current_phase,
             },
             path,
@@ -334,8 +338,16 @@ class TrainingLoop:
 
     def _get_full_trunk_batch(self) -> torch.Tensor:
         xs = []
-        for _, x_trunk, _ in self.train_loader:  # type: ignore[misc]
+        for batch in self.train_loader:  # type: ignore[misc]
+            x_trunk = batch['xt']
             xs.append(x_trunk)
+        return torch.cat(xs, dim=0).to(self.device)
+
+    def _get_full_branch_batch(self) -> torch.Tensor:
+        xs = []
+        for batch in self.train_loader:  # type: ignore[misc]
+            x_branch = batch['xb']
+            xs.append(x_branch)
         return torch.cat(xs, dim=0).to(self.device)
 
     # ------------------------------------------------------------------- public

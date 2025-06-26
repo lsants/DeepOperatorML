@@ -1,7 +1,7 @@
 # ------------------- Model architecture ------------------
 seed: 42
-training_strategy: vanilla
-output_handling: single_output
+training_strategy: pod
+output_handling: split_outputs
 num_basis_functions: 100
 branch:
   architecture: resnet
@@ -32,12 +32,12 @@ rescaling:
   exponent: 0 #  Used to rescale the output of the DeepONet by the number of basis functions to the power of the exponent (use exponent < 0).
 
 # ------------------- Parameters for vanilla training ------------------
-epochs: 500
-branch_batch_size: 800
+epochs: 15
+branch_batch_size: 10 # Can't be null
 trunk_batch_size: null
-error: vector_l2
+error: matrix_fro
 optimizer_schedule:
-  - epochs: 500
+  - epochs: 10
     optimizer_type: adam
     learning_rate: 0.001
     l2_regularization: 0.003
@@ -45,43 +45,43 @@ optimizer_schedule:
       type: step
       step_size: 200
       gamma: 0.7
-  - epochs: 100
-    optimizer_type: adam
-    learning_rate: 0.005
-    l2_regularization: 0.0001
-    lr_scheduler:
-      type: step
-      step_size: 1000
-      gamma: 0.4
+  # - epochs: 100
+  #   optimizer_type: adam
+  #   learning_rate: 0.005
+  #   l2_regularization: 0.0001
+  #   lr_scheduler:
+  #     type: step
+  #     step_size: 1000
+  #     gamma: 0.4
 
 # ------------------- Parameters for POD training ----------------------
-num_pod_modes: 10
+num_pod_modes: 15
 
 # ------------------- Parameters for two step training ------------------
-trunk_epochs: 150
-branch_epochs: 500  
+trunk_epochs: 10
+branch_epochs: 5  
 decomposition_type: svd
 
 two_step_optimizer_schedule:
   trunk_phase:
-    - epochs: 10000
+    - epochs: 10
       optimizer_type: sgd
       learning_rate: 0.01
       l2_regularization: 0.00001
-    - epochs: 30000
-      optimizer_type: adam
-      learning_rate: 0.001
-      l2_regularization: 0.00001
-      lr_scheduler:
-        type: step
-        step_size: 5000
-        gamma: 0.7
-    - epochs: 110000
-      optimizer_type: adam
-      learning_rate: 0.0005
-      l2_regularization: 0.00001
+  #   - epochs: 30000
+  #     optimizer_type: adam
+  #     learning_rate: 0.001
+  #     l2_regularization: 0.00001
+  #     lr_scheduler:
+  #       type: step
+  #       step_size: 5000
+  #       gamma: 0.7
+  #   - epochs: 110000
+  #     optimizer_type: adam
+  #     learning_rate: 0.0005
+  #     l2_regularization: 0.00001
   branch_phase:
-    - epochs: 50000
+    - epochs: 5
       optimizer_type: adam
       learning_rate: 0.001
       l2_regularization: 0.00001
@@ -89,19 +89,19 @@ two_step_optimizer_schedule:
         type: step
         step_size: 5000
         gamma: 0.7
-    - epochs: 50000
-      optimizer_type: adam
-      learning_rate: 0.0001
-      l2_regularization: 0.00001
-      lr_scheduler:
-        type: step
-        step_size: 10000
-        gamma: 0.5
-    - epochs: 50000
-      optimizer_type: adam
-      learning_rate: 0.0001
-      l2_regularization: 0.00001
-      lr_scheduler:
-        type: step
-        step_size: 10000
-        gamma: 0.5
+    # - epochs: 50000
+    #   optimizer_type: adam
+    #   learning_rate: 0.0001
+    #   l2_regularization: 0.00001
+    #   lr_scheduler:
+    #     type: step
+    #     step_size: 10000
+    #     gamma: 0.5
+    # - epochs: 50000
+    #   optimizer_type: adam
+    #   learning_rate: 0.0001
+    #   l2_regularization: 0.00001
+    #   lr_scheduler:
+    #     type: step
+    #     step_size: 10000
+    #     gamma: 0.5

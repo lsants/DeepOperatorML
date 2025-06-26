@@ -1,8 +1,7 @@
 import torch
 from ..registry import ComponentRegistry
 
-
-@ComponentRegistry.register(component_type='pod')
+@ComponentRegistry.register(component_type='pod_trunk', architecture="precomputed")
 class PODTrunk(torch.nn.Module):
     """Precomputed POD basis trunk"""
 

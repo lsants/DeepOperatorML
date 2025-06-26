@@ -10,14 +10,17 @@ if TYPE_CHECKING:
     from ..config import ModelConfig
     from .config import StrategyConfig
 
+
 class TrainingStrategy(ABC):
     def __init__(self, config: StrategyConfig):
         self.config = config
+        self.epochs = config.epochs
+        self.epoch_count = 0
         self.error_metric = ERROR_METRICS[config.error.lower()]
         self.loss = self.get_criterion()
-    
+
     @abstractmethod
-    def prepare_components(self, model_config: ModelConfig): 
+    def prepare_components(self, model_config: ModelConfig):
         """Modifies the components configuration for the strategy before model initialization.
         """
         pass
@@ -31,10 +34,6 @@ class TrainingStrategy(ABC):
     def apply_gradient_constraints(self, model: DeepONet):
         """Optional gradient clipping/normalization"""
         pass
-
-    def state_dict(self) -> Dict:
-        """Strategy-specific state for checkpoints"""
-        return {}
 
     @abstractmethod
     def setup_training(self, model: DeepONet):
@@ -50,37 +49,43 @@ class TrainingStrategy(ABC):
         pass
 
     @abstractmethod
-    def check_phase_transition(self, epoch: int) -> bool:
-        """Check if the model should transition to a new training phase.
-        Returns True if a transition is needed, False otherwise.
-        """
-        pass
-    
-    @abstractmethod
-    def execute_phase_transition(self, model: DeepONet, full_trunk_batch: Optional[torch.Tensor] = None):
+    def execute_phase_transition(self, model: DeepONet, full_branch_batch: Optional[torch.Tensor] = None, full_trunk_batch: Optional[torch.Tensor] = None):
         """Perform the actual phase transition, such as decomposing the trunk or updating components.
-        This should only be called if check_phase_transition returned True.
         """
         pass
-
-    @abstractmethod
-    def get_optimizer_scheduler(self):...
-
-    def get_criterion(self) -> Callable[[torch.Tensor, torch.Tensor], torch.Tensor]:
-        """Default implementation using strategy's config"""
-        return get_loss_function(name=self.config.loss)
 
     @abstractmethod
     def validation_enabled(self) -> bool:
         """Whether to use validation set during training"""
         pass
 
-
     @abstractmethod
-    def strategy_specific_metrics(self, y_true: torch.Tensor,
-                                  y_pred: torch.Tensor) -> dict[str, float]:
+    def strategy_specific_metrics(self,
+                                  y_true: torch.Tensor,
+                                  y_pred: torch.Tensor,
+                                  branch_input: torch.Tensor | None = None,
+                                  trunk_input: torch.Tensor | None = None) -> dict[str, float]:
         """Strategy-specific metrics to be computed during training"""
         pass
+
+    @abstractmethod
+    def get_optimizer_scheduler(self): ...
+
+    def training_complete(self) -> bool:
+        self.epoch_count += 1
+        return self.epoch_count > self.epochs
+
+    def state_dict(self) -> Dict:
+        """Strategy-specific state for checkpoints"""
+        return {}
+
+    def get_criterion(self) -> Callable[[torch.Tensor, torch.Tensor], torch.Tensor]:
+        """Default implementation using strategy's config"""
+        return get_loss_function(name=self.config.loss)
+
+    def should_transition_phase(self, current_phase: int, current_epoch: int) -> bool:
+        """Return True if the strategy should transition to a new phase."""
+        return False
 
     def compute_loss(self, model: DeepONet,
                      x_branch: torch.Tensor,
@@ -91,14 +96,20 @@ class TrainingStrategy(ABC):
         loss = self.loss(y_pred, y_true)
         return y_pred, loss
 
-    def calculate_metrics(self, y_true: torch.Tensor, 
-                        y_pred: torch.Tensor, loss: float,
-                        train: bool) -> Dict[str, float]:
+    def calculate_metrics(self,
+                          y_true: torch.Tensor,
+                          y_pred: torch.Tensor,
+                          loss: float,
+                          train: bool,
+                          branch_input: torch.Tensor | None = None,
+                          trunk_input: torch.Tensor | None = None) -> Dict[str, float]:
         """Combines base and strategy-specific metrics"""
         metrics = self.base_metrics(y_true, y_pred, loss)
-        metrics.update(self.strategy_specific_metrics(y_true, y_pred))
-        return metrics    
-    
+        metrics.update(
+            self.strategy_specific_metrics(y_true=y_true, y_pred=y_pred)
+        )
+        return metrics
+
     def base_metrics(self, y_true: torch.Tensor, y_pred: torch.Tensor, loss: float) -> Dict[str, float]:
         """Common metrics for all strategies"""
         with torch.no_grad():

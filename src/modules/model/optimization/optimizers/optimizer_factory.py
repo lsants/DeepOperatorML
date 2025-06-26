@@ -4,14 +4,16 @@ from .optimizers import OPTIMIZER_MAP, SCHEDULER_MAP
 from typing import TYPE_CHECKING
 from .config import OptimizerSpec
 
+
 def create_optimizer(spec: 'OptimizerSpec', params: list[torch.nn.Parameter]) -> torch.optim.Optimizer:
     optimizer_class = OPTIMIZER_MAP[spec.optimizer_type.lower()]
     optimizer = optimizer_class(
-        params, 
+        params,
         lr=spec.learning_rate,
         weight_decay=spec.l2_regularization
     )
     return optimizer
+
 
 def create_scheduler(spec: 'OptimizerSpec', optimizer: torch.optim.Optimizer) -> torch.optim.lr_scheduler._LRScheduler | None:
     if spec.lr_scheduler is None:
@@ -25,4 +27,3 @@ def create_scheduler(spec: 'OptimizerSpec', optimizer: torch.optim.Optimizer) ->
         optimizer,
         **{k: v for k, v in spec.lr_scheduler.items() if k != "type"}
     )
-            
