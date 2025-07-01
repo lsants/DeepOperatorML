@@ -35,9 +35,9 @@ class ModelConfig:
             }[name]
 
             valid_fields = {f.name for f in fields(strategy_class)}
+
             filtered = {k: v for k, v in strategy_data.items()
                         if k in valid_fields}
-
             return strategy_class(**filtered)
         return strategy_data
 

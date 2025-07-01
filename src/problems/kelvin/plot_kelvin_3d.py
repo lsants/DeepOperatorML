@@ -30,14 +30,17 @@ def plot_kelvin_solution(
     N, n_x, n_y, n_z, _ = g_u.shape
 
     if sample_index < 0 or sample_index >= N:
-        raise IndexError(f"sample_index {sample_index} out of bounds (0 ≤ i < {N}).")
+        raise IndexError(
+            f"sample_index {sample_index} out of bounds (0 ≤ i < {N}).")
 
     # 2. Create a meshgrid of all (x,y,z) points
-    X, Y, Z = np.meshgrid(x_field, y_field, z_field, indexing="ij")  # each shape (n_x, n_y, n_z)
+    # each shape (n_x, n_y, n_z)
+    X, Y, Z = np.meshgrid(x_field, y_field, z_field, indexing="ij")
 
     # 3. Extract the displacement vectors for the chosen sample
     #    g_u has shape (N, n_x, n_y, n_z, 3). We take index sample_index:
-    U_sample: np.ndarray = g_u[sample_index, :, :, :, :]  # shape (n_x, n_y, n_z, 3)
+    U_sample: np.ndarray = g_u[sample_index,
+                               :, :, :, :]  # shape (n_x, n_y, n_z, 3)
 
     # 4. Optionally subsample every `stride` points to avoid overcrowding
     Xs = X[::stride, ::stride, ::stride]
@@ -82,7 +85,7 @@ def plot_kelvin_solution(
 if __name__ == "__main__":
     # ─── USER CONFIGURATION ─────────────────────────────────────────────────────
     # Path to the .npz file you’ve saved in your generate() step:
-    npz_filename = "/Users/ls/Workspace/SSI_DeepONet/data/raw/kelvin/kelvin_v1.npz"
+    npz_filename = "/Users/ls/Workspace/SSI_DeepONet/data/raw/kelvin/kelvin_v4.npz"
 
     # Which branch‐sample index to plot (0 ≤ sample_index < N):
     sample_to_plot = 0

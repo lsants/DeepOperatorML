@@ -113,8 +113,9 @@ class TrainingStrategy(ABC):
     def base_metrics(self, y_true: torch.Tensor, y_pred: torch.Tensor, loss: float) -> Dict[str, float]:
         """Common metrics for all strategies"""
         with torch.no_grad():
-            error = self.error_metric(y_pred - y_true).item()
-        return {
+            error = self.error_metric(y_pred - y_true, dim=(0, 1))
+        base_metric = {
             'loss': loss,
-            'error': error
+            **{f'error_{i[0]}': i[1].item() for i in enumerate(error.detach())}
         }
+        return base_metric

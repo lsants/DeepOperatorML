@@ -1,4 +1,5 @@
 from __future__ import annotations
+import copy
 
 """Utility helpers to visualise *TrainingLoop* histories.
 
@@ -55,14 +56,12 @@ def align_epochs(raw_history: Dict[str, Dict[str, list]]) -> Dict[str, Dict[str,
         train_err = metrics.get("train_errors", [])
         val_err = metrics.get("val_errors", [])
 
-        # Collect all error keys that ever appeared in this phase.
         keys: set[str] = set()
         for record in train_err + val_err:
             if isinstance(record, dict):
                 keys.update(record.keys())
         output_keys = sorted(keys)
 
-        # Build aligned per‑key lists, filling missing entries with nan.
         train_err_aligned: Dict[str, List[float]] = defaultdict(list)
         val_err_aligned: Dict[str, List[float]] = defaultdict(list)
 
@@ -75,7 +74,6 @@ def align_epochs(raw_history: Dict[str, Dict[str, list]]) -> Dict[str, Dict[str,
                 val = record.get(k) if isinstance(record, dict) else record
                 val_err_aligned[k].append(val if val is not None else np.nan)
 
-        # Determine maximum epoch count across all series.
         n_epochs = max(
             len(train_loss),
             len(val_loss),
@@ -85,7 +83,6 @@ def align_epochs(raw_history: Dict[str, Dict[str, list]]) -> Dict[str, Dict[str,
         )
         epochs = list(range(n_epochs))
 
-        # Pad lists to common length and replace None with nan.
         train_loss = _pad(
             [np.nan if v is None else v for v in train_loss], n_epochs)
         val_loss = _pad(
@@ -112,72 +109,76 @@ def align_epochs(raw_history: Dict[str, Dict[str, list]]) -> Dict[str, Dict[str,
 # ---------------------------------------------------------------------------
 
 
-def plot_training(history: Dict[str, Dict[str, list]], plot_config: dict[str, Any]) -> plt.Figure:
-    """Plot training curves for each phase.
-
-    Accepts either raw ``HistoryStorer`` dict or the output of
-    :func:`align_epochs`. The function auto‑detects and aligns as needed.
+def plot_training(
+    history: dict[str, dict],
+    plot_config: dict[str, Any]
+) -> plt.Figure:
     """
-    # Auto‑align if necessary
-    if "epochs" not in next(iter(history.values())):
-        data = align_epochs(history)
-    else:
-        data = history  # type: ignore[assignment]
-
-    n_phases = len(data)
-    max_outputs = max(len(m["output_keys"]) for m in data.values())
-    n_cols = 1 + max_outputs  # first column reserved for loss
+    history: output of HistoryStorer.get_history()
+    plot_config: same as before, for labels/scales
+    """
+    phases = list(history.keys())
+    n_phases = len(phases)
+    # figure out how many error‐plots max we need
+    max_err = max(len(h['train_errors']) for h in history.values())
+    n_cols = 1 + max_err  # first col for loss
 
     fig, axes = plt.subplots(
         nrows=n_phases,
         ncols=n_cols,
         figsize=(4.5 * n_cols, 4.0 * n_phases),
-        squeeze=False,
+        squeeze=False
     )
 
-    for row, (phase, m) in enumerate(data.items()):
-        epochs = m["epochs"]
-        train_loss = np.asarray(m["train_loss"], dtype=float)
-        val_loss = np.asarray(m["val_loss"], dtype=float)
-        lr_hist = np.asarray(m["learning_rate"], dtype=float)
+    for row, phase in enumerate(phases):
+        h = history[phase]
+        # x-axis
+        epochs = np.arange(1, len(h['train_loss']) + 1)
 
-        # ---------------------- Loss column ----------------------
+        # --- Loss plot ---
         ax_loss = axes[row][0]
-        ax_loss.plot(epochs, train_loss, label="Train", lw=1.2, color='blue')
-        if not np.isnan(val_loss).all():
-            ax_loss.plot(epochs, val_loss, label="Val", lw=1.2, color='orange')
+        ax_loss.plot(epochs, h['train_loss'], label='Train', lw=1.2)
+        if h['val_loss']:
+            ax_loss.plot(epochs, h['val_loss'], label='Val', lw=1.2)
         ax_loss.set_title(f"{phase.capitalize()} – Loss")
-        ax_loss.set_xlabel('Epochs')
+        ax_loss.set_xlabel("Epoch")
         ax_loss.set_ylabel(loss_label_map[plot_config['strategy']['loss']])
         ax_loss.set_yscale("log")
         ax_loss.legend()
 
+        # LR on same plot
         ax_lr = ax_loss.twinx()
-        ax_lr.plot(epochs, lr_hist, color="black", lw=0.5)
-        ax_lr.set_ylabel("Learning rate")
+        ax_lr.plot(epochs, h['learning_rate'], color='k', lw=0.5)
+        ax_lr.set_ylabel("LR")
         ax_lr.set_yscale("log")
 
-        # -------------------- Error columns ----------------------
-        for col, key in enumerate(m["output_keys"], start=1):
-            train_err = np.asarray(m["train_errors"][key], dtype=float)
-            val_err = np.asarray(m["val_errors"][key], dtype=float)
-
+        # --- Error plots ---
+        err_keys = list(h['train_errors'].keys())
+        for col, key in enumerate(err_keys, start=1):
             ax = axes[row][col]
-            if not np.isnan(train_err).all():
-                ax.plot(epochs, train_err, label=f"Train",
-                        lw=1.2, color='blue')
-            if not np.isnan(val_err).all():
-                ax.plot(epochs, val_err, label=f"Val", lw=1.2, color='orange')
-            ax.set_title(f"{phase.capitalize()} – {key.capitalize()}")
-            ax.set_xlabel('Epochs')
+            train_err = np.asarray(h['train_errors'][key], dtype=float)
+            val_err = np.asarray(h['val_errors'].get(key, []), dtype=float)
+
+            ax.plot(epochs, train_err, label='Train', lw=1.2)
+            if val_err.size:
+                ax.plot(epochs, val_err, label='Val', lw=1.2)
+
+            ax.set_title(f"{phase.capitalize()} – {key}")
+            ax.set_xlabel("Epoch")
             ax.set_ylabel(error_label_map[plot_config['strategy']['error']])
             ax.set_yscale("log")
             ax.legend()
 
-            ax_lr2 = ax.twinx()
-            ax_lr2.plot(epochs, lr_hist, color="black", lw=0.5)
-            ax_lr2.set_ylabel("Learning rate")
-            ax_lr2.set_yscale("log")
+            # LR again
+            ax2 = ax.twinx()
+            ax2.plot(epochs, h['learning_rate'], color='k', lw=0.5)
+            ax2.set_ylabel("LR")
+            ax2.set_yscale("log")
+
+        # blank out any unused subplots
+        for empty_col in range(1 + len(err_keys), n_cols):
+            axes[row][empty_col].axis('off')
 
     fig.tight_layout()
+    plt.show()
     return fig

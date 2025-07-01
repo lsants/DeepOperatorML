@@ -9,6 +9,7 @@ class MatrixBranch(torch.nn.Module):
     def __init__(self, input_dim: int, output_dim: int):
         super().__init__()
         self.weights = torch.nn.Parameter(torch.randn(output_dim, input_dim))
+        torch.nn.init.xavier_uniform_(self.weights)
 
     def forward(self, x):
         return x @ self.weights.T

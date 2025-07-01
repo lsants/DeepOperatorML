@@ -1,5 +1,5 @@
 #  ----------------------Location of .npz data files ----------------
-raw_data_path: ./data/raw/kelvin/kelvin_v2.npz
+raw_data_path: ./data/raw/kelvin/kelvin_v4.npz
 dataset_version: 
 
 # ------------------------- Dataset parameters ----------------
@@ -13,12 +13,10 @@ data_labels:
   targets: [g_u]
 
 input_function_keys:  
-  - F
   - nu
   - mu
 
 input_function_labels:
-  - F
   - ν
   - μ 
 
@@ -27,10 +25,16 @@ coordinate_keys:
   - y
   - z
 
-coordinate_labels:
-  - g_u
+output_keys:
+  - g_u_x
+  - g_u_y
+  - g_u_z
 
 output_labels:
-  - "$\\vec{u})$"
+  - "$\\u_x$"
+  - "$\\u_y$"
+  - "$\\u_z$"
 
 load_direction: z
+
+var_share: 0.95

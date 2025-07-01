@@ -5,7 +5,7 @@ from .branch.config import BranchConfig, BranchConfigValidator
 from typing import TypeVar
 import inspect
 from typing import TYPE_CHECKING
-from .trunk.orthonormal_trunk import OrthonormalTrunk
+from .trunk import OrthonormalTrunk, PODTrunk
 if TYPE_CHECKING:
     from .trunk.config import TrunkConfig
     from .branch.config import BranchConfig
@@ -41,9 +41,12 @@ class TrunkFactory:
             inner_trunk = cls.build(config.inner_config)  # type: ignore
             basis_tensor = torch.as_tensor(config.T_matrix)
             return OrthonormalTrunk(inner_trunk, basis_tensor)
-        
+
         if config.component_type == "pod_trunk":
-            return PODTrunk(inner_trunk, basis_tensor)
+            basis = config.pod_basis
+            mean = config.pod_mean
+            return PODTrunk(pod_basis=basis,
+                            pod_mean=mean)
 
         TrunkConfigValidator.validate(config)
         # Get component class

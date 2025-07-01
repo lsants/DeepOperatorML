@@ -11,10 +11,7 @@ logger = logging.getLogger(__name__)
 
 
 class DeepONet(torch.nn.Module):
-    def __init__(self, branch: torch.nn.Module,
-                 trunk: torch.nn.Module,
-                 output_handler: OutputHandler,
-                 rescaler: Rescaler):
+    def __init__(self, branch: torch.nn.Module, trunk: torch.nn.Module, output_handler: OutputHandler, rescaler: Rescaler):
         """DeepONet model (Lu, et al. 2019), universal approximation theorem-based architecture composed of a branch and a trunk net.
 
         Args:
@@ -24,18 +21,19 @@ class DeepONet(torch.nn.Module):
             rescaling (Rescaling): Determines how the DeepONet's output is rescaled in function of the number of basis functions.
         """
         super().__init__()
-        self.branch = branch
-        self.trunk = trunk
-        self.output_handler = output_handler
-        self.rescaler = rescaler
-        self.bias = torch.nn.Parameter(
+        self.branch: torch.nn.Module = branch
+        self.trunk: torch.nn.Module = trunk
+        self.output_handler: OutputHandler = output_handler
+        self.rescaler: Rescaler = rescaler
+        self.bias: torch.nn.Parameter | torch.Tensor = torch.nn.Parameter(
             torch.zeros(self.output_handler.num_channels))
 
     def forward(self, branch_input: torch.Tensor, trunk_input: torch.Tensor) -> torch.Tensor:
+
         branch_out = self.branch(branch_input)
         trunk_out = self.trunk(trunk_input)
 
         combined = self.output_handler.combine(
-            branch_out, trunk_out)
+            branch_out, trunk_out) + self.bias
 
         return self.rescaler(combined)

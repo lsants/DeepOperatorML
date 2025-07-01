@@ -1,5 +1,5 @@
 from __future__ import annotations
-import numpy as np
+import torch
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Literal, Dict, Union, List
 if TYPE_CHECKING:
@@ -70,8 +70,8 @@ class TwoStepConfig(StrategyConfig):
 @dataclass
 class PODConfig(StrategyConfig):
     """Configuration for Proper Orthogonal Decomposition training strategy."""
-    pod_modes: np.ndarray
-    pod_means: np.ndarray
+    pod_basis: torch.Tensor
+    pod_mean: torch.Tensor
     optimizer_scheduler: list[OptimizerSpec]
 
     def __post_init__(self):
@@ -79,12 +79,7 @@ class PODConfig(StrategyConfig):
         self._validate_pod()
 
     def _validate_pod(self):
-        """Strategy-specific validation"""
-        if self.pod_modes.ndim != 3:
-            raise ValueError(
-                "pod_modes must be 3D (modes x features x channels)")
-        if "optimizer_type" not in self.optimizer_scheduler:
-            raise ValueError("POD optimizer config requires 'type' key")
+        pass
 
 
 StrategyConfigUnion = Union[VanillaConfig, PODConfig, TwoStepConfig]

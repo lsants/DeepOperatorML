@@ -117,6 +117,10 @@ class TwoStepStrategy(TrainingStrategy):
         self.final_trunk_config = new_trunk_config
         self.final_branch_config = deepcopy(self._original_branch_cfg)
 
+        self._original_branch_cfg.output_dim *= model.output_handler.num_channels
+        if isinstance(model.output_handler, SplitOutputsHandler):
+            self.final_trunk_config.output_dim *= model.output_handler.num_channels
+
         with torch.no_grad():
             self.A_full = self.A(self.all_branch_inputs)
 
@@ -172,6 +176,7 @@ class TwoStepStrategy(TrainingStrategy):
             y_pred = model(x_branch, x_trunk)
         elif self._phase == 2:
             y_true = self.compute_synthetic_targets(x_branch)
+            dummy_trunk_out = model.trunk(x_trunk)
             y_pred = model.branch(x_branch)
         else:
             raise RuntimeError("Invalid training phase")
@@ -195,19 +200,25 @@ class TwoStepStrategy(TrainingStrategy):
 
     def strategy_specific_metrics(self, y_true: torch.Tensor, y_pred: torch.Tensor, branch_input: torch.Tensor) -> dict[str, float]:
         if self._phase == 1:
-            relative_error = {'error': (self.error_metric(
-                y_true - y_pred) / self.error_metric(y_true)).item()}
+            relative_error = self.error_metric(
+                y_true - y_pred, dim=(0, 1)) / self.error_metric(y_true, dim=(0, 1))
         elif self._phase == 2:
             y_true = self.compute_synthetic_targets(branch_input)
             if y_true.shape != y_pred.shape:
                 raise ValueError(
                     "Synthetic targets and predictions must have the same shape.")
-            relative_error = {'error': (self.error_metric(
-                y_true - y_pred) / self.error_metric(y_true)).item()}
+            relative_error = self.error_metric(
+                y_true - y_pred, dim=(0, 1)) / self.error_metric(y_true, dim=(0, 1))
         else:
             raise RuntimeError("Invalid training phase")
 
-        return relative_error
+        if relative_error.ndim > 0:
+            strategy_metric = {
+                **{f'error_trunk_{i[0]}': i[1].item() for i in enumerate(relative_error.detach())}
+            }
+        else:
+            strategy_metric = {f'error_branch': relative_error.item()}
+        return strategy_metric
 
     def compute_synthetic_targets(self, branch_inputs) -> torch.Tensor:
         """Computes synthetic targets using the decomposed trunk and branch"""

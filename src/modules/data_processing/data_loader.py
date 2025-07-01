@@ -43,7 +43,7 @@ def get_split_data(data: Any,
     train_indices = (split_indices[f'{branch_key.upper()}_train'],
                      split_indices[f'{trunk_key.upper()}_train'])
     val_indices = (split_indices[f'{branch_key.upper()}_val'],
-                   split_indices[f'{trunk_key.upper()}_val'])
+                   split_indices[f'{trunk_key.upper()}_train'])
     test_indices = (split_indices[f'{branch_key.upper()}_test'],
                     split_indices[f'{trunk_key.upper()}_test'])
 

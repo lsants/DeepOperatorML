@@ -6,6 +6,7 @@ import numpy as np
 from ..base_generator import BaseProblemGenerator
 from typing import Any
 from pathlib import Path
+from ...modules.utilities.sampling_functions import mesh_rescaling, numpy_random_open_0_1
 
 logger = logging.getLogger(__name__)
 
@@ -34,13 +35,11 @@ class KelvinProblemGenerator(BaseProblemGenerator):
             array: Shape (N, 3) with columns [F, mu, nu], where N is the number of samples.
         """
 
-        log_F_samples = self.config["F_MIN"] + np.random.rand(
-            self.config["N"]) * (self.config["F_MAX"] - self.config["F_MIN"])
-        log_mu_samples = self.config["MU_MIN"] + np.random.rand(
+        log_mu_samples = self.config["MU_MIN"] + numpy_random_open_0_1(
             self.config["N"]) * (self.config["MU_MAX"] - self.config["MU_MIN"])
-        F_samples = 10**log_F_samples
+        F_samples = np.array(10**self.config["F"])
         mu_samples = 10**log_mu_samples
-        nu_samples = self.config["NU_MIN"] + np.random.rand(
+        nu_samples = numpy_random_open_0_1(
             self.config["N"]) * (self.config["NU_MAX"] - self.config["NU_MIN"])
         return F_samples, mu_samples, nu_samples
 
@@ -50,11 +49,11 @@ class KelvinProblemGenerator(BaseProblemGenerator):
             tuple: [x, y, z]
         """
         x_field = np.linspace(
-            self.config["X_MIN"], self.config["X_MAX"], self.config["N_X"])
+            self.config["X_MIN"]+1e-6, self.config["X_MAX"] - 1e-6, self.config["N_X"])
         y_field = np.linspace(
-            self.config["Y_MIN"], self.config["Y_MAX"], self.config["N_Y"])
+            self.config["Y_MIN"]+1e-6, self.config["Y_MAX"] - 1e-6, self.config["N_Y"])
         z_field = np.linspace(
-            self.config["Z_MIN"], self.config["Z_MAX"], self.config["N_Z"])
+            self.config["Z_MIN"]+1e-6, self.config["Z_MAX"] - 1e-6, self.config["N_Z"])
         return x_field, y_field, z_field
 
     def _influencefunc(self, F, mu, nu, x_field, y_field, z_field) -> tuple[np.ndarray, float]:
@@ -123,51 +122,30 @@ class KelvinProblemGenerator(BaseProblemGenerator):
         duration = (end - start) / 1e6
         return u, duration
 
-    def mesh_rescaling(self, arr: np.ndarray, c: float) -> np.ndarray:
-        return c * np.log(arr / (1 - arr))
-
     def generate(self):
         F, mu, nu = self._get_input_functions()
         coordinates = self._get_coordinates()
         x_field_transformed, y_field_transformed, z_field_transformed = coordinates
 
-        x_field = self.mesh_rescaling(
+        x_field = mesh_rescaling(
             x_field_transformed, self.config["SCALER"])
-        y_field = self.mesh_rescaling(
+        y_field = mesh_rescaling(
             y_field_transformed, self.config["SCALER"])
-        z_field = self.mesh_rescaling(
+        z_field = mesh_rescaling(
             z_field_transformed, self.config["SCALER"])
 
         logger.info(f"Generating...")
         displacements, duration = self._influencefunc(
             F, mu, nu, x_field, y_field, z_field)
 
-        # 2D if one coord has one point
-        # displacements = np.squeeze(displacements, axis=2)
-
         scaler_parameter = self.config["SCALER"]
 
         logger.info(
-            f"Runtime for computing Kelvin solution: {duration:.3f} ms")
-        logger.info(f"\nData shapes:")
-        logger.info(
-            f"   Input functions (F, mu, nu): {F.shape}, {mu.shape}, {nu.shape}")
-        logger.info(f"   Displacements u: {displacements.shape}")
-        logger.info(
-            f"   x: {x_field.shape}, y: {y_field.shape}, z: {z_field.shape}")
-        logger.info(
-            f"\nLoad magnitude min = {F.min():.3E}, max = {F.max():.3E}")
-        logger.info(
-            f"\nShear modulus magnitude min = {mu.min():.3E}, max = {mu.max():.3E}")
-        logger.info(
-            f"\nPoisson's ratio min = {nu.min():.3f}, max = {nu.max():.3f}")
-        logger.info(f"x: min = {x_field.min():3f}, max = {x_field.max():.3f}")
-        logger.info(f"y: min = {y_field.min():3f}, max = {y_field.max():.3f}")
-        logger.info(f"z: min = {z_field.min():3f}, max = {z_field.max():.3f}")
+            f"Runtime for computing Kelvin solution: {duration:.3f} ms\nData shapes:\nInput functions (F, mu, nu): {F.shape}, {mu.shape}, {nu.shape}\nDisplacements u: {displacements.shape}\nx: {x_field.shape}, y: {y_field.shape}, z: {z_field.shape}\nLoad magnitude = {F:.3E}\nShear modulus min = {mu.min():.3E}, max = {mu.max():.3E}\nPoisson's ratio min = {nu.min():.3f}, max = {nu.max():.3f}\nx: min = {x_field.min():3f}, max = {x_field.max():.3f}\nx: mean = {x_field.mean():3f}, std = {x_field.std():.3f}\ny: min = {y_field.min():3f}, max = {y_field.max():.3f}\ny: mean = {y_field.mean():3f}, std = {y_field.std():.3f}\nz: min = {z_field.min():3f}, max = {z_field.max():.3f}\nz: mean = {z_field.mean():3f}, std = {z_field.std():.3f}\ng_u: min = {displacements.min():3f}, max = {displacements.max():.3f}\ng_u: mean = {displacements.mean():3f}, std = {displacements.std():.3f}\n scaling parameter = {scaler_parameter:.3f}")
 
         path = Path(self.config["DATA_PATH"])
         if path.parent:
             path.parent.mkdir(parents=True, exist_ok=True)
-        np.savez(path, F=F, mu=mu, nu=nu, x=x_field, y=y_field,
+        np.savez(path, mu=mu, nu=nu, x=x_field, y=y_field,
                  z=z_field, g_u=displacements, c=scaler_parameter)
         logger.info(f"Saved data at {path}")

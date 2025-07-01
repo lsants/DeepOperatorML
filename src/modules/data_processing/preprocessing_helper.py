@@ -1,57 +1,66 @@
 from __future__ import annotations
 import hashlib
 import numpy as np
-from torch import values_copy
+import logging
 import yaml
 from datetime import datetime
 from pathlib import Path
 from typing import Any
 from .deeponet_dataset import DeepONetDataset
 
+logger = logging.getLogger(__name__)
+
+
 def validate_data_structure(data: dict, config: dict) -> dict:
     """Validate feature/target dimensions based on config relationships."""
     features = config['data_labels']['features']
     targets = config['data_labels']['targets']
-    
+
     for name in features + targets:
         if name not in data:
             raise ValueError(f"Missing array '{name}' in processed data")
-    
+
     for target in targets:
         target_shape = data[target].shape
-        if len(target_shape) != 2:
-            raise ValueError(f"Target '{target}' must be 2-dimensional")
-            
+        if len(target_shape) != 3:
+            raise ValueError(f"Target '{target}' must be 3-dimensional")
+
         if target_shape[0] != data[features[0]].shape[0]:
-            raise ValueError(f"Target '{target}' rows don't match '{features[0]}' samples")
-            
+            raise ValueError(
+                f"Target '{target}' rows don't match '{features[0]}' samples")
+
         if target_shape[1] != data[features[1]].shape[0]:
-            raise ValueError(f"Target '{target}' columns don't match '{features[1]}' samples")
-    
+            raise ValueError(
+                f"Target '{target}' columns don't match '{features[1]}' samples")
+
     return {
         'features': {f: data[f].shape[0] for f in features},
         'targets': {t: data[t].shape for t in targets}
     }
 
+
 def get_data_shapes(data: dict[str, Any], config: dict[str, Any]) -> dict[str, tuple[int]]:
     """Get dataset shapes."""
     features = config['data_labels']['features']
     targets = config['data_labels']['targets']
-    data_shapes = {f: data[f].shape for f in features} | {t: data[t].shape for t in targets}
+    data_shapes = {f: data[f].shape for f in features} | {
+        t: data[t].shape for t in targets}
     return data_shapes
+
 
 def get_sample_sizes(data: dict, config: dict) -> dict[str, int]:
     """Get sample sizes for all features based on config relationships."""
     dim_info = validate_data_structure(data, config)
     return dim_info['features']
 
+
 def split_features(
-    sample_sizes: dict[str, int], 
+    sample_sizes: dict[str, int],
     split_ratios: list[float],
     seed: int
 ) -> dict[str, dict[str, np.ndarray]]:
     """Generate splits for multiple features with independent sample sizes.
-    
+
     Returns:
         {
             'xb': {'train': ..., 'val': ..., 'test': ...},
@@ -61,20 +70,21 @@ def split_features(
     """
     rng = np.random.default_rng(seed)
     splits = {}
-    
+
     for feature, num_samples in sample_sizes.items():
         indices = rng.permutation(num_samples)
-        
+
         train_end = int(split_ratios[0] * num_samples)
         val_end = train_end + int(split_ratios[1] * num_samples)
-        
+
         splits[feature] = {
             'train': indices[:train_end],
             'val': indices[train_end:val_end],
             'test': indices[val_end:]
         }
-    
+
     return splits
+
 
 def compute_scalers(
     data: dict[str, np.ndarray],
@@ -83,14 +93,16 @@ def compute_scalers(
     scalers = {}
     for feature_or_target, indices in train_indices.items():
         if feature_or_target not in data:
-            raise ValueError(f"Feature/target '{feature_or_target}' not found in data.")
-        
+            raise ValueError(
+                f"Feature/target '{feature_or_target}' not found in data.")
+
         if isinstance(indices, tuple):
             if np.max(indices[0]) >= data[feature_or_target].shape[0] or \
-                np.max(indices[1]) >= data[feature_or_target].shape[1]:
-                raise IndexError(f"Indices for feature / target '{feature_or_target}' exceed its data dimensions.")
-            
-            train_data = data[feature_or_target][indices[0]][ : , indices[1]]
+                    np.max(indices[1]) >= data[feature_or_target].shape[1]:
+                raise IndexError(
+                    f"Indices for feature / target '{feature_or_target}' exceed its data dimensions.")
+
+            train_data = data[feature_or_target][indices[0]][:, indices[1]]
 
             scalers[f"{feature_or_target}_min"] = np.min(train_data)
             scalers[f"{feature_or_target}_max"] = np.max(train_data)
@@ -99,8 +111,9 @@ def compute_scalers(
 
         else:
             if np.max(indices) >= data[feature_or_target].shape[0]:
-                raise IndexError(f"Indices for feature / target '{feature_or_target}' exceed its data dimensions.")
-            
+                raise IndexError(
+                    f"Indices for feature / target '{feature_or_target}' exceed its data dimensions.")
+
             train_data = data[feature_or_target][indices]
 
             scalers[f"{feature_or_target}_min"] = np.min(train_data, axis=0)
@@ -108,25 +121,91 @@ def compute_scalers(
             scalers[f"{feature_or_target}_mean"] = np.mean(train_data, axis=0)
             scalers[f"{feature_or_target}_std"] = np.std(train_data, axis=0)
 
+    logger.info(f"Done!")
     return scalers
+
+
+def compute_pod(
+    data:  np.ndarray,
+    var_share: float,
+) -> dict[str, np.ndarray]:
+
+    def single_basis_pod(data: np.ndarray) -> tuple[np.ndarray, ...]:
+        domain_samples = data.shape[1]
+        data_stacked = data.reshape(-1, domain_samples)
+
+        mean = np.mean(data, axis=0, keepdims=True)
+        mean_stacked = np.mean(data_stacked, axis=0, keepdims=True)
+        centered = (data_stacked - mean_stacked).T
+
+        U, S, _ = np.linalg.svd(centered, full_matrices=False)
+
+        explained_variance_ratio = np.cumsum(
+            S**2) / np.linalg.norm(S, ord=2)**2
+
+        n_modes = (explained_variance_ratio < var_share).sum().item()
+
+        single_basis_modes = U[:, : n_modes]
+        return single_basis_modes, mean
+
+    def multi_basis_pod(data: np.ndarray) -> tuple[np.ndarray, ...]:
+        mean = np.mean(data, axis=0, keepdims=True)
+        centered = (data - mean).transpose(1, 0, 2)
+
+        centered_channels_first = centered.transpose(2, 0, 1)
+        U, S, _ = np.linalg.svd(centered_channels_first, full_matrices=False)
+        U = U.transpose(1, 2, 0)
+
+        explained_variance_ratio = np.cumsum(
+            S**2, axis=1).transpose(1, 0) / np.linalg.norm(S, axis=1, ord=2)**2
+
+        modes_from_variance = (
+            explained_variance_ratio <= var_share).sum().item()
+
+        n_modes = modes_from_variance if modes_from_variance > 0  \
+            else max(np.argmax(explained_variance_ratio, axis=0))
+
+        multi_basis_modes = U[:, : n_modes + 1, :].transpose(0, 2, 1)
+        multi_basis_modes = multi_basis_modes.reshape(
+            multi_basis_modes.shape[0], -1)
+        return multi_basis_modes, mean
+
+    logger.info(f"Computing POD with single basis...")
+    single_basis, single_mean = single_basis_pod(data)
+    logger.info(f"Done.")
+    logger.info(f"Computing POD with multiple basis...")
+    multi_basis, multi_mean = multi_basis_pod(data)
+    logger.info(f"Done.")
+
+    pod_data = {"single_basis": single_basis,
+                "single_mean": single_mean,
+                "multi_basis": multi_basis,
+                "multi_mean": multi_mean
+                }
+    logger.info(f"Concluded proper orthogonal decomposition")
+    return pod_data
+
 
 def generate_version_hash(raw_data_path: str | Path, problem_config: dict) -> str:
     hash_obj = hashlib.sha256()
     hash_obj.update(Path(raw_data_path).name.encode())
-    problem_config_yaml = yaml.safe_dump(problem_config['splitting'] | problem_config['data_labels'], sort_keys=True)
+    problem_config_yaml = yaml.safe_dump(
+        problem_config['splitting'] | problem_config['data_labels'], sort_keys=True)
     hash_obj.update(problem_config_yaml.encode())
     return hash_obj.hexdigest()[:8]
+
 
 def save_artifacts(
     output_dir: Path,
     data: dict[str, np.ndarray],
     splits: dict[str, dict[str, np.ndarray]],
     scalers: dict[str, np.ndarray],
+    pod_data: dict[str, np.ndarray],
     shapes: dict[str, tuple[int]],
     config: dict[str, Any]
 ) -> None:
     output_dir.mkdir(parents=True, exist_ok=True)
-    
+
     # Save data arrays
     np.savez(output_dir / 'data.npz', **data)
 
@@ -134,11 +213,13 @@ def save_artifacts(
     for feature, feature_splits in splits.items():
         for split_type, indices in feature_splits.items():
             flat_splits[f"{feature.upper()}_{split_type}"] = indices
-            
+
     np.savez(output_dir / 'split_indices.npz', **flat_splits)
-    
+
     np.savez(output_dir / 'scalers.npz', **scalers)
-    
+
+    np.savez(output_dir / 'pod.npz', **pod_data)
+
     metadata = {
         'dataset_version': output_dir.name.split('_')[-1],
         'creation_date': datetime.now().isoformat(),
@@ -149,16 +230,18 @@ def save_artifacts(
         'targets': config['data_labels']['targets'],
         'input_functions': config['input_function_labels'],
         'coordinates': config['coordinate_keys'],
-        'shapes': shapes
+        'shapes': shapes,
+        'pod_var_share': config['var_share']
     }
-    
+
     with (output_dir / 'metadata.yaml').open('w') as f:
         yaml.safe_dump(metadata, f, sort_keys=False)
+
 
 def update_version_registry(processed_dir: Path, config: dict) -> None:
     """Maintain a global registry of dataset versions."""
     registry_path = Path('data/versions.yaml')
-    
+
     registry = {}
     if registry_path.exists():
         with registry_path.open() as f:
@@ -173,9 +256,8 @@ def update_version_registry(processed_dir: Path, config: dict) -> None:
             'data_labels': config['data_labels']
         }
     }
-    
+
     registry.setdefault(dataset_name, []).append(entry)
-    
+
     with registry_path.open(mode='w') as f:
         yaml.safe_dump(data=registry, stream=f, sort_keys=True)
-

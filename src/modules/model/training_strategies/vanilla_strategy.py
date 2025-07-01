@@ -59,9 +59,11 @@ class VanillaStrategy(TrainingStrategy):
         return True
 
     def strategy_specific_metrics(self, y_true: torch.Tensor, y_pred: torch.Tensor) -> dict[str, float]:
-        relative_error = {'error': (self.error_metric(
-            y_true - y_pred) / self.error_metric(y_true)).item()}
-        return relative_error
+        relative_error = self.error_metric(y_true - y_pred, dim=(0, 1)) / self.error_metric(y_true, dim=(0, 1))
+        strategy_metric = {
+            **{f'error_{i[0]}': i[1].item() for i in enumerate(relative_error.detach())}
+        }
+        return strategy_metric
 
     def get_optimizer_scheduler(self):
         return self.config.optimizer_scheduler  # type: ignore

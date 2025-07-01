@@ -6,6 +6,7 @@ from typing import Any
 
 logger = logging.getLogger(__name__)
 
+
 class DeepONetDataset(torch.utils.data.Dataset):  # type: ignore
     def __init__(
         self,
@@ -21,8 +22,10 @@ class DeepONetDataset(torch.utils.data.Dataset):  # type: ignore
 
         for key in self.output_labels:
             field = data[key]
-            n_samples = self.branch_data.shape[0]
-            self.output_data[key] = field.reshape(n_samples, -1)
+            n_func_samples = self.branch_data.shape[0]
+            n_coord_samples = self.trunk_data.shape[0]
+            self.output_data[key] = field.reshape(
+                n_func_samples, n_coord_samples, -1)
 
     def _process_index(self, index: Any, max_length: int) -> np.ndarray:
         """Convert index (int, slice, list, etc.) to a 1D array of indices."""
@@ -39,7 +42,8 @@ class DeepONetDataset(torch.utils.data.Dataset):  # type: ignore
 
     def __getitem__(self, idx: Any) -> dict[str, Any]:
         if isinstance(idx, list) and isinstance(idx[0], tuple):
-            idx = idx[0] # When it's a list of tuples get the tuple (solves bug when using dataloader)
+            # When it's a list of tuples get the tuple (solves bug when using dataloader)
+            idx = idx[0]
         if isinstance(idx, tuple):
             idx_0, idx_1 = idx
         else:
@@ -57,9 +61,9 @@ class DeepONetDataset(torch.utils.data.Dataset):  # type: ignore
 
         grid_indices = np.ix_(idx_0_processed, idx_1_processed)
 
-        output_item = {key: self.output_data[key][grid_indices] 
+        output_item = {key: self.output_data[key][grid_indices]
                        for key in self.output_labels}
-        
+
         branch_item = self.branch_data[idx_0_processed]
         trunk_item = self.trunk_data[idx_1_processed]
 

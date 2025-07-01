@@ -1,7 +1,6 @@
 from __future__ import annotations
 import os
 import re
-from matplotlib import transforms
 import torch
 import yaml
 import logging
@@ -123,24 +122,35 @@ class TrainConfig:
             exp_cfg = yaml.safe_load(f)
         with open(train_cfg_path) as f:
             train_cfg = yaml.safe_load(f)
-        
+
+        pod_mask = 'multi' if train_cfg['output_handling'] == 'split_outputs' else 'single'
+
         pod_data = {
-            k : torch.tensor(v).to(
-                device=train_cfg.device, 
-                dtype=getattr(torch, train_cfg.precision)
+            k: torch.tensor(v).to(
+                device=exp_cfg["device"],
+                dtype=getattr(torch, exp_cfg["precision"])
             )
-            for k, v in data_cfg.pod_data.items()
+            for k, v in data_cfg.pod_data.items() if pod_mask in k
+        }
+        pod_data = {
+            'pod_basis': pod_data[f"{pod_mask}_basis"],
+            'pod_mean': pod_data[f"{pod_mask}_mean"]
         }
 
-        train_cfg["trunk"][]
+        train_cfg["trunk"]['pod_basis'] = pod_data['pod_basis']
+        train_cfg["trunk"]['pod_mean'] = pod_data['pod_mean']
 
         trunk_config = TrunkConfig(**train_cfg["trunk"])
+
+        num_channels = data_cfg.shapes[data_cfg.targets[0]][-1]
+
         if trunk_config.activation is not None:
             trunk_config.activation = ACTIVATION_MAP[trunk_config.activation.lower(
             )]
         trunk_config.input_dim = data_cfg.shapes[data_cfg.features[1]][1]
         trunk_config.output_dim = train_cfg["num_basis_functions"] \
-            if train_cfg['training_strategy'] != 'pod' else train_cfg['num_pod_modes']
+            if train_cfg['training_strategy'] != 'pod' else train_cfg["trunk"]['pod_basis'].shape[-1] \
+            if train_cfg['output_handling'] == 'shared_trunk' else train_cfg["trunk"]['pod_basis'].shape[-1] // num_channels
 
         branch_config = BranchConfig(**train_cfg["branch"])
         if branch_config.activation is not None:
@@ -151,7 +161,7 @@ class TrainConfig:
 
         output_config = OutputConfig(
             handler_type=train_cfg["output_handling"],
-            num_channels=len(data_cfg.targets)
+            num_channels=num_channels
         )
         rescaling_config = RescalingConfig(
             num_basis_functions=train_cfg["num_basis_functions"],
@@ -176,7 +186,8 @@ class TrainConfig:
             'trunk_epochs': train_cfg['trunk_epochs'],
             'num_pod_modes': train_cfg['num_pod_modes'],
             'two_step_optimizer_schedule': multi_step_optimizer,
-            'decomposition_type': train_cfg['decomposition_type']
+            'decomposition_type': train_cfg['decomposition_type'],
+            **pod_data
         }
 
         model_config = ModelConfig(
@@ -209,7 +220,7 @@ class TrainConfig:
             transforms=transform_config,
             strategy=strategy_config,
             rescaling=train_cfg['rescaling'],
-            pod_data = pod_data
+            pod_data=pod_data
         )
 
 

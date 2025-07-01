@@ -1,15 +1,17 @@
 from __future__ import annotations
 import torch
 import logging
+from .config import PODConfig
 from .base import TrainingStrategy
 from typing import TYPE_CHECKING
 from ...utilities.metrics.errors import ERROR_METRICS
+from ..optimization.optimizers.config import OptimizerSpec
 from ..optimization.optimizers.optimizer_factory import create_optimizer, create_scheduler
+from ..components.trunk import PODTrunk
 
 if TYPE_CHECKING:
     from ..deeponet import DeepONet
     from ..config import ModelConfig
-    from .config import PODConfig
 
 logger = logging.getLogger(name=__name__)
 
@@ -24,14 +26,29 @@ class PODStrategy(TrainingStrategy):
             raise TypeError("PODStrategy requires PODConfig")
         model_config.branch.component_type = "neural_branch"
         model_config.trunk.component_type = "pod_trunk"
-        model_config.trunk.basis = self.config.pod_basis
+        model_config.trunk.pod_basis = self.config.pod_basis
+        model_config.trunk.pod_mean = self.config.pod_mean
 
     def setup_training(self, model: 'DeepONet'):
+        if not isinstance(model.trunk, PODTrunk):
+            raise TypeError(
+                "Model's trunk was not correctly defined as 'PODTrunk'.")
+        if not isinstance(model.trunk.pod_mean, torch.Tensor):
+            raise TypeError(
+                "PODTrunk mean was not correctly setup.")
+
+        model.trunk.requires_grad_(False)
+        model.branch.requires_grad_(True)
+        model.bias = torch.nn.Parameter(
+            model.trunk.pod_mean, requires_grad=False)
+
         trainable_params = self._get_trainable_parameters(model)
         if not trainable_params:
             raise ValueError("No trainable parameters found in the model.")
         self.train_schedule = []
-        for spec in self.config.optimizer_scheduler:
+        for spec in self.config.optimizer_scheduler:  # type: ignore
+            if isinstance(spec, dict):
+                spec = OptimizerSpec(**spec)
             optimizer = create_optimizer(spec, trainable_params)
             scheduler = create_scheduler(spec, optimizer)
             self.train_schedule.append((spec.epochs, optimizer, scheduler))
@@ -49,6 +66,14 @@ class PODStrategy(TrainingStrategy):
                 "Training schedule not set up. Call setup_training first.")
         return self.train_schedule
 
+    def get_phases(self) -> list[str]:
+        """Return phase names (e.g., ['phase1', 'phase2'])"""
+        return ["vanilla"]
+
+    def apply_gradient_constraints(self, model: DeepONet):
+        """Optional gradient clipping/normalization"""
+        pass
+
     def execute_phase_transition(self, model: 'DeepONet'):
         raise NotImplementedError("POD strategy has no phase transitions")
 
@@ -57,8 +82,11 @@ class PODStrategy(TrainingStrategy):
 
     def strategy_specific_metrics(self, y_true: torch.Tensor, y_pred: torch.Tensor) -> dict[str, float]:
         relative_error = (self.error_metric(
-            y_true - y_pred) / self.error_metric(y_true))
-        return {'error': relative_error.item()}
+            y_true - y_pred, dim=(0, 1)) / self.error_metric(y_true, dim=(0, 1)))
+        strategy_metric = {
+            **{f'error_{i[0]}': i[1].item() for i in enumerate(relative_error.detach())}
+        }
+        return strategy_metric
 
     def get_optimizer_scheduler(self):
         return self.config.optimizer_scheduler

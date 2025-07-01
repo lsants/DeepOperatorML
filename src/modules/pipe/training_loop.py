@@ -107,20 +107,32 @@ class TrainingLoop:
                     self._handle_phase_transition()
 
             # ---------------- train ----------------
-            logger.info(
-                f"\n\n\n\n================= Epoch {epoch} ===================== \n\n\n\n")
+            # logger.info(
+            #     f"\n\n\n\n================= Epoch {epoch} ===================== \n\n\n\n")
+
             train_metrics = self._run_epoch(train=True)
-            self._store_metrics(train_metrics, train=True)
+            self.history.store_epoch_metrics(
+                phase=self.phases[self.current_phase - 1],
+                loss=train_metrics.get("loss"),
+                errors={k: v for k, v in train_metrics.items() if k != "loss"},
+                train=True
+            )
 
             # ---------------- validate --------------
             val_metrics: Dict[str, float] = {}
             if self.strategy.validation_enabled() and self.val_loader is not None:
                 val_metrics = self._run_epoch(train=False)
-                self._store_metrics(val_metrics, train=False)
+                self.history.store_epoch_metrics(
+                    phase=self.phases[self.current_phase - 1],
+                    loss=val_metrics.get("loss"),
+                    errors={k: v for k, v in val_metrics.items() if k !=
+                            "loss"},
+                    train=False
+                )
 
             self.history.store_learning_rate(
                 phase=self.phases[self.current_phase - 1],
-                learning_rate=self.optimizer.param_groups[0]["lr"],
+                lr=self.optimizer.param_groups[0]["lr"],
             )
 
             if hasattr(self.strategy, "on_epoch_end"):
@@ -131,7 +143,6 @@ class TrainingLoop:
                     metrics={"train": train_metrics, "val": val_metrics},
                 )
 
-            # Scheduler step
             if self.scheduler is not None:
                 self.scheduler.step()
 
@@ -178,11 +189,8 @@ class TrainingLoop:
                     y_pred, loss = self.strategy.compute_loss(
                         self.model, x_branch, x_trunk, y_true
                     )
-
                     # if i % 10 == 0:
                     #     print(f"Loss: {loss:.4E} for batch {i + 1}")
-                    print(f"Loss: {loss:.4E} for batch {i + 1}")
-
                     if train:
                         self.optimizer.zero_grad(set_to_none=True)
                         loss.backward()
@@ -232,38 +240,8 @@ class TrainingLoop:
 
         return {k: v / processed_samples for k, v in aggregated.items()}
 
-    # ---------------------------------------------------------------- metrics
-
-    def _store_metrics(self, metrics: Dict[str, float], *, train: bool) -> None:
-        """Persist epoch‑level metrics inside :class:`HistoryStorer`."""
-        if not metrics:
-            return
-        phase = self.phases[self.current_phase - 1]
-
-        # Standard fields --------------------------------------------------
-        if "loss" in metrics:
-            if train:
-                self.history.store_epoch_train_loss(phase, metrics["loss"])
-            else:
-                self.history.store_epoch_val_loss(phase, metrics["loss"])
-        if "error" in metrics:
-            if train:
-                self.history.store_epoch_train_errors(
-                    phase, {"error": metrics["error"]})
-            else:
-                self.history.store_epoch_val_errors(
-                    phase, {"error": metrics["error"]})
-
-        # Any extra keys are treated as error‑like (extend as needed)
-        for k, v in metrics.items():
-            if k in {"loss", "error"}:
-                continue
-            if train:
-                self.history.store_epoch_train_errors(phase, {k: v})
-            else:
-                self.history.store_epoch_val_errors(phase, {k: v})
-
     # ---------------------------------------------------------------- batch util
+
     def _prepare_batch(
         self,
         batch: Tuple[torch.Tensor, torch.Tensor, torch.Tensor] | Dict[str, torch.Tensor],
@@ -318,6 +296,7 @@ class TrainingLoop:
         logger.info("Saved checkpoint → %s", path)
 
     # --------------------------------------------------------------- utilities
+
     def _log_progress(
         self,
         epoch: int,
@@ -325,15 +304,33 @@ class TrainingLoop:
         val_metrics: Dict[str, float],
     ) -> None:
         msg = (
-            f"[{self.strategy.get_phases()[self.current_phase - 1]} | Epoch {epoch}] "
-            f"train_loss={train_metrics.get('loss', float('nan')):.4e} "
-            f"train_err={train_metrics.get('error', float('nan')):.4e}"
+            f"[{self.strategy.get_phases()[self.current_phase - 1]} | Epoch {epoch}] \n"
+            f"train_loss={train_metrics.get('loss', float('nan')):.4e} \n"
         )
+
+        train_error_parts = []
+        for key in sorted(train_metrics.keys()):
+            if key.startswith('error_'):
+                train_error_parts.append(
+                    f"train_{key}={train_metrics[key]:.4e}\n")
+
+        if train_error_parts:
+            msg += " ".join(train_error_parts)
+
         if val_metrics:
             msg += (
-                # f" | val_loss={val_metrics.get('loss', float('nan')):.4e} "
-                f"val_err={val_metrics.get('error', float('nan')):.4e}"
+                f" | val_loss={val_metrics.get('loss', float('nan')):.4e} \n"
             )
+
+            val_error_parts = []
+            for key in sorted(val_metrics.keys()):
+                if key.startswith('error_'):
+                    val_error_parts.append(
+                        f"val_{key}={val_metrics[key]:.4e}\n")
+
+            if val_error_parts:
+                msg += " ".join(val_error_parts)
+
         logger.info(msg)
 
     def _get_full_trunk_batch(self) -> torch.Tensor:

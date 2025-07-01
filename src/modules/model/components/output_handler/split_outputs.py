@@ -22,10 +22,9 @@ class SplitOutputsHandler(OutputHandler):
         if not self.basis_adjust:
             return
 
-        config.trunk.output_dim *= self.num_channels
+        config.trunk.output_dim *= self.num_channels  # type: ignore
         config.branch.output_dim = config.trunk.output_dim
 
-        # Verify branch output matches
         if config.branch.output_dim != config.trunk.output_dim:
             raise ValueError(
                 f"Branch and trunk output sizes ({config.branch.output_dim}, {config.trunk.output_dim}) don't match.")

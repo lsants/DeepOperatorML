@@ -33,7 +33,7 @@ class ModelFactory:
 
         output_handler = OutputRegistry.create(model_config.output)
         output_handler.adjust_dimensions(
-            model_config)  # (2) Modifies numeric fields
+            model_config)
 
         BranchConfigValidator.validate(model_config.branch)
         TrunkConfigValidator.validate(model_config.trunk)

@@ -22,8 +22,8 @@ class TrunkConfig:
     # POD/Decomposed params
     inner_config: Optional[TrunkConfig] = None
     T_matrix: Optional[torch.Tensor] = None
-    pod_modes: Optional[torch.Tensor] = None
-    pod_means: Optional[torch.Tensor] = None
+    pod_basis: Optional[torch.Tensor] = None
+    pod_mean: Optional[torch.Tensor] = None
 
 
 class TrunkConfigValidator:
@@ -86,28 +86,30 @@ class TrunkConfigValidator:
     def _validate_pod(config: TrunkConfig):
         """Special validation for POD trunk configuration"""
         errors = []
+        pod_basis = config.pod_basis
 
-        if not hasattr(config, "pod_modes"):
-            errors.append("Missing pod_modes for POD trunk")
-        if not hasattr(config, "pod_means"):
-            errors.append("Missing pod_means for POD trunk")
+        if not hasattr(config, "pod_basis"):
+            errors.append("Missing pod_basis attribute for PODConfig")
+        if not hasattr(config, "pod_mean"):
+            errors.append("Missing pod_mean attribute for PODConfig")
 
-        if hasattr(config, "pod_modes"):
-            pod_modes = config.pod_modes
-            if not isinstance(pod_modes, (torch.Tensor)):
+        if hasattr(config, "pod_basis"):
+            pod_basis = config.pod_basis
+            if pod_basis is None:
+                errors.append("Basis tensor is missing in PODConfig")
+            elif not isinstance(pod_basis, (torch.Tensor)):
                 errors.append("POD modes must be Tensor")
-            elif pod_modes is None:
-                errors.append("Basis matrix cannot be empty")
-            elif pod_modes.shape[1] != config.output_dim:
+
+            elif pod_basis.shape[-1] != config.output_dim:
                 errors.append(
                     "POD modes' second dimension must match the trunk's output dimension")
 
-        if hasattr(config, "pod_means"):
-            pod_means = config.pod_means
-            if not isinstance(pod_means, (torch.Tensor)):
-                errors.append("POD means must be Tensor")
-            elif pod_means is None:
+        if hasattr(config, "pod_mean"):
+            pod_mean = config.pod_mean
+            if pod_mean is None:
                 errors.append("POD means cannot be empty")
+            elif not isinstance(pod_mean, (torch.Tensor)):
+                errors.append("POD means must be Tensor")
 
         if errors:
             raise ValueError(f"POD trunk errors: {', '.join(errors)}")

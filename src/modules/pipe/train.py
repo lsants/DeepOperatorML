@@ -154,7 +154,7 @@ def train_model(
 
     if hasattr(train_strategy, 'final_trunk_config'):
         final_model_config = deepcopy(exp_cfg.model)
-        final_model_config.trunk = train_strategy.final_trunk_config # type: ignore
+        final_model_config.trunk = train_strategy.final_trunk_config  # type: ignore
     else:
         final_model_config = exp_cfg.model
 
@@ -165,7 +165,7 @@ def train_model(
             "model": dataclasses.asdict(final_model_config)
         }
     )
-    
+
     saver.save_plots(
         file_path=path_cfg.plots_path / 'training_history.png',
         figure=fig

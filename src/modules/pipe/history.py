@@ -1,57 +1,48 @@
+from __future__ import annotations
+from collections import defaultdict
+
+
 class HistoryStorer:
-    def __init__(self, phases: list) -> None:
-        """
-        Initializes the evaluator with separate storage for training and validation metrics.
-        """
-        self.history = {
-            phase: {'train_loss': [], 
-                    'train_errors': [], 
-                    'val_loss': [], 
-                    'val_errors': [],
-                    'learning_rate': []}
+    def __init__(self, phases: list[str]) -> None:
+        self.history: dict[str, dict] = {
+            phase: {
+                'train_loss':     [],
+                'val_loss':       [],
+                'train_errors':   defaultdict(list),
+                'val_errors':     defaultdict(list),
+                'learning_rate':  []
+            }
             for phase in phases
         }
 
     def add_phase(self, phase: str):
-        """Dynamic phase addition"""
         if phase not in self.history:
             self.history[phase] = {
-                'train_loss': [], 
-                'train_errors': [], 
-                'val_loss': [], 
-                'val_errors': [],
-                'learning_rate': []
+                'train_loss':     [],
+                'val_loss':       [],
+                'train_errors':   defaultdict(list),
+                'val_errors':     defaultdict(list),
+                'learning_rate':  []
             }
 
-    def store_epoch_train_loss(self, phase: str, loss: float) -> None:
-        if phase not in self.history:
-            raise ValueError(f"Unknown phase: {phase}")
-        self.history[phase]['train_loss'].append(loss)
+    def store_learning_rate(self, phase: str, lr: float) -> None:
+        self.history[phase]['learning_rate'].append(lr)
 
-    def store_epoch_train_errors(self, phase: str, errors: dict[str, float]) -> None:
-        if phase not in self.history:
-            raise ValueError(f"Unknown phase: {phase}")
-        self.history[phase]['train_errors'].append(errors)
+    def store_epoch_metrics(
+        self, phase: str, *,
+        loss: float | None = None,
+        errors: dict[str, float] | None = None,
+        train: bool
+    ):
+        h = self.history[phase]
+        if loss is not None:
+            target_loss = 'train_loss' if train else 'val_loss'
+            h[target_loss].append(loss)
 
-    def store_epoch_val_loss(self, phase: str, loss: float) -> None:
-        if phase not in self.history:
-            raise ValueError(f"Unknown phase: {phase}")
-        self.history[phase]['val_loss'].append(loss)
+        if errors is not None:
+            target_err = 'train_errors' if train else 'val_errors'
+            for key, val in errors.items():
+                h[target_err][key].append(val)
 
-    def store_epoch_val_errors(self, phase: str, errors: dict[str, float]) -> None:
-        if phase not in self.history:
-            raise ValueError(f"Unknown phase: {phase}")
-        self.history[phase]['val_errors'].append(errors)
-
-    def store_learning_rate(self, phase: str, learning_rate: float) -> None:
-        if phase not in self.history:
-            raise ValueError(f"Unknown phase: {phase}")
-        self.history[phase]['learning_rate'].append(learning_rate)
-
-    def get_history(self) -> dict[str, dict[str, list[float]]]:
+    def get_history(self) -> dict[str, dict]:
         return self.history
-
-    def has_validation_data(self, phase: str) -> bool:
-        if phase in self.history:
-            return bool(self.history[phase]['val_loss'])
-        return False
