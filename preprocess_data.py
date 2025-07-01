@@ -85,8 +85,11 @@ def preprocess_data():
             train_indices=train_indices
         )
 
+        train_processed_data = processed_data[target][train_indices_target_rows][:,
+                                                                                 train_indices_target_cols, :]
+
         pod_data = helper_functions.compute_pod(
-            data=processed_data[target],
+            data=train_processed_data,
             var_share=problem_config['var_share']
         )
 
@@ -97,6 +100,9 @@ def preprocess_data():
         )
         output_dir = Path(f"data/processed/{args.problem}/{version_hash}")
 
+        logger.info(
+            f"Processed data shape: {processed_data[problem_config['data_labels']['targets'][0]].shape}")
+        logger.info(f"Saving!",)
         helper_functions.save_artifacts(
             output_dir=output_dir,
             data=processed_data,
