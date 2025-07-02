@@ -5,7 +5,7 @@ from mpl_toolkits.mplot3d import Axes3D  # noqa: F401 (needed for 3D projection)
 
 
 def plot_kelvin_solution(
-    npz_path: str,
+    data: dict[str, np.ndarray],
     sample_index: int = 0,
     stride: int = 1,
 ) -> None:
@@ -21,7 +21,6 @@ def plot_kelvin_solution(
                       E.g., stride=2 will plot every other point in x,y,z.
     """
     # 1. Load data
-    data = np.load(npz_path)
     x_field: np.ndarray = data["x"]         # shape (n_x,)
     y_field: np.ndarray = data["y"]         # shape (n_y,)
     z_field: np.ndarray = data["z"]         # shape (n_z,)
@@ -93,6 +92,7 @@ if __name__ == "__main__":
     # To reduce arrow density, you can set stride > 1 (e.g., stride=2 or 3),
     # otherwise keep stride=1 to plot every grid point.
     subsample_stride = 2
+    vector_display_scale = 1000
     # ─────────────────────────────────────────────────────────────────────────────
 
     # Verify file exists

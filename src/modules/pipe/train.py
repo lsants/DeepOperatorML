@@ -119,6 +119,8 @@ def train_model(
         )
     )
 
+    model.to(device=exp_cfg.device, dtype=exp_cfg.precision)
+
     PathConfig.create_directories(path_cfg)
 
     saver = Saver()

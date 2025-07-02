@@ -37,7 +37,7 @@ class KelvinProblemGenerator(BaseProblemGenerator):
 
         log_mu_samples = self.config["MU_MIN"] + numpy_random_open_0_1(
             self.config["N"]) * (self.config["MU_MAX"] - self.config["MU_MIN"])
-        F_samples = np.array(10**self.config["F"])
+        F_samples = -np.array(10**self.config["F"])
         mu_samples = 10**log_mu_samples
         nu_samples = numpy_random_open_0_1(
             self.config["N"]) * (self.config["NU_MAX"] - self.config["NU_MIN"])
@@ -143,9 +143,65 @@ class KelvinProblemGenerator(BaseProblemGenerator):
         logger.info(
             f"Runtime for computing Kelvin solution: {duration:.3f} ms\nData shapes:\nInput functions (F, mu, nu): {F.shape}, {mu.shape}, {nu.shape}\nDisplacements u: {displacements.shape}\nx: {x_field.shape}, y: {y_field.shape}, z: {z_field.shape}\nLoad magnitude = {F:.3E}\nShear modulus min = {mu.min():.3E}, max = {mu.max():.3E}\nPoisson's ratio min = {nu.min():.3f}, max = {nu.max():.3f}\nx: min = {x_field.min():3f}, max = {x_field.max():.3f}\nx: mean = {x_field.mean():3f}, std = {x_field.std():.3f}\ny: min = {y_field.min():3f}, max = {y_field.max():.3f}\ny: mean = {y_field.mean():3f}, std = {y_field.std():.3f}\nz: min = {z_field.min():3f}, max = {z_field.max():.3f}\nz: mean = {z_field.mean():3f}, std = {z_field.std():.3f}\ng_u: min = {displacements.min():3f}, max = {displacements.max():.3f}\ng_u: mean = {displacements.mean():3f}, std = {displacements.std():.3f}\n scaling parameter = {scaler_parameter:.3f}")
 
+        # --- Metadata Collection ---
+        metadata = {
+            "runtime_ms": f"{duration:.3f}",
+            "parameters": {
+                # .item() for scalar array
+                "load_magnitude": f"{F.item():.3E}" if F.size == 1 else "N/A",
+                "shear_modulus": {
+                    "min": f"{mu.min():.3E}",
+                    "max": f"{mu.max():.3E}",
+                    "mean": f"{mu.mean():.3E}",
+                    "std": f"{mu.std():.3E}"
+                },
+                "poissons_ratio": {
+                    "min": f"{nu.min():.3f}",
+                    "max": f"{nu.max():.3f}",
+                    "mean": f"{nu.mean():.3f}",
+                    "std": f"{nu.std():.3f}"
+                },
+                "scaling_parameter": f"{scaler_parameter:.3f}"
+            },
+            "coordinate_statistics": {
+                "x_field": {
+                    "min": f"{x_field.min():.3f}",
+                    "max": f"{x_field.max():.3f}",
+                    "mean": f"{x_field.mean():.3f}",
+                    "std": f"{x_field.std():.3f}"
+                },
+                "y_field": {
+                    "min": f"{y_field.min():.3f}",
+                    "max": f"{y_field.max():.3f}",
+                    "mean": f"{y_field.mean():.3f}",
+                    "std": f"{y_field.std():.3f}"
+                },
+                "z_field": {
+                    "min": f"{z_field.min():.3f}",
+                    "max": f"{z_field.max():.3f}",
+                    "mean": f"{z_field.mean():.3f}",
+                    "std": f"{z_field.std():.3f}"
+                }
+            },
+            "displacement_statistics": {
+                "g_u": {
+                    "min": f"{displacements.min():.4E}",
+                    "max": f"{displacements.max():.4E}",
+                    "mean": f"{displacements.mean():.4E}",
+                    "std": f"{displacements.std():.4E}"
+                }
+            }
+        }
         path = Path(self.config["DATA_PATH"])
         if path.parent:
             path.parent.mkdir(parents=True, exist_ok=True)
+
         np.savez(path, mu=mu, nu=nu, x=x_field, y=y_field,
                  z=z_field, g_u=displacements, c=scaler_parameter)
+
+        metadata_path = path.with_suffix('.yaml')  # Changes .npz to .yaml
+
+        with open(metadata_path, 'w') as f:
+            yaml.dump(metadata, f, default_flow_style=False, sort_keys=False)
         logger.info(f"Saved data at {path}")
+        logger.info(f"Saved metadata at {metadata_path}")

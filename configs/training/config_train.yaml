@@ -1,65 +1,56 @@
 # ------------------- Model architecture ------------------
 seed: 42
-training_strategy: vanilla
+training_strategy: pod
 output_handling: split_outputs
 num_basis_functions: 100
 branch:
   architecture: resnet
   activation: silu
   degree: 8
-  hidden_layers: [384 , 384 , 384 , 384 , 384 , 384 , 256 , 256 , 256]
-  dropout_rates: [0.0 , 0.0 , 0.0 , 0.0 , 0.0 , 0.0 , 0.2 , 0.2 , 0.3 , 0.0]
+  hidden_layers: [384 , 384 , 384 , 384 , 384 , 384, 256 , 256 , 256 , 256]
+  dropout_rates: [0.0 , 0.0 , 0.0 , 0.0 , 0.0 , 0.0, 0.2 , 0.2 , 0.2 , 0.3 , 0.0]
 trunk:
   architecture: resnet
   activation: silu
   degree: 8
-  hidden_layers: [384 , 384 , 384 , 384 , 384 , 384 , 256 , 256 , 256]
-  dropout_rates: [0.0 , 0.0 , 0.0 , 0.0 , 0.0 , 0.0 , 0.2 , 0.2 , 0.3 , 0.0]
+  hidden_layers: [384 , 384 , 384 , 384 , 384 , 384, 256 , 256 , 256 , 256]
+  dropout_rates: [0.0 , 0.0 , 0.0 , 0.0 , 0.0 , 0.0, 0.2 , 0.2 , 0.2 , 0.3 , 0.0]
 loss_function: mse
 transforms:
   branch:
-    normalization: standardize
+    normalization: null
     feature_expansion: null
   trunk:
-    normalization: minmax_-1_1 # minmax_0_1, minmax_-1_1, standardize, null
-    feature_expansion:
-      type: cosine
-      size: 1
+    normalization: null # minmax_0_1, minmax_-1_1, standardize, null
+    feature_expansion: null
+      # type: cosine
+      # size: 0
   target:
     normalization: null
 rescaling: 
-  type: null
-  exponent: 0 #  Used to rescale the output of the DeepONet by the number of basis functions to the power of the exponent (use exponent < 0).
+  exponent: -1 #  Used to rescale the output of the DeepONet by the number of basis functions to the power of the exponent (use exponent < 0).
 
-# ------------------- Parameters for vanilla training ------------------
-epochs: 20
+# ------------------- Parameters for vanilla / pod training ------------------
+epochs: 500
 branch_batch_size: 200 # Can't be null
 trunk_batch_size: null
 error: matrix_fro
 optimizer_schedule:
   - epochs: 1000
     optimizer_type: adam
-    learning_rate: 0.0001
-    l2_regularization: 0.003
+    learning_rate: 0.001
+    l2_regularization: 0.0001
     lr_scheduler:
       type: step
-      step_size: 2000
-      gamma: 0.7
-  # - epochs: 100
-  #   optimizer_type: adam
-  #   learning_rate: 0.005
-  #   l2_regularization: 0.0001
-  #   lr_scheduler:
-  #     type: step
-  #     step_size: 1000
-  #     gamma: 0.4
+      step_size: 1000
+      gamma: 0.5
 
 # ------------------- Parameters for POD training ----------------------
 num_pod_modes: 15
 
 # ------------------- Parameters for two step training ------------------
-trunk_epochs: 20
-branch_epochs: 20  
+trunk_epochs: 100
+branch_epochs: 100  
 decomposition_type: svd
 
 two_step_optimizer_schedule:
@@ -68,18 +59,7 @@ two_step_optimizer_schedule:
       optimizer_type: sgd
       learning_rate: 0.01
       l2_regularization: 0.00001
-  #   - epochs: 30000
-  #     optimizer_type: adam
-  #     learning_rate: 0.001
-  #     l2_regularization: 0.00001
-  #     lr_scheduler:
-  #       type: step
-  #       step_size: 5000
-  #       gamma: 0.7
-  #   - epochs: 110000
-  #     optimizer_type: adam
-  #     learning_rate: 0.0005
-  #     l2_regularization: 0.00001
+
   branch_phase:
     - epochs: 20
       optimizer_type: adam
@@ -89,19 +69,3 @@ two_step_optimizer_schedule:
         type: step
         step_size: 5000
         gamma: 0.7
-    # - epochs: 50000
-    #   optimizer_type: adam
-    #   learning_rate: 0.0001
-    #   l2_regularization: 0.00001
-    #   lr_scheduler:
-    #     type: step
-    #     step_size: 10000
-    #     gamma: 0.5
-    # - epochs: 50000
-    #   optimizer_type: adam
-    #   learning_rate: 0.0001
-    #   l2_regularization: 0.00001
-    #   lr_scheduler:
-    #     type: step
-    #     step_size: 10000
-    #     gamma: 0.5

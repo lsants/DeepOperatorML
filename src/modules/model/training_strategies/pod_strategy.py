@@ -68,7 +68,7 @@ class PODStrategy(TrainingStrategy):
 
     def get_phases(self) -> list[str]:
         """Return phase names (e.g., ['phase1', 'phase2'])"""
-        return ["vanilla"]
+        return ["POD"]
 
     def apply_gradient_constraints(self, model: DeepONet):
         """Optional gradient clipping/normalization"""

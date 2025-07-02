@@ -14,5 +14,15 @@ def numpy_random_open_0_1(size=None):
     return samples
 
 
-def mesh_rescaling(arr: np.ndarray, c: float) -> np.ndarray:
-    return c * np.log(arr / (1 - arr))
+def mesh_rescaling(arr: np.ndarray, c: float):
+    if np.any(arr <= 0) or np.any(arr >= 1):
+        raise ValueError(
+            "Input array must contain values strictly between 0 and 1.")
+    numerator = arr**2 + arr - 1
+    denominator = arr * (1 - arr)
+
+    return c * (numerator / denominator)
+# def mesh_rescaling(arr: np.ndarray, c: float) -> np.ndarray:
+#     return arr
+# def mesh_rescaling(arr: np.ndarray, c: float) -> np.ndarray:
+#     return c * np.log(arr / (1 - arr))

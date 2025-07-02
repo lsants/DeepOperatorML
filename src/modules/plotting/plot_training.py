@@ -119,14 +119,14 @@ def plot_training(
     """
     phases = list(history.keys())
     n_phases = len(phases)
-    # figure out how many error‐plots max we need
+
     max_err = max(len(h['train_errors']) for h in history.values())
     n_cols = 1 + max_err  # first col for loss
 
     fig, axes = plt.subplots(
         nrows=n_phases,
         ncols=n_cols,
-        figsize=(4.5 * n_cols, 4.0 * n_phases),
+        figsize=(5 * n_cols, 4.5 * n_phases),
         squeeze=False
     )
 

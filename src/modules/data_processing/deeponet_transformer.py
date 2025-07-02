@@ -111,9 +111,8 @@ class DeepONetTransformPipeline:
     def _apply_expansion(self, data: torch.Tensor, component: Literal["trunk", "branch"]) -> torch.Tensor:
         """Apply feature expansion and track original dimensions"""
         expansion_cfg = getattr(self.config, component).feature_expansion
-        if not expansion_cfg:
+        if not expansion_cfg or expansion_cfg.type is None:
             return data
-
         # Store original dimension on first application
         if self.dimension_info[component] is None:
             self.dimension_info[component] = data.shape[-1]

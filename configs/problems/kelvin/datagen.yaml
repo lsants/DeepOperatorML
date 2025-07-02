@@ -4,22 +4,22 @@ SEED: 42
 
 # -------------------------- Kelvin Problem -----------------------
 
-N: 1000
-F: 7        # log10 [N] (10 MN)
+N: 500
+F: 2        # log10 [N] (10 MN)
 MU_MIN: 6       # log10 [Pa] (1 MPa)
 MU_MAX: 8   # log10 [Pa] (100 MPa)
-NU_MIN: 0
+NU_MIN: 0.1
 NU_MAX: 0.5
 
-N_X: 20
-N_Y: 20
-N_Z: 20
+N_X: 30
+N_Y: 30
+N_Z: 30
 X_MIN: 0
-X_MAX: 1
+X_MAX: 0.9
 Y_MIN: 0
-Y_MAX: 1
+Y_MAX: 0.9
 Z_MIN: 0
-Z_MAX: 1
+Z_MAX: 0.9
 LOAD_DIRECTION: z
 
-SCALER: 2 # Scale parameter for mesh transformation
+SCALER: 1 # Scale parameter for mesh transformation
