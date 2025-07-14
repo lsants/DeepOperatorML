@@ -1,0 +1,4 @@
+dataset_version: e8d98aa8
+precision: float32
+device: cpu
+output_path: ./output

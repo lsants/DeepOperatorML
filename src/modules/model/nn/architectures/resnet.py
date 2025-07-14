@@ -26,7 +26,7 @@ class ResidualBlock(torch.nn.Module):
         out = self.linear2(out)
         out = self.activation(out)
         out = self.dropout(out)
-        out += identity
+        out = out + identity
         if self.apply_activation:
             out = self.activation(out)
         return out

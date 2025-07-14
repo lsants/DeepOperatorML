@@ -10,7 +10,8 @@ from .deeponet_transformer import DeepONetTransformPipeline
 def slice_data(data: Mapping[str, np.ndarray],
                feature_keys: list[str],
                target_keys: list[str],
-               split_indices: tuple[np.ndarray, ...]) -> dict[str, np.ndarray]:
+               split_indices: tuple[np.ndarray, ...],
+               trunk_slice=False) -> dict[str, np.ndarray]:
     branch_label = feature_keys[0]
     branch_splits = split_indices[0]
     trunk_label = feature_keys[1]
@@ -20,10 +21,15 @@ def slice_data(data: Mapping[str, np.ndarray],
     trunk_data = data[trunk_label]
     target_data = {key: data[key] for key in target_labels}
 
-    split_target_data = {key: val[branch_splits][:, trunk_splits]
-                         for key, val in target_data.items()}
     split_branch_data = branch_data[branch_splits]
-    split_trunk_data = trunk_data[trunk_splits]
+    split_trunk_data = trunk_data
+    split_target_data = {key: val[branch_splits]
+                         for key, val in target_data.items()}
+
+    if trunk_slice:
+        split_trunk_data = trunk_data[trunk_splits]
+        split_target_data = {key: val[branch_splits][:, trunk_splits]
+                             for key, val in target_data.items()}
     split_data = {
         branch_label: split_branch_data,
         trunk_label: split_trunk_data,
