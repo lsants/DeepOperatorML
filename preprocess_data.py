@@ -45,7 +45,6 @@ def preprocess_data():
         with open(file=config_path) as f:
             problem_config = yaml.safe_load(stream=f)
 
-        # Execute preprocessing with config
         if hasattr(module, 'run_preprocessing'):
             processed_data = module.run_preprocessing(problem_config)
         else:
@@ -85,15 +84,13 @@ def preprocess_data():
             train_indices=train_indices
         )
 
-        train_processed_data = processed_data[target][train_indices_target_rows][:,
-                                                                                 train_indices_target_cols, :]
+        train_processed_data = processed_data[target][train_indices_target_rows]
 
         pod_data = helper_functions.compute_pod(
             data=train_processed_data,
             var_share=problem_config['var_share']
         )
 
-        # Generate versioned output directory
         version_hash = helper_functions.generate_version_hash(
             raw_data_path=Path(problem_config['raw_data_path']),
             problem_config=problem_config
@@ -113,7 +110,6 @@ def preprocess_data():
             config=problem_config
         )
 
-        # Update global registry
         helper_functions.update_version_registry(processed_dir=output_dir,
                                                  config=problem_config)
 

@@ -1,17 +1,17 @@
-DATA_PATH: ./data/raw/rajapakse_fixed_material/data.npz
+DATA_PATH: ./data/raw/rajapakse_fixed_material/rajapakse_fixed_v1.npz
 
 SEED: 42
 
 # ---------------------- Influence function dynamic single material problem -----------------
 
-N_R: 40                   # Mesh points for r coordinate
-N_Z: 40                   # Mesh points for z coordinate
+N_R: 20                   # Mesh points for r coordinate
+N_Z: 20                   # Mesh points for z coordinate
 R_MIN: 0               # Min r coordinate sampled [m]
 Z_MIN: 0                  # Min. z coordinate sampled   [m]
-R_MAX: 20                 # Max. r coordinate sampled [m]
-Z_MAX: 20                 # Max. z coordinate sampled [m]
+R_MAX: 10                 # Max. r coordinate sampled [m]
+Z_MAX: 10                 # Max. z coordinate sampled [m]
 
-N : 5              # Number of samples
+N : 30              # Number of samples
 
 OMEGA_MIN: 0            # Min. sampled frequency [Rad/s]
 OMEGA_MAX: 5200           # Max. sampled frequency [Rad/s]

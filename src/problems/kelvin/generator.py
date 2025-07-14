@@ -3,9 +3,9 @@ import time
 import yaml
 import logging
 import numpy as np
-from ..base_generator import BaseProblemGenerator
 from typing import Any
 from pathlib import Path
+from ..base_generator import BaseProblemGenerator
 from ...modules.utilities.sampling_functions import mesh_rescaling, numpy_random_open_0_1
 
 logger = logging.getLogger(__name__)
@@ -28,8 +28,7 @@ class KelvinProblemGenerator(BaseProblemGenerator):
         return self.config
 
     def _get_input_functions(self) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
-        """Generate the branch data (operator parameters) by sampling N values for the load magnitude F,
-        and then attaching the fixed material parameters mu and nu.
+        """Generate the branch data (operator parameters) by sampling N values for the uniform material parameters mu and nu.
 
         Returns:
             array: Shape (N, 3) with columns [F, mu, nu], where N is the number of samples.
@@ -68,8 +67,9 @@ class KelvinProblemGenerator(BaseProblemGenerator):
         where r = sqrt(x² + y² + z²), and d is the index corresponding to the load direction.
 
         Args:
-            input_functions (tuple): Tuple (F, mu, nu) each of shape (N,), where N is the total
-                                    number of branch samples (the Cartesian product of sensor values).
+            F (array): Single element force 1D array.
+            mu (array): 1D array of shear modulus samples.
+            nu (array): 1D array of Poisson's ratio samples.
             x_field (array): 1D array of x coordinates.
             y_field (array): 1D array of y coordinates.
             z_field (array): 1D array of z coordinates.

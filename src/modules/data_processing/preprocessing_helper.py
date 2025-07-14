@@ -1,4 +1,5 @@
 from __future__ import annotations
+import matplotlib.pyplot as plt
 import hashlib
 import numpy as np
 import logging
@@ -22,9 +23,6 @@ def validate_data_structure(data: dict, config: dict) -> dict:
 
     for target in targets:
         target_shape = data[target].shape
-        if len(target_shape) != 3:
-            raise ValueError(f"Target '{target}' must be 3-dimensional")
-
         if target_shape[0] != data[features[0]].shape[0]:
             raise ValueError(
                 f"Target '{target}' rows don't match '{features[0]}' samples")
@@ -121,7 +119,7 @@ def compute_scalers(
             scalers[f"{feature_or_target}_mean"] = np.mean(train_data, axis=0)
             scalers[f"{feature_or_target}_std"] = np.std(train_data, axis=0)
 
-    logger.info(f"Done!")
+    logger.info(f"Done.")
     return scalers
 
 
@@ -131,44 +129,53 @@ def compute_pod(
 ) -> dict[str, np.ndarray]:
 
     def single_basis_pod(data: np.ndarray) -> tuple[np.ndarray, ...]:
-        domain_samples = data.shape[1]
-        data_stacked = data.reshape(-1, domain_samples)
+        n_samples, n_space, n_channels = data.shape
+        snapshots = data.swapaxes(1, 2).reshape(
+            n_samples * n_channels, n_space)
 
-        mean = np.mean(data, axis=0, keepdims=True)
-        mean_stacked = np.mean(data_stacked, axis=0, keepdims=True)
-        centered = (data_stacked - mean_stacked).T
-
-        U, S, _ = np.linalg.svd(centered, full_matrices=False)
+        mean_field = np.mean(snapshots, axis=0, keepdims=True)
+        centered = (snapshots - mean_field)
+        W, S, Vt = np.linalg.svd(centered, full_matrices=False)
+        spatial_modes = Vt.T
 
         explained_variance_ratio = np.cumsum(
             S**2) / np.linalg.norm(S, ord=2)**2
 
         n_modes = (explained_variance_ratio < var_share).sum().item()
 
-        single_basis_modes = U[:, : n_modes]
-        return single_basis_modes, mean
+        basis = spatial_modes[:, : n_modes]
 
-    def multi_basis_pod(data: np.ndarray) -> tuple[np.ndarray, ...]:
-        mean = np.mean(data, axis=0, keepdims=True)
-        centered = (data - mean).transpose(1, 0, 2)
+        return basis, mean_field
 
-        centered_channels_first = centered.transpose(2, 0, 1)
-        U, S, _ = np.linalg.svd(centered_channels_first, full_matrices=False)
-        U = U.transpose(1, 2, 0)
+    def multi_basis_pod(
+        data: np.ndarray,              # (N_s, N_r*N_z, N_c)
+        var_share: float = 0.95
+    ) -> tuple[np.ndarray, np.ndarray]:
 
-        explained_variance_ratio = np.cumsum(
-            S**2, axis=1).transpose(1, 0) / np.linalg.norm(S, axis=1, ord=2)**2
+        n_samp, n_space, n_chan = data.shape
+        mean_field = np.empty((n_chan, n_space))
+        modes_list: list[np.ndarray] = []
 
-        modes_from_variance = (
-            explained_variance_ratio <= var_share).sum().item()
+        for c in range(n_chan):
+            snapshots = data[:, :, c]                      # (N_samp, n_space)
 
-        n_modes = modes_from_variance if modes_from_variance > 0  \
-            else max(np.argmax(explained_variance_ratio, axis=0))
+            mean_c = snapshots.mean(axis=0)                # (n_space,)
+            mean_field[c] = mean_c
+            A = snapshots - mean_c                         # centred
 
-        multi_basis_modes = U[:, : n_modes + 1, :].transpose(0, 2, 1)
-        multi_basis_modes = multi_basis_modes.reshape(
-            multi_basis_modes.shape[0], -1)
-        return multi_basis_modes, mean
+            U, S, Vt = np.linalg.svd(A, full_matrices=False)
+            V = Vt.T                                       # (n_space, rank)
+
+            cum_var = np.cumsum(S**2) / np.sum(S**2)
+            n_modes_c = np.searchsorted(cum_var, var_share) + 1
+
+            logger.info(f"Channel {c + 1} has {n_modes_c} modes")
+
+            modes_c = V[:, :n_modes_c]
+            modes_list.append(modes_c)
+
+        basis = np.concatenate(modes_list, axis=1)
+        return basis, mean_field
 
     logger.info(f"Computing POD with single basis...")
     single_basis, single_mean = single_basis_pod(data)

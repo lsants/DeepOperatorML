@@ -1,14 +1,8 @@
 from __future__ import annotations
-import os
-import yaml
 import logging
 import numpy as np
 import numpy.typing as npt
 from typing import Any, Iterable
-from pathlib import Path
-import preprocess_data
-from src.modules.data_processing import preprocessing_helper as ppr
-from src.modules.model.components import trunk
 
 logger = logging.getLogger(__name__)
 
@@ -31,8 +25,7 @@ def format_to_don(*coords: Iterable[npt.ArrayLike]) -> npt.NDArray:
 def preprocess_raw_data(raw_npz_filename: str,
                         input_function_keys: list[str],
                         coordinate_keys: list[str],
-                        processed_dataset_keys: dict[str, list[str]],
-                        load_direction: str) -> dict[str, npt.NDArray]:
+                        processed_dataset_keys: dict[str, list[str]]) -> dict[str, npt.NDArray]:
     """
     Processed data from an npz file and groups the input functions and coordinates into arrays
     called, named according to given labels, suitable for creating the PyTorch dataset for the Kelvin problem.
@@ -48,7 +41,7 @@ def preprocess_raw_data(raw_npz_filename: str,
         npz_filename (str): Path to the .npz file.
         input_function_keys (list of str): List of keys for sensor (input function) arrays.
         coordinate_keys (list of str): List of keys for coordinate arrays.
-        processed_dataset_keys (dict): Map of {'FEATURES': usually ['xb', 'xt], 'TARGETS': usually ['g_u']}.
+        processed_dataset_keys (dict): Map of {'FEATURES': usually ['xb', 'xt], 'TARGETS': [g_u_1, ...]}.
 
     Returns:
         dict: A dictionary with the example keys:
@@ -69,9 +62,6 @@ def preprocess_raw_data(raw_npz_filename: str,
     features = {processed_dataset_keys['features'][0]: branch_input,
                 processed_dataset_keys['features'][1]: trunk_input,
                 }
-    num_channels = processed_dataset_keys
-
-    load_index = coordinate_keys.index(load_direction)
 
     processed_data = features
 
@@ -93,5 +83,5 @@ def run_preprocessing(problem_settings: dict[str, Any]) -> dict[str, npt.ArrayLi
                                          input_function_keys=problem_settings['input_function_keys'],
                                          coordinate_keys=problem_settings['coordinate_keys'],
                                          processed_dataset_keys=problem_settings['data_labels'],
-                                         load_direction=problem_settings['load_direction'])
+                                         )
     return processed_data  # type: ignore

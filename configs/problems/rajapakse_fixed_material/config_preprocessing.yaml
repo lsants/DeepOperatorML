@@ -1,0 +1,33 @@
+#  ----------------------Location of .npz data files ----------------
+raw_data_path: ./data/raw/rajapakse_fixed_material/rajapakse_fixed_v1.npz
+dataset_version: 
+
+# ------------------------- Dataset parameters ----------------
+problem: rajapakse_fixed_material
+splitting:
+  ratios: [0.8, 0.1, 0.1] # not splitting coordinates
+  seed: 42
+
+data_labels: #raw
+  features: [xb, xt]
+  targets: [g_u]
+
+input_function_keys:
+  - delta
+
+input_function_labels:
+  - δ
+
+coordinate_keys:
+  - r
+  - z
+
+output_keys:
+  - g_u_real
+  - g_u_imag
+
+output_labels: # "$\\Re(\\vec{u})$" and "$\\Im(\\vec{u})$" for dynamic, "$\\vec{u})$" for kelvin
+  - "$\\Re(\\vec{u})$"
+  - "$\\Im(\\vec{u})$"
+
+var_share: 0.98
