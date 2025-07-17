@@ -3,7 +3,6 @@ import sys
 import argparse
 import yaml
 import logging
-import dataclasses
 from src import train_model
 from src import test_model
 from src.modules.pipe.pipeline_config import DataConfig, ExperimentConfig, TrainConfig, TestConfig
@@ -18,7 +17,6 @@ logging.basicConfig(
     datefmt="%d-%m-%Y %H:%M:%S",
     stream=sys.stdout
 )
-
 
 def main() -> None:
     parser = argparse.ArgumentParser()

@@ -40,6 +40,7 @@ class TwoStepStrategy(TrainingStrategy):
         # Phase 1: Both components trainable
         model.trunk.requires_grad_(True)
         model.branch.requires_grad_(True)
+        model.bias.requires_grad_(True)
         trainable_params = self._get_trainable_parameters(model)
         if not trainable_params:
             raise ValueError("No trainable parameters found in the model.")
@@ -75,6 +76,9 @@ class TwoStepStrategy(TrainingStrategy):
             if param.requires_grad:
                 trainable_params.append(param)
         for name, param in model.branch.named_parameters():
+            if param.requires_grad:
+                trainable_params.append(param)
+        for name, param in model.bias.named_parameters():
             if param.requires_grad:
                 trainable_params.append(param)
         return trainable_params
@@ -176,7 +180,6 @@ class TwoStepStrategy(TrainingStrategy):
             y_pred = model(x_branch, x_trunk)
         elif self._phase == 2:
             y_true = self.compute_synthetic_targets(x_branch)
-            dummy_trunk_out = model.trunk(x_trunk)
             y_pred = model.branch(x_branch)
         else:
             raise RuntimeError("Invalid training phase")
@@ -188,36 +191,42 @@ class TwoStepStrategy(TrainingStrategy):
                           y_pred: torch.Tensor,
                           loss: float,
                           train: bool,
-                          branch_input: torch.Tensor) -> dict[str, float]:
+                          branch_input: torch.Tensor,
+                          label_map: list[str] | None = None) -> dict[str, float]:
         """Combines base and strategy-specific metrics"""
         if self._phase == 1:
-            metrics = self.base_metrics(y_true, y_pred, loss)
+            metrics = self.base_metrics(y_true, y_pred, loss, label_map)
         else:
             metrics = {'loss': loss}
         metrics.update(self.strategy_specific_metrics(
-            y_true=y_true, y_pred=y_pred, branch_input=branch_input))
+            y_true=y_true, y_pred=y_pred, branch_input=branch_input, label_map=label_map))
         return metrics
 
-    def strategy_specific_metrics(self, y_true: torch.Tensor, y_pred: torch.Tensor, branch_input: torch.Tensor) -> dict[str, float]:
+    def strategy_specific_metrics(self, y_true: torch.Tensor, y_pred: torch.Tensor, branch_input: torch.Tensor, label_map: list[str] | None = None) -> dict[str, float]:
         if self._phase == 1:
             relative_error = self.error_metric(
-                y_true - y_pred, dim=(0, 1)) / self.error_metric(y_true, dim=(0, 1))
+                y_true - y_pred) / self.error_metric(y_true)
         elif self._phase == 2:
             y_true = self.compute_synthetic_targets(branch_input)
             if y_true.shape != y_pred.shape:
                 raise ValueError(
                     "Synthetic targets and predictions must have the same shape.")
             relative_error = self.error_metric(
-                y_true - y_pred, dim=(0, 1)) / self.error_metric(y_true, dim=(0, 1))
+                y_true - y_pred) / self.error_metric(y_true)
         else:
             raise RuntimeError("Invalid training phase")
 
         if relative_error.ndim > 0:
-            strategy_metric = {
-                **{f'error_trunk_{i[0]}': i[1].item() for i in enumerate(relative_error.detach())}
-            }
+            if label_map is not None:
+                strategy_metric = {
+                    **{f'Error_{label_map[i]}': e.item() for i, e in enumerate(relative_error.detach())}
+                }
+            else:
+                strategy_metric = {
+                    **{f'Error_{i}': e.item() for i, e in enumerate(relative_error.detach())}
+                }
         else:
-            strategy_metric = {f'error_branch': relative_error.item()}
+            strategy_metric = {f'Error': relative_error.item()}
         return strategy_metric
 
     def compute_synthetic_targets(self, branch_inputs) -> torch.Tensor:

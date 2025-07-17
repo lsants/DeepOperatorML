@@ -38,8 +38,12 @@ def preprocess_data():
         module_name = f"problem_dependent_preprocessing"
         spec = importlib.util.spec_from_file_location(
             name=module_name, location=script_path)
+        if spec is None:
+            raise ModuleNotFoundError(f"Preprocessing module not found.")
         module = importlib.util.module_from_spec(spec=spec)
         sys.modules[module_name] = module
+        if spec.loader is None:
+            raise AttributeError(f"{spec} has no 'loader' attribute.")
         spec.loader.exec_module(module=module)
 
         with open(file=config_path) as f:
@@ -81,7 +85,8 @@ def preprocess_data():
 
         scalers = helper_functions.compute_scalers(
             data=processed_data,
-            train_indices=train_indices
+            train_indices=train_indices,
+            target_label=problem_config['data_labels']['targets'][0]
         )
 
         train_processed_data = processed_data[target][train_indices_target_rows]

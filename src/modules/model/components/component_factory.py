@@ -1,24 +1,30 @@
 import torch
+import inspect
+from .bias import Bias
 from .registry import ComponentRegistry
+from .bias.config import BiasConfig, BiasConfigValidator
 from .trunk.config import TrunkConfig, TrunkConfigValidator
 from .branch.config import BranchConfig, BranchConfigValidator
 from typing import TypeVar
-import inspect
-from typing import TYPE_CHECKING
 from .trunk import OrthonormalTrunk, PODTrunk
-if TYPE_CHECKING:
-    from .trunk.config import TrunkConfig
-    from .branch.config import BranchConfig
 
 T = TypeVar('T')
+
+
+class BiasFactory:
+    @classmethod
+    def build(cls, config: BiasConfig) -> torch.nn.Module:
+        BiasConfigValidator.validate(config)
+        return Bias(
+            num_channels=config.num_channels,
+            precomputed_mean=config.precomputed_mean
+        )
 
 
 class BranchFactory:
     @classmethod
     def build(cls, config: BranchConfig) -> torch.nn.Module:
-        # Validate config first
         BranchConfigValidator.validate(config)
-        # Get component class
         component_class, _ = ComponentRegistry.get(
             component_type=config.component_type,
             architecture=config.architecture
@@ -36,20 +42,16 @@ class BranchFactory:
 class TrunkFactory:
     @classmethod
     def build(cls, config: TrunkConfig) -> torch.nn.Module:
-        # Validate config first
         if config.component_type == "orthonormal_trunk":
             inner_trunk = cls.build(config.inner_config)  # type: ignore
             basis_tensor = torch.as_tensor(config.T_matrix)
-            return OrthonormalTrunk(inner_trunk, basis_tensor)
+            return OrthonormalTrunk(inner_trunk, basis_tensor)  # type: ignore
 
         if config.component_type == "pod_trunk":
             basis = config.pod_basis
-            mean = config.pod_mean
-            return PODTrunk(pod_basis=basis,
-                            pod_mean=mean)
+            return PODTrunk(pod_basis=basis)  # type: ignore
 
         TrunkConfigValidator.validate(config)
-        # Get component class
         component_class, _ = ComponentRegistry.get(
             component_type=config.component_type,
             architecture=config.architecture

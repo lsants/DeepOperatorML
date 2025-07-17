@@ -1,6 +1,6 @@
 # components/__init__.py
 from typing import TYPE_CHECKING
-from .registry import ComponentRegistry  # Explicit export
+from .registry import ComponentRegistry
 from .component_factory import BranchFactory, TrunkFactory
 __all__ = ['ComponentRegistry', 'BranchFactory', 'TrunkFactory']
 

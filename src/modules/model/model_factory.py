@@ -1,11 +1,14 @@
 from __future__ import annotations
-import dataclasses
+import torch
 import logging
-from typing import Any
+import dataclasses
 from copy import deepcopy
 from dataclasses import fields
+
+from src.modules.model.components.bias.config import BiasConfigValidator
 from .config import ModelConfig
 from .deeponet import DeepONet
+from .components.component_factory import BiasFactory
 from .components.component_factory import TrunkFactory
 from .components.component_factory import BranchFactory
 from .components.rescaling.rescaler import Rescaler
@@ -35,17 +38,22 @@ class ModelFactory:
         output_handler.adjust_dimensions(
             model_config)
 
+        rescaler = Rescaler(model_config.rescaling)
+
+        BiasConfigValidator.validate(model_config.bias)
         BranchConfigValidator.validate(model_config.branch)
         TrunkConfigValidator.validate(model_config.trunk)
 
         branch = BranchFactory.build(model_config.branch)
         trunk = TrunkFactory.build(model_config.trunk)
+        bias = BiasFactory.build(model_config.bias)
 
         return (DeepONet(
             branch=branch,
             trunk=trunk,
+            bias=bias,
             output_handler=output_handler,
-            rescaler=Rescaler(model_config.rescaling)
+            rescaler=rescaler
         ),
             strategy
         )
@@ -53,18 +61,22 @@ class ModelFactory:
     @classmethod
     def create_for_inference(cls, saved_config: ModelConfig, state_dict: dict) -> DeepONet:
         """Builds model from frozen post-training config without strategy involvement"""
-
         cls._validate_inference_config(saved_config)
+
+        output_handler = OutputRegistry.create(saved_config.output)
+        output_handler.adjust_dimensions(
+            saved_config)
+
+        rescaler = Rescaler(saved_config.rescaling)
 
         trunk = TrunkFactory.build(saved_config.trunk)
         branch = BranchFactory.build(saved_config.branch)
-
-        output_handler = OutputRegistry.create(saved_config.output)
-        rescaler = Rescaler(saved_config.rescaling)
+        bias = BiasFactory.build(saved_config.bias)
 
         model = DeepONet(
             branch=branch,
             trunk=trunk,
+            bias=bias,
             output_handler=output_handler,
             rescaler=rescaler
         )
@@ -77,24 +89,30 @@ class ModelFactory:
     @classmethod
     def _validate_inference_config(cls, config: ModelConfig):
         """Ensures config contains post-training state"""
-
-        if config.strategy == "two_step":
-            if config.trunk.architecture != "orthonormal_trunk" or config.trunk.component_type != 'pretrained':
-                raise ValueError(
-                    "Two-step inference requires pretrained decomposed trunk architecture"
-                )
-        if config.strategy == "pod":
-            if config.trunk.architecture != "pod_trunk" or config.trunk.component_type != 'precomputed':
-                raise ValueError(
-                    "POD inference requires precomputed POD trunk architecture"
-                )
-
         BranchConfigValidator.validate(config.branch)
-        TrunkConfigValidator.validate(config.trunk)
-        if not config.output.basis_adjust:
+        if config.strategy.name != 'pod' and not config.output.basis_adjust:
             raise ValueError(
                 "Inference config must retain output handler basis adjustment"
             )
+        if config.strategy.name == "two_step":
+            if config.trunk.architecture != "pretrained" or config.trunk.component_type != 'orthonormal_trunk':
+                raise ValueError(
+                    "Two-step inference requires pretrained decomposed trunk architecture"
+                )
+        if config.strategy.name == "pod":
+            if config.trunk.architecture != "precomputed" or config.trunk.component_type != 'pod_trunk':
+                raise ValueError(
+                    "POD inference requires precomputed POD trunk architecture"
+                )
+            if config.trunk.pod_basis_shape is None:
+                raise ValueError(
+                    "Shape of precomputed POD basis must be known in order to initialize model."
+                )
+            config.trunk.pod_basis = torch.rand(config.trunk.pod_basis_shape)
+            if config.output.basis_adjust:
+                config.output.basis_adjust = False
+        else:
+            TrunkConfigValidator.validate(config.trunk)
 
     @classmethod
     def _create_strategy(cls, config: dict) -> TrainingStrategy:

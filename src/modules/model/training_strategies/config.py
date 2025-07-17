@@ -10,9 +10,7 @@ if TYPE_CHECKING:
 class StrategyConfig:
     """Base configuration for all training strategies"""
     name: Literal["vanilla", "pod", "two_step"]
-    loss: str
     error: str
-    epochs: int
 
     def __post_init__(self):
         self._validate_common()
@@ -23,11 +21,27 @@ class StrategyConfig:
         if self.name not in valid_names:
             raise ValueError(
                 f"Invalid strategy {self.name}. Must be in {valid_names}")
-
-
+    @classmethod
+    def setup_for_training(cls, train_cfg: dict, data_cfg: dict):
+        name = data_cfg["shapes"][data_cfg["targets"][0]][-1]
+        error = train_cfg["output_handling"]
+        return cls(
+            error=error,
+            name=name
+        )
+    @classmethod
+    def setup_for_inference(cls, model_cfg_dict):
+        name = model_cfg_dict["strategy"]["name"]
+        error = model_cfg_dict["strategy"]["error"]
+        return cls(
+            error=error,
+            name=name
+        )
 @dataclass
 class VanillaConfig(StrategyConfig):
     """Configuration for standard end-to-end training strategy."""
+    epochs: int
+    loss: str
     optimizer_scheduler: List[OptimizerSpec]
 
     def __post_init__(self):
@@ -43,6 +57,7 @@ class TwoStepConfig(StrategyConfig):
     """Configuration for two-phase training with trunk decomposition."""
     trunk_epochs: int
     branch_epochs: int
+    loss: str
     two_step_optimizer_schedule: Dict[str, List[OptimizerSpec]]
     decomposition_type: Literal["svd", "qr"]  # Enforced decomposition method
 
@@ -70,8 +85,9 @@ class TwoStepConfig(StrategyConfig):
 @dataclass
 class PODConfig(StrategyConfig):
     """Configuration for Proper Orthogonal Decomposition training strategy."""
+    epochs : int
+    loss: str
     pod_basis: torch.Tensor
-    pod_mean: torch.Tensor
     optimizer_scheduler: list[OptimizerSpec]
 
     def __post_init__(self):

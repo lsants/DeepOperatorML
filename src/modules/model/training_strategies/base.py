@@ -14,7 +14,6 @@ if TYPE_CHECKING:
 class TrainingStrategy(ABC):
     def __init__(self, config: StrategyConfig):
         self.config = config
-        self.epochs = config.epochs
         self.epoch_count = 0
         self.error_metric = ERROR_METRICS[config.error.lower()]
         self.loss = self.get_criterion()
@@ -64,7 +63,8 @@ class TrainingStrategy(ABC):
                                   y_true: torch.Tensor,
                                   y_pred: torch.Tensor,
                                   branch_input: torch.Tensor | None = None,
-                                  trunk_input: torch.Tensor | None = None) -> dict[str, float]:
+                                  trunk_input: torch.Tensor | None = None,
+                                  label_map: list[str] | None = None) -> dict[str, float]:
         """Strategy-specific metrics to be computed during training"""
         pass
 
@@ -102,20 +102,28 @@ class TrainingStrategy(ABC):
                           loss: float,
                           train: bool,
                           branch_input: torch.Tensor | None = None,
-                          trunk_input: torch.Tensor | None = None) -> Dict[str, float]:
+                          trunk_input: torch.Tensor | None = None,
+                          label_map: list[str] | None = None) -> Dict[str, float]:
         """Combines base and strategy-specific metrics"""
-        metrics = self.base_metrics(y_true, y_pred, loss)
+        metrics = self.base_metrics(y_true, y_pred, loss, label_map=label_map)
         metrics.update(
-            self.strategy_specific_metrics(y_true=y_true, y_pred=y_pred)
+            self.strategy_specific_metrics(
+                y_true=y_true, y_pred=y_pred, label_map=label_map)
         )
         return metrics
 
-    def base_metrics(self, y_true: torch.Tensor, y_pred: torch.Tensor, loss: float) -> Dict[str, float]:
+    def base_metrics(self, y_true: torch.Tensor, y_pred: torch.Tensor, loss: float, label_map: list[str] | None = None) -> Dict[str, float]:
         """Common metrics for all strategies"""
         with torch.no_grad():
-            error = self.error_metric(y_pred - y_true, dim=(0, 1))
-        base_metric = {
-            'loss': loss,
-            **{f'error_{i[0]}': i[1].item() for i in enumerate(error.detach())}
-        }
+            error = self.error_metric(y_pred - y_true)
+        if label_map is not None:
+            base_metric = {
+                'loss': loss,
+                **{f'Error_{label_map[i]}': e.item() for i, e in enumerate(error.detach())}
+            }
+        else:
+            base_metric = {
+                'loss': loss,
+                **{f'Error_{i}': e.item() for i, e in enumerate(error.detach())}
+            }
         return base_metric

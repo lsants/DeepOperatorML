@@ -1,7 +1,11 @@
 from __future__ import annotations
+import re
 from dataclasses import dataclass
 from typing import Literal, Optional, Callable
 from ..registry import ComponentRegistry
+from ....data_processing.config import TransformConfig
+from ..registry import ComponentRegistry
+from ....model.nn.activation_functions.activation_fns import ACTIVATION_MAP
 
 
 @dataclass
@@ -23,6 +27,29 @@ class BranchConfig:
     input_dim: Optional[int] = None
     output_dim: Optional[int] = None
 
+    @classmethod
+    def setup_for_training(cls, data_cfg: dict, train_cfg: dict) -> "BranchConfig":
+        branch_config = BranchConfig(**train_cfg["branch"])
+
+        if branch_config.activation is not None:
+            branch_config.activation = ACTIVATION_MAP[branch_config.activation.lower(
+            )]
+        branch_config.input_dim = data_cfg["shapes"][data_cfg["features"][1]][1]
+        return branch_config
+
+    @classmethod
+    def setup_for_inference(cls, model_cfg_dict: dict, transform_cfg: TransformConfig) -> "BranchConfig":
+        branch_config = BranchConfig(**model_cfg_dict["branch"])
+        if branch_config.activation is not None:
+            mask = re.sub(r'[^a-zA-Z0-9]', '', branch_config.activation.lower(
+            ))
+            branch_config.activation = ACTIVATION_MAP[mask]
+        if transform_cfg.branch.feature_expansion.size is None:
+            transform_cfg.branch.feature_expansion.size = 0
+        branch_config.input_dim = transform_cfg.branch.original_dim * (1 +
+                                                                       transform_cfg.branch.feature_expansion.size)
+        return branch_config
+
 
 class BranchConfigValidator:
     @staticmethod
@@ -35,7 +62,6 @@ class BranchConfigValidator:
 
             required_params = [p for p in required_params if p != "self"]
 
-            # Check for missing parameters
             missing = [p for p in required_params if not hasattr(config, p)]
             if missing:
                 raise ValueError(

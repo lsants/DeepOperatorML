@@ -4,25 +4,25 @@ SEED: 42
 
 # ---------------------- Influence function dynamic single material problem -----------------
 
-N_R: 20                   # Mesh points for r coordinate
-N_Z: 20                   # Mesh points for z coordinate
-R_MIN: 0               # Min r coordinate sampled [m]
-Z_MIN: 0                  # Min. z coordinate sampled   [m]
-R_MAX: 10                 # Max. r coordinate sampled [m]
-Z_MAX: 10                 # Max. z coordinate sampled [m]
+N_R: 20                 # Mesh points for r coordinate
+N_Z: 20                 # Mesh points for z coordinate
+R_MIN: 0                # Min r coordinate sampled [m]
+Z_MIN: 0                # Min. z coordinate sampled   [m]
+R_MAX: 10               # Max. r coordinate sampled [m]
+Z_MAX: 10               # Max. z coordinate sampled [m]
 
-N : 30              # Number of samples
+N : 30                  # Number of samples
 
 OMEGA_MIN: 0            # Min. sampled frequency [Rad/s]
-OMEGA_MAX: 5200           # Max. sampled frequency [Rad/s]
-LOAD: 6006663.0           # Load magnitude [N]
+OMEGA_MAX: 5200         # Max. sampled frequency [Rad/s]
+LOAD: 6006663.0         # Load magnitude [N]
 Z_SOURCE: 0             # Position of source load in z axis [m]
 L_SOURCE: 0             # Dimension of source load in z axis [m]
 R_SOURCE: 2             # Dimension of source load in r axis [m]
 
-E: 25.0E+09              # Young Modulus [Pa]
-NU: 2.42277267E-01         # Poisson's ratio
-DAMP: 0.01             # Damping factor
+E: 25.0E+09             # Young Modulus [Pa]
+NU: 2.42277267E-01      # Poisson's ratio
+DAMP: 0.01              # Damping factor
 DENS: 1.73511990E+03    # Density [Kg.m-3]
 
 

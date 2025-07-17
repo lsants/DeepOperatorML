@@ -1,11 +1,9 @@
 import numpy as np
 import matplotlib.pyplot as plt
-from mpl_toolkits.axes_grid1.inset_locator import inset_axes, mark_inset
 from matplotlib.patches import ConnectionPatch
-from matplotlib import _pylab_helpers
 import matplotlib.ticker as ticker
 
-def plot_coefficients(modes: np.ndarray, coefficients_mean_abs: np.ndarray, modes_to_highlight: np.ndarray[int], **kwargs) -> plt.figure:
+def plot_coefficients_with_basis(modes: np.ndarray, coefficients_mean_abs: np.ndarray, modes_to_highlight: np.ndarray, **kwargs) -> plt.Figure:
     
     # modes are: (n_modes, coord1, coord1, n_channels_basis)
     # coeffs_mean_abs are: (n_modes, n_channels_coeffs)
@@ -72,3 +70,6 @@ def plot_coefficients(modes: np.ndarray, coefficients_mean_abs: np.ndarray, mode
 
     # fig.tight_layout()
     return fig
+
+def plot_coefficients(coefficients: np.ndarray):
+    pass

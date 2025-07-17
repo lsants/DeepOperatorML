@@ -19,6 +19,7 @@ logger = logging.getLogger(name=__name__)
 class PODStrategy(TrainingStrategy):
     def __init__(self, config: 'PODConfig'):
         super().__init__(config)
+        self.epochs = config.epochs
         self.error_metric = ERROR_METRICS[config.error.lower()]
 
     def prepare_components(self, model_config: 'ModelConfig'):
@@ -27,20 +28,14 @@ class PODStrategy(TrainingStrategy):
         model_config.branch.component_type = "neural_branch"
         model_config.trunk.component_type = "pod_trunk"
         model_config.trunk.pod_basis = self.config.pod_basis
-        model_config.trunk.pod_mean = self.config.pod_mean
 
     def setup_training(self, model: 'DeepONet'):
         if not isinstance(model.trunk, PODTrunk):
             raise TypeError(
                 "Model's trunk was not correctly defined as 'PODTrunk'.")
-        if not isinstance(model.trunk.pod_mean, torch.Tensor):
-            raise TypeError(
-                "PODTrunk mean was not correctly setup.")
 
         model.trunk.requires_grad_(False)
         model.branch.requires_grad_(True)
-        model.bias = torch.nn.Parameter(
-            model.trunk.pod_mean, requires_grad=False)
 
         trainable_params = self._get_trainable_parameters(model)
         if not trainable_params:
@@ -80,12 +75,18 @@ class PODStrategy(TrainingStrategy):
     def validation_enabled(self) -> bool:
         return True
 
-    def strategy_specific_metrics(self, y_true: torch.Tensor, y_pred: torch.Tensor) -> dict[str, float]:
+    def strategy_specific_metrics(self, y_true: torch.Tensor, y_pred: torch.Tensor, label_map: list[str]) -> dict[str, float]:
         relative_error = (self.error_metric(
-            y_true - y_pred, dim=(0, 1)) / self.error_metric(y_true, dim=(0, 1)))
-        strategy_metric = {
-            **{f'error_{i[0]}': i[1].item() for i in enumerate(relative_error.detach())}
-        }
+            y_true - y_pred) / self.error_metric(y_true))
+        if label_map is not None:
+            strategy_metric = {
+                **{f'Error_{label_map[i]}': e.item() for i, e in enumerate(relative_error.detach())}
+            }
+        else:
+            strategy_metric = {
+                **{f'Error_{i}': e.item() for i, e in enumerate(relative_error.detach())}
+            }
+
         return strategy_metric
 
     def get_optimizer_scheduler(self):

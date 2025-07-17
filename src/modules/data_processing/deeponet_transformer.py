@@ -98,8 +98,10 @@ class DeepONetTransformPipeline:
 
     def _apply_normalization(self, data: torch.Tensor, norm_type: str | None, stats: dict) -> torch.Tensor:
         """Apply normalization using precomputed statistics"""
-        if norm_type is None or not stats:
+        if norm_type is None:
             return data
+        elif norm_type is not None and not stats:
+            raise RuntimeError(f"{norm_type} expects non-empty 'stats'")
         if norm_type == "standardize":
             return (data - stats["mean"]) / stats["std"]
         if norm_type == "minmax_0_1":

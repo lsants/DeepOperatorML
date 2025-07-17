@@ -1,12 +1,12 @@
 from __future__ import annotations
+import dataclasses
 import os
-import re
 import torch
 import yaml
 import logging
 import numpy as np
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any
 from datetime import datetime
 from dataclasses import dataclass, replace
 from ..model.nn.activation_functions.activation_fns import ACTIVATION_MAP
@@ -14,6 +14,7 @@ from ..model.components.output_handler.config import OutputConfig
 from ..model.components.rescaling.config import RescalingConfig
 from ..model.config import ModelConfig
 from ..data_processing.config import TransformConfig
+from ..model.components.bias.config import BiasConfig
 from ..model.components.branch.config import BranchConfig
 from ..model.components.trunk.config import TrunkConfig
 from ..model.optimization.optimizers.config import OptimizerSpec
@@ -30,13 +31,18 @@ class DataConfig:
     dataset_version: str       # From experiment.yaml
     dataset_path: Path         # Constructed from problem + version
     raw_outputs_path: Path
+    raw_data_path: Path        # From metadata.yaml
+    raw_metadata_path: Path    # From metadata.yaml
     features: list[str]        # From metadata.yaml
+    input_functions: list[str]        # From metadata.yaml
+    coordinates: list[str]        # From metadata.yaml
     targets: list[str]         # From metadata.yaml
-    shapes: Dict[str, list]    # From metadata.yaml
-    data: Dict[str, np.ndarray]  # From data.npz
-    split_indices: Dict[str, np.ndarray]  # From split_indices.npz
-    scalers: Dict[str, np.ndarray]        # From scalers.npz
-    pod_data: Dict[str, np.ndarray]      # From pod_data.npz
+    targets_labels: list[str]  # From metadata.yaml
+    shapes: dict[str, list[int]]    # From metadata.yaml
+    data: dict[str, np.ndarray]  # From data.npz
+    split_indices: dict[str, np.ndarray]  # From split_indices.npz
+    scalers: dict[str, np.ndarray]        # From scalers.npz
+    pod_data: dict[str, np.ndarray]      # From pod_data.npz
 
     @classmethod
     def from_experiment_config(cls, problem: str, exp_cfg: dict[str, Any]):
@@ -53,7 +59,7 @@ class DataConfig:
             if not (dataset_path / f).exists():
                 raise FileNotFoundError(f"Missing {f} in {dataset_path}")
 
-        # Load metadata
+        # Load processed metadata
         with open(dataset_path / "metadata.yaml") as f:
             metadata = yaml.safe_load(f)
 
@@ -62,8 +68,13 @@ class DataConfig:
             dataset_version=exp_cfg['dataset_version'],
             dataset_path=dataset_path,
             raw_outputs_path=exp_cfg['output_path'],
+            raw_data_path=metadata['raw_data_source'],
+            raw_metadata_path=metadata['raw_metadata_source'],
             features=metadata['features'],
+            input_functions=metadata['input_functions'],
+            coordinates=metadata['coordinates'],
             targets=metadata['targets'],
+            targets_labels=metadata['targets_labels'],
             shapes=metadata['shapes'],
             data=dict(np.load(dataset_path / "data.npz")),
             split_indices=dict(np.load(dataset_path / "split_indices.npz")),
@@ -91,8 +102,13 @@ class DataConfig:
             dataset_version=exp_cfg['dataset_version'],
             dataset_path=dataset_path,
             raw_outputs_path=exp_cfg['output_path'],
+            raw_data_path=metadata['raw_data_source'],
+            raw_metadata_path=metadata['raw_metadata_source'],
             features=metadata['features'],
+            input_functions=metadata['input_functions'],
+            coordinates=metadata['coordinates'],
             targets=metadata['targets'],
+            targets_labels=metadata['targets_labels'],
             shapes=metadata['shapes'],
             data=dict(np.load(dataset_path / "data.npz")),
             split_indices=dict(np.load(dataset_path / "split_indices.npz")),
@@ -138,35 +154,20 @@ class TrainConfig:
         }
 
         train_cfg["trunk"]['pod_basis'] = pod_data['pod_basis']
-        train_cfg["trunk"]['pod_mean'] = pod_data['pod_mean']
 
-        trunk_config = TrunkConfig(**train_cfg["trunk"])
+        trunk_config = TrunkConfig.setup_for_training(
+            dataclasses.asdict(data_cfg), train_cfg)
+        branch_config = BranchConfig.setup_for_training(
+            dataclasses.asdict(data_cfg), train_cfg)
+        bias_config = BiasConfig.setup_for_training(
+            pod_data=pod_data if train_cfg['training_strategy'] == 'pod' else None, data_cfg=dataclasses.asdict(data_cfg))
 
-        num_channels = data_cfg.shapes[data_cfg.targets[0]][-1]
-
-        if trunk_config.activation is not None:
-            trunk_config.activation = ACTIVATION_MAP[trunk_config.activation.lower(
-            )]
-        trunk_config.input_dim = data_cfg.shapes[data_cfg.features[1]][1]
-        trunk_config.output_dim = train_cfg["num_basis_functions"] \
-            if train_cfg['training_strategy'] != 'pod' else train_cfg["trunk"]['pod_basis'].shape[-1] \
-            if train_cfg['output_handling'] == 'shared_trunk' else train_cfg["trunk"]['pod_basis'].shape[-1] // num_channels
-
-        branch_config = BranchConfig(**train_cfg["branch"])
-        if branch_config.activation is not None:
-            branch_config.activation = ACTIVATION_MAP[branch_config.activation.lower(
-            )]
         branch_config.input_dim = data_cfg.shapes[data_cfg.features[0]][1]
         branch_config.output_dim = trunk_config.output_dim
 
-        output_config = OutputConfig(
-            handler_type=train_cfg["output_handling"],
-            num_channels=num_channels
-        )
-        rescaling_config = RescalingConfig(
-            num_basis_functions=train_cfg["num_basis_functions"],
-            exponent=train_cfg["rescaling"]["exponent"],
-        )
+        output_config = OutputConfig.setup_for_training(
+            train_cfg=train_cfg, data_cfg=dataclasses.asdict(data_cfg))
+        rescaling_config = RescalingConfig.setup_for_training(train_cfg)
         one_step_optimizer = [
             OptimizerSpec(**params)
             for params in train_cfg['optimizer_schedule']
@@ -193,6 +194,7 @@ class TrainConfig:
         model_config = ModelConfig(
             branch=branch_config,
             trunk=trunk_config,
+            bias=bias_config,
             output=output_config,
             rescaling=rescaling_config,
             strategy=strategy_config  # type: ignore
@@ -261,6 +263,7 @@ class TestConfig:
     transforms: TransformConfig | None = None
     metric: str | None = None
     checkpoint: dict | None = None
+    config: dict[str, Any] | None = None
 
     @classmethod
     def from_config_files(cls, test_cfg_path: str):
@@ -273,6 +276,7 @@ class TestConfig:
             processed_data_path=Path(test_cfg['processed_data_path']),
             output_path=Path(test_cfg['output_path']),
             experiment_version=test_cfg['experiment_version'],
+            config=test_cfg
         )
 
     def with_experiment_data(self, exp_cfg_dict: dict[str, Any]):
@@ -296,42 +300,26 @@ class TestConfig:
             if self.transforms.branch.original_dim is None or self.transforms.trunk.original_dim is None:
                 raise ValueError("Missing original dims for initialization")
 
-            branch_config = BranchConfig(**cfg_dict["branch"])
-            if branch_config.activation is not None:
-                mask = re.sub(r'[^a-zA-Z0-9]', '', branch_config.activation.lower(
-                ))
-                branch_config.activation = ACTIVATION_MAP[mask]
-            if self.transforms.branch.feature_expansion.size is None:
-                self.transforms.branch.feature_expansion.size = 0
-            branch_config.input_dim = self.transforms.branch.original_dim * (1 +
-                                                                             self.transforms.branch.feature_expansion.size)
-            branch_config.output_dim = cfg_dict["rescaling"]["num_basis_functions"]
-
-            trunk_config = TrunkConfig(**cfg_dict["trunk"])
-            if trunk_config.activation is not None:
-                mask = re.sub(r'[^a-zA-Z0-9]', '', trunk_config.activation.lower(
-                ))
-                trunk_config.activation = ACTIVATION_MAP[mask]
-            if self.transforms.trunk.feature_expansion.size is None:
-                self.transforms.trunk.feature_expansion.size = 0
-            trunk_config.input_dim = self.transforms.trunk.original_dim * (1 +
-                                                                           self.transforms.trunk.feature_expansion.size)
-            trunk_config.output_dim = cfg_dict["rescaling"]["num_basis_functions"]
-
-            output_config = OutputConfig(
-                handler_type=cfg_dict["output"]["handler_type"],
-                num_channels=cfg_dict['output']['num_channels'],
-            )
-            rescaling_config = RescalingConfig(
-                num_basis_functions=cfg_dict["rescaling"]["num_basis_functions"],
-                exponent=cfg_dict["rescaling"]["exponent"],
-            )
+            bias_config = BiasConfig.setup_for_inference(
+                cfg_dict)
+            branch_config = BranchConfig.setup_for_inference(
+                cfg_dict, self.transforms)
+            trunk_config = TrunkConfig.setup_for_inference(
+                cfg_dict, self.transforms)
+            if cfg_dict['strategy']['name'] == 'pod':
+                trunk_config.output_dim = trunk_config.pod_basis_shape[-1] # type: ignore
+            branch_config.output_dim = trunk_config.output_dim
+            output_config = OutputConfig.setup_for_inference(cfg_dict)
+            rescaling_config = RescalingConfig.setup_for_inference(cfg_dict)
+            strategy_config = StrategyConfig.setup_for_inference(cfg_dict)
 
             return ModelConfig(
                 branch=branch_config,
                 trunk=trunk_config,
+                bias=bias_config,
                 output=output_config,
                 rescaling=rescaling_config,
+                strategy=strategy_config
             )
 
         model_config = _create_model_config(exp_cfg_dict["model"])
@@ -348,7 +336,6 @@ class TestConfig:
         Creates a new TestConfig instance by updating the current one with a checkpoint dictionary.
         """
         return replace(self, checkpoint=checkpoint)
-
 
 @dataclass
 class ExperimentConfig:
@@ -376,9 +363,8 @@ class ExperimentConfig:
             precision=train_cfg.precision,
             model=train_cfg.model,
             transforms=train_cfg.transforms,
-            strategy=train_cfg.model.strategy,  # type: ignore
+            strategy=train_cfg.model.strategy
         )
-
 
 @dataclass
 class PathConfig:
@@ -420,3 +406,16 @@ class PathConfig:
         ]
         for path in paths:
             os.makedirs(path, exist_ok=True)
+
+
+def format_exp_cfg(exp_cfg: ExperimentConfig) -> ExperimentConfig:
+    exp_cfg.model.trunk.pod_basis = None
+    if exp_cfg.model.trunk.inner_config is not None:
+        exp_cfg.model.trunk.inner_config.pod_basis = None
+    if exp_cfg.model.strategy.name == 'pod':  # type: ignore
+        if hasattr(exp_cfg.model.strategy, 'pod_basis'):
+            exp_cfg.model.strategy.pod_basis = None # type: ignore
+        exp_cfg.model.bias.precomputed_mean = None
+        exp_cfg.model.trunk.architecture = 'precomputed'  # type: ignore
+        exp_cfg.model.trunk.component_type = 'pod_trunk'  # type: ignore
+    return exp_cfg

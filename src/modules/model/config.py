@@ -2,11 +2,11 @@ from __future__ import annotations
 import torch
 from dataclasses import dataclass, fields, is_dataclass
 from typing import TYPE_CHECKING, Any, Type, Optional
-from ..utilities import serialization
 from .components.branch.config import BranchConfig, BranchConfig
 from .components.trunk.config import TrunkConfig, TrunkConfig
 from .components.output_handler.config import OutputConfig
 from .components.rescaling.config import RescalingConfig
+from .components.bias.config import BiasConfig
 from .training_strategies.config import StrategyConfig, VanillaConfig, TwoStepConfig, PODConfig
 # if TYPE_CHECKING:
 
@@ -15,9 +15,10 @@ from .training_strategies.config import StrategyConfig, VanillaConfig, TwoStepCo
 class ModelConfig:
     branch: BranchConfig
     trunk: TrunkConfig
+    bias: BiasConfig
     output: OutputConfig
     rescaling: RescalingConfig
-    strategy: StrategyConfig | None = None
+    strategy: StrategyConfig
 
     def __post_init__(self):
         if self.strategy is not None:

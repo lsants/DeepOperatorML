@@ -1,7 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 
-def plot_basis_function(coords, basis, strategy, **kwargs):
+def plot_basis(coords, basis, strategy, **kwargs):
     """
     Plots a single basis function on a 2D plane using the provided coordinate system.
     

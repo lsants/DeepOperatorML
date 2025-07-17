@@ -1,10 +1,11 @@
 from __future__ import annotations
 import torch
-import numpy
+import re
 from typing import Literal, Optional, Callable
 from dataclasses import dataclass
+from ....data_processing.config import TransformConfig
 from ..registry import ComponentRegistry
-
+from ....model.nn.activation_functions.activation_fns import ACTIVATION_MAP
 
 @dataclass
 class TrunkConfig:
@@ -23,7 +24,34 @@ class TrunkConfig:
     inner_config: Optional[TrunkConfig] = None
     T_matrix: Optional[torch.Tensor] = None
     pod_basis: Optional[torch.Tensor] = None
-    pod_mean: Optional[torch.Tensor] = None
+    pod_basis_shape: Optional[torch.Size] = None
+
+    @classmethod
+    def setup_for_training(cls, data_cfg: dict, train_cfg: dict) -> "TrunkConfig":
+        trunk_config = TrunkConfig(**train_cfg["trunk"])
+        num_channels = data_cfg["shapes"][data_cfg["targets"][0]][-1]
+        if trunk_config.activation is not None:
+            trunk_config.activation = ACTIVATION_MAP[trunk_config.activation.lower(
+            )]
+        trunk_config.input_dim = data_cfg["shapes"][data_cfg["features"][1]][1]
+        trunk_config.output_dim = train_cfg["num_basis_functions"] \
+            if train_cfg['training_strategy'] != 'pod' else train_cfg["trunk"]['pod_basis'].shape[-1] \
+            if train_cfg['output_handling'] == 'shared_trunk' else train_cfg["trunk"]['pod_basis'].shape[-1] // num_channels
+        return trunk_config
+
+    @classmethod
+    def setup_for_inference(cls, model_cfg_dict: dict, transform_cfg: TransformConfig) -> "TrunkConfig":
+        trunk_config = TrunkConfig(**model_cfg_dict["trunk"])
+        if trunk_config.activation is not None:
+            mask = re.sub(r'[^a-zA-Z0-9]', '', trunk_config.activation.lower(
+            ))
+            trunk_config.activation = ACTIVATION_MAP[mask]
+        if transform_cfg.trunk.feature_expansion.size is None:
+            transform_cfg.trunk.feature_expansion.size = 0
+        trunk_config.input_dim = transform_cfg.trunk.original_dim * (1 +
+                                                                     transform_cfg.trunk.feature_expansion.size)
+        trunk_config.output_dim = model_cfg_dict["rescaling"]["num_basis_functions"]
+        return trunk_config
 
 
 class TrunkConfigValidator:
@@ -90,10 +118,8 @@ class TrunkConfigValidator:
 
         if not hasattr(config, "pod_basis"):
             errors.append("Missing pod_basis attribute for PODConfig")
-        if not hasattr(config, "pod_mean"):
-            errors.append("Missing pod_mean attribute for PODConfig")
 
-        if hasattr(config, "pod_basis"):
+        else:
             pod_basis = config.pod_basis
             if pod_basis is None:
                 errors.append("Basis tensor is missing in PODConfig")
@@ -103,13 +129,6 @@ class TrunkConfigValidator:
             elif pod_basis.shape[-1] != config.output_dim:
                 errors.append(
                     "POD modes' second dimension must match the trunk's output dimension")
-
-        if hasattr(config, "pod_mean"):
-            pod_mean = config.pod_mean
-            if pod_mean is None:
-                errors.append("POD means cannot be empty")
-            elif not isinstance(pod_mean, (torch.Tensor)):
-                errors.append("POD means must be Tensor")
 
         if errors:
             raise ValueError(f"POD trunk errors: {', '.join(errors)}")

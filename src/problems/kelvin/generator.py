@@ -150,45 +150,51 @@ class KelvinProblemGenerator(BaseProblemGenerator):
                 # .item() for scalar array
                 "load_magnitude": f"{F.item():.3E}" if F.size == 1 else "N/A",
                 "shear_modulus": {
-                    "min": f"{mu.min():.3E}",
-                    "max": f"{mu.max():.3E}",
+                    "shape":f"{mu.shape}",
+                    "min":  f"{mu.min():.3E}",
+                    "max":  f"{mu.max():.3E}",
                     "mean": f"{mu.mean():.3E}",
-                    "std": f"{mu.std():.3E}"
+                    "std":  f"{mu.std():.3E}"
                 },
                 "poissons_ratio": {
-                    "min": f"{nu.min():.3f}",
-                    "max": f"{nu.max():.3f}",
+                    "shape":f"{mu.shape}",
+                    "min":  f"{nu.min():.3f}",
+                    "max":  f"{nu.max():.3f}",
                     "mean": f"{nu.mean():.3f}",
-                    "std": f"{nu.std():.3f}"
+                    "std":  f"{nu.std():.3f}"
                 },
                 "scaling_parameter": f"{scaler_parameter:.3f}"
             },
             "coordinate_statistics": {
-                "x_field": {
-                    "min": f"{x_field.min():.3f}",
-                    "max": f"{x_field.max():.3f}",
+                "x": {
+                    "shape":f"{x_field.shape}",
+                    "min":  f"{x_field.min():.3f}",
+                    "max":  f"{x_field.max():.3f}",
                     "mean": f"{x_field.mean():.3f}",
-                    "std": f"{x_field.std():.3f}"
+                    "std":  f"{x_field.std():.3f}"
                 },
-                "y_field": {
-                    "min": f"{y_field.min():.3f}",
-                    "max": f"{y_field.max():.3f}",
+                "y": {
+                    "shape":f"{y_field.shape}",
+                    "min":  f"{y_field.min():.3f}",
+                    "max":  f"{y_field.max():.3f}",
                     "mean": f"{y_field.mean():.3f}",
-                    "std": f"{y_field.std():.3f}"
+                    "std":  f"{y_field.std():.3f}"
                 },
-                "z_field": {
-                    "min": f"{z_field.min():.3f}",
-                    "max": f"{z_field.max():.3f}",
+                "z": {
+                    "shape":f"{z_field.shape}",
+                    "min":  f"{z_field.min():.3f}",
+                    "max":  f"{z_field.max():.3f}",
                     "mean": f"{z_field.mean():.3f}",
-                    "std": f"{z_field.std():.3f}"
+                    "std":  f"{z_field.std():.3f}"
                 }
             },
             "displacement_statistics": {
                 "g_u": {
-                    "min": f"{displacements.min():.4E}",
-                    "max": f"{displacements.max():.4E}",
+                    "shape":f"{displacements.shape}",
+                    "min":  f"{displacements.min():.4E}",
+                    "max":  f"{displacements.max():.4E}",
                     "mean": f"{displacements.mean():.4E}",
-                    "std": f"{displacements.std():.4E}"
+                    "std":  f"{displacements.std():.4E}"
                 }
             }
         }
@@ -201,7 +207,7 @@ class KelvinProblemGenerator(BaseProblemGenerator):
 
         metadata_path = path.with_suffix('.yaml')  # Changes .npz to .yaml
 
-        with open(metadata_path, 'w') as f:
-            yaml.dump(metadata, f, default_flow_style=False, sort_keys=False)
+        with open(metadata_path, 'w', encoding='utf-8') as f:
+            yaml.dump(metadata, f, default_flow_style=False, sort_keys=False, allow_unicode=True)
         logger.info(f"Saved data at {path}")
         logger.info(f"Saved metadata at {metadata_path}")

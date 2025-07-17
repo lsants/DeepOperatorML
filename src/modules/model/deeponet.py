@@ -11,7 +11,7 @@ logger = logging.getLogger(__name__)
 
 
 class DeepONet(torch.nn.Module):
-    def __init__(self, branch: torch.nn.Module, trunk: torch.nn.Module, output_handler: OutputHandler, rescaler: Rescaler):
+    def __init__(self, branch: torch.nn.Module, trunk: torch.nn.Module, bias: torch.nn.Module, output_handler: OutputHandler, rescaler: Rescaler):
         """DeepONet model (Lu, et al. 2019), universal approximation theorem-based architecture composed of a branch and a trunk net.
 
         Args:
@@ -23,10 +23,9 @@ class DeepONet(torch.nn.Module):
         super().__init__()
         self.branch: torch.nn.Module = branch
         self.trunk: torch.nn.Module = trunk
+        self.bias: torch.nn.Module =  bias
         self.output_handler: OutputHandler = output_handler
         self.rescaler: Rescaler = rescaler
-        self.bias: torch.nn.Parameter | torch.Tensor = torch.nn.Parameter(
-            torch.zeros(self.output_handler.num_channels))
 
     def forward(self, branch_input: torch.Tensor, trunk_input: torch.Tensor) -> torch.Tensor:
 
@@ -35,6 +34,6 @@ class DeepONet(torch.nn.Module):
 
         dot_product = self.output_handler.combine(
             branch_out, trunk_out)
-        output = dot_product + self.bias.T
+        output = self.bias(dot_product)
 
         return self.rescaler(output)

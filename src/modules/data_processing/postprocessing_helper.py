@@ -1,28 +1,36 @@
 from __future__ import annotations
-import os
-import numpy as np
-import torch
-import yaml
 from pathlib import Path
 import importlib.util
+from ..pipe.pipeline_config import DataConfig, TestConfig
 
-def run_post_processing(data_outputs: dict[str, torch.Tensor], model_config: dict[str, any]) -> None:
-    # Load post-processing script path from config
-    script_path = os.path.join('./src/problems', model_config['PROBLEM'])
-    
-    # Dynamically import and run
-    spec = importlib.util.spec_from_file_location(f'postprocesssing', script_path)
-    postproc_module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(postproc_module)
-    postproc_module.process_results(raw_dir, processed_dir)
+# def run_post_processing(test_cfg: TestConfig, data_cfg: DataConfig) -> None:
+#     # Load post-processing script path from config
+#     script_path = os.path.join('./src/problems', data_cfg.problem)
 
-def run_plotting(model_config: str, processed_dir: str, plots_dir: str) -> None:
-    # Load plotting script path from config
-    problem_config = yaml.safe_load(Path("config/problems.yaml").read_text())
-    script_path = problem_config[model_config]["plotting_script"]
-    
-    # Dynamically import and run
-    spec = importlib.util.spec_from_file_location(f"{model_config['PROBLEM']}_plotter", script_path)
-    plot_module = importlib.util.module_from_spec(spec)
+#     # Dynamically import and run
+#     spec = importlib.util.spec_from_file_location(f'postprocesssing', script_path)
+#     postproc_module = importlib.util.module_from_spec(spec)
+#     spec.loader.exec_module(postproc_module)
+#     postproc_module.process_results(raw_dir, processed_dir)
+
+
+def run_plotting(test_cfg: TestConfig, data_cfg: DataConfig) -> None:
+    base_dir = Path(__file__).parent.parent.parent
+    script_path = base_dir / 'problems' / \
+        data_cfg.problem / 'problem_dependent_visualization.py'
+    if not base_dir.exists():
+        raise FileNotFoundError(f"Directory not found: {base_dir}")
+    if not script_path.exists():
+        raise FileNotFoundError(f"Plotting script not found: {script_path}")
+
+    module_name = f"problem_dependent_visualization"
+    spec = importlib.util.spec_from_file_location(
+        name=module_name, location=script_path)
+    if spec is None:
+        raise ModuleNotFoundError(f"Plotting module not found.")
+    plot_module = importlib.util.module_from_spec(spec=spec)
+    # maybe import sys and add plot_module to sys.modules dict here
+    if spec.loader is None:
+        raise AttributeError(f"{spec} has no 'loader' attribute.")
     spec.loader.exec_module(plot_module)
-    plot_module.plot_metrics(processed_dir, plots_dir)
+    plot_module.plot_metrics(test_cfg=test_cfg, data_cfg=data_cfg)

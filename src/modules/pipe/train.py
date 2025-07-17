@@ -1,19 +1,19 @@
+import dataclasses
+import logging
 import time
 import torch
-import logging
-import dataclasses
-from copy import deepcopy
 from .saving import Saver
-from ..model.config import ModelConfig
-from .training_loop import TrainingLoop
-from torch.utils.data import DataLoader
-from ..model.model_factory import ModelFactory
+from copy import deepcopy
 from ..plotting import plot_training
+from ..model.config import ModelConfig
+from torch.utils.data import DataLoader
+from .training_loop import TrainingLoop
+from ..model.model_factory import ModelFactory
 from ..data_processing import data_loader as dtl
-from ..data_processing.deeponet_dataset import DeepONetDataset
 from ..data_processing.deeponet_sampler import DeepONetSampler
+from ..data_processing.deeponet_dataset import DeepONetDataset
 from ..data_processing.deeponet_transformer import DeepONetTransformPipeline
-from ..pipe.pipeline_config import TrainConfig, DataConfig, ExperimentConfig, PathConfig
+from ..pipe.pipeline_config import TrainConfig, DataConfig, ExperimentConfig, PathConfig, format_exp_cfg
 
 logger = logging.getLogger(name=__name__)
 
@@ -103,7 +103,7 @@ def train_model(
     )
 
     logger.info(
-        msg=f"xb: {train_dataset[:]['xb'].shape}, \nxt: {train_dataset[:]['xt'].shape}")
+        msg=f"\nxb: {train_dataset[:]['xb'].shape},\nxt: {train_dataset[:]['xt'].shape},\ng_u: {train_dataset[:]['g_u'].shape}")
     logger.info(
         msg=f"Training branch samples: {train_branch_samples} samples, train branch batch size: {train_cfg.branch_batch_size}\nTraining trunk samples: {train_trunk_samples} samples, train trunk batch size: {train_cfg.trunk_batch_size}")
 
@@ -113,6 +113,7 @@ def train_model(
         config=ModelConfig(
             branch=train_cfg.model.branch,
             trunk=train_cfg.model.trunk,
+            bias=train_cfg.model.bias,
             output=train_cfg.model.output,
             rescaling=train_cfg.model.rescaling,
             strategy=train_cfg.model.strategy
@@ -137,7 +138,8 @@ def train_model(
         val_loader=val_dataloader,
         device=train_cfg.device,
         checkpoint_dir=path_cfg.checkpoints_path,
-        sampler=train_sampler
+        sampler=train_sampler,
+        label_map=data_cfg.targets_labels
     )
 
     # ----------------------------------------- Train loop ---------------------------------
@@ -149,10 +151,14 @@ def train_model(
 
     training_time = end_time - start_time
 
+    times = {'training_time': training_time}
+
     history = loop.history.get_history()
 
     fig = plot_training(
         history=history, plot_config=dataclasses.asdict(train_cfg))
+
+    exp_cfg = format_exp_cfg(exp_cfg)
 
     if hasattr(train_strategy, 'final_trunk_config'):
         final_model_config = deepcopy(exp_cfg.model)
@@ -160,10 +166,17 @@ def train_model(
     else:
         final_model_config = exp_cfg.model
 
+    exp_dict = dataclasses.asdict(exp_cfg)
+    try:
+        del exp_dict['strategy']['pod_basis']
+        del exp_dict['strategy']['pod_mean']
+    except KeyError:
+        pass
+
     saver.save_model_info(
         file_path=path_cfg.outputs_path / 'experiment_config.yaml',
         model_info={
-            **dataclasses.asdict(exp_cfg),
+            **exp_dict,
             "model": dataclasses.asdict(final_model_config)
         }
     )
@@ -171,6 +184,11 @@ def train_model(
     saver.save_plots(
         file_path=path_cfg.plots_path / 'training_history.png',
         figure=fig
+    )
+
+    saver.save_time(
+        file_path=path_cfg.metrics_path / 'training_time.csv',
+        times=times
     )
 
     saver.save_history(

@@ -2,27 +2,21 @@ precision: float32
 device: cpu
 
 # Location of dataset to test
-experiment_version: 2025-07-14_19-36-22
+experiment_version: 2025-07-17_12-29-29
 
 # Location of outputs (data, metrics) - Set this if testing a pretrained model
 output_path: ./output
 processed_data_path: ./data/processed
 
-
-plot_field: true
+plot_plane: true
 plot_axis: true
 plot_basis: true
+plot_coefficients: true
 
 axes_to_plot:
   - r
   - z
 
 # Plot every X percentile (e.g every 10th percentile of the input functions)
-plot_percentiles: 10
-
-inference_on: test
+percentiles: 10
 samples_to_plot: 5
-basis_to_plot: all
-principal_modes_to_plot: 4
-plot_field_bar_color: cyan
-plot_basis_bar_color: magenta

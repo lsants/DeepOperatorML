@@ -15,6 +15,7 @@ if TYPE_CHECKING:
 class VanillaStrategy(TrainingStrategy):
     def __init__(self, config: VanillaConfig):
         super().__init__(config)
+        self.epochs = config.epochs
         self.error_metric = ERROR_METRICS[config.error.lower()]
 
     def prepare_components(self, model_config: ModelConfig):
@@ -25,7 +26,9 @@ class VanillaStrategy(TrainingStrategy):
     def setup_training(self, model: 'DeepONet'):
         model.trunk.requires_grad_(True)
         model.branch.requires_grad_(True)
+        model.bias.requires_grad_(True)
         trainable_params = self._get_trainable_parameters(model)
+
         if not trainable_params:
             raise ValueError("No trainable parameters found in the model.")
         self.train_schedule = []
@@ -44,6 +47,9 @@ class VanillaStrategy(TrainingStrategy):
         for name, param in model.branch.named_parameters():
             if param.requires_grad:
                 trainable_params.append(param)
+        for name, param in model.bias.named_parameters():
+            if param.requires_grad:
+                trainable_params.append(param)
         return trainable_params
 
     def get_train_schedule(self) -> list[tuple[int, torch.optim.Optimizer, torch.optim.lr_scheduler._LRScheduler]]:
@@ -58,11 +64,17 @@ class VanillaStrategy(TrainingStrategy):
     def validation_enabled(self) -> bool:
         return True
 
-    def strategy_specific_metrics(self, y_true: torch.Tensor, y_pred: torch.Tensor) -> dict[str, float]:
-        relative_error = self.error_metric(y_true - y_pred, dim=(0, 1)) / self.error_metric(y_true, dim=(0, 1))
-        strategy_metric = {
-            **{f'error_{i[0]}': i[1].item() for i in enumerate(relative_error.detach())}
-        }
+    def strategy_specific_metrics(self, y_true: torch.Tensor, y_pred: torch.Tensor, label_map: list[str] | None = None) -> dict[str, float]:
+        relative_error = self.error_metric(
+            y_true - y_pred) / self.error_metric(y_true)
+        if label_map is not None:
+            strategy_metric = {
+                **{f'Error_{label_map[i]}': e.item() for i, e in enumerate(relative_error.detach())}
+            }
+        else:
+            strategy_metric = {
+                **{f'Error_{i}': e.item() for i, e in enumerate(relative_error.detach())}
+            }
         return strategy_metric
 
     def get_optimizer_scheduler(self):

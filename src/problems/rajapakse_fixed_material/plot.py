@@ -10,7 +10,7 @@ from ...modules.plotting.plot_field import plot_2D_field
 from ...modules.plotting.plot_basis import plot_basis_function
 from ...modules.plotting.plot_coeffs import plot_coefficients
 from ...modules.pipe.saving import Saver
-import src.problems.rajapakse_fixed_material.problem_dependent_postprocessing as postp
+import src.problems.rajapakse_fixed_material.problem_dependent_visualization as postp
 
 logger = logging.getLogger(__file__)
 

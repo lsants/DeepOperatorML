@@ -4,7 +4,7 @@ from typing import Any
 from .pipeline_config import DataConfig, TestConfig
 from . import inference as inf
 from ..data_processing import data_loader as dtl
-from ..data_processing.postprocessing_helper import run_post_processing
+from ..data_processing.postprocessing_helper import run_plotting
 
 logger = logging.getLogger(__name__)
 
@@ -17,6 +17,9 @@ def test_model(test_cfg_base: TestConfig, exp_cfg_dict: dict[str, Any], data_cfg
         exp_cfg_dict['model']['trunk'].update({'inner_config': checkpoint['strategy']['inner_config'],
                                                'T_matrix': checkpoint['model']['trunk.T']}
                                               )
+    elif exp_cfg_dict['model']['strategy']['name'] == 'pod':
+        exp_cfg_dict['model']['trunk']['pod_basis_shape'] = checkpoint['model']['trunk.pod_basis'].shape
+        exp_cfg_dict['model']['bias']['precomputed_mean_shape'] = checkpoint['model']['bias.bias'].T.shape
 
     test_cfg_full = test_cfg_base.with_experiment_data(
         exp_cfg_dict=exp_cfg_dict)
@@ -26,10 +29,10 @@ def test_model(test_cfg_base: TestConfig, exp_cfg_dict: dict[str, Any], data_cfg
             "Model config should not be none after full initialization of test_cfg.")
 
     # -------------------- Load params and initialize model ---------------------
-    inf.inference(test_cfg=test_cfg_full, data_cfg=data_cfg)
+    inf.inference(
+        test_cfg=test_cfg_full, data_cfg=data_cfg)
 
     # ------------------------ Process output data ------------------------------
-    processed_data_outputs = run_post_processing(
-        data_outputs, model, model_to_test_config)
+    # run_post_processing(test_cfg=test_cfg_full, data_cfg=data_cfg)
 
-    # run_plotting(processed_data_outputs, test_config, model_to_test_config["IMAGES_FOLDER"])
+    run_plotting(test_cfg=test_cfg_full, data_cfg=data_cfg)

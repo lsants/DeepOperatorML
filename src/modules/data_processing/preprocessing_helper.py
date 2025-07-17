@@ -87,12 +87,18 @@ def split_features(
 def compute_scalers(
     data: dict[str, np.ndarray],
     train_indices: dict[str, np.ndarray | tuple[np.ndarray, np.ndarray]],
+    target_label: str
 ) -> dict[str, np.ndarray]:
     scalers = {}
     for feature_or_target, indices in train_indices.items():
         if feature_or_target not in data:
             raise ValueError(
                 f"Feature/target '{feature_or_target}' not found in data.")
+
+        if feature_or_target == target_label:
+            dim = (0, 1)
+        else:
+            dim = 0
 
         if isinstance(indices, tuple):
             if np.max(indices[0]) >= data[feature_or_target].shape[0] or \
@@ -102,10 +108,11 @@ def compute_scalers(
 
             train_data = data[feature_or_target][indices[0]][:, indices[1]]
 
-            scalers[f"{feature_or_target}_min"] = np.min(train_data)
-            scalers[f"{feature_or_target}_max"] = np.max(train_data)
-            scalers[f"{feature_or_target}_mean"] = np.mean(train_data)
-            scalers[f"{feature_or_target}_std"] = np.std(train_data)
+            scalers[f"{feature_or_target}_min"] = np.min(train_data, axis=dim)
+            scalers[f"{feature_or_target}_max"] = np.max(train_data, axis=dim)
+            scalers[f"{feature_or_target}_mean"] = np.mean(
+                train_data, axis=dim)
+            scalers[f"{feature_or_target}_std"] = np.std(train_data, axis=dim)
 
         else:
             if np.max(indices) >= data[feature_or_target].shape[0]:
@@ -114,10 +121,11 @@ def compute_scalers(
 
             train_data = data[feature_or_target][indices]
 
-            scalers[f"{feature_or_target}_min"] = np.min(train_data, axis=0)
-            scalers[f"{feature_or_target}_max"] = np.max(train_data, axis=0)
-            scalers[f"{feature_or_target}_mean"] = np.mean(train_data, axis=0)
-            scalers[f"{feature_or_target}_std"] = np.std(train_data, axis=0)
+            scalers[f"{feature_or_target}_min"] = np.min(train_data, axis=dim)
+            scalers[f"{feature_or_target}_max"] = np.max(train_data, axis=dim)
+            scalers[f"{feature_or_target}_mean"] = np.mean(
+                train_data, axis=dim)
+            scalers[f"{feature_or_target}_std"] = np.std(train_data, axis=dim)
 
     logger.info(f"Done.")
     return scalers
@@ -171,7 +179,7 @@ def compute_pod(
 
             logger.info(f"Channel {c + 1} has {n_modes_c} modes")
 
-            modes_c = V[:, :n_modes_c]
+            modes_c = V[:, : n_modes_c]
             modes_list.append(modes_c)
 
         basis = np.concatenate(modes_list, axis=1)
@@ -197,7 +205,7 @@ def generate_version_hash(raw_data_path: str | Path, problem_config: dict) -> st
     hash_obj = hashlib.sha256()
     hash_obj.update(Path(raw_data_path).name.encode())
     problem_config_yaml = yaml.safe_dump(
-        problem_config['splitting'] | problem_config['data_labels'], sort_keys=True)
+        problem_config['splitting'] | problem_config['data_labels'], sort_keys=True, allow_unicode=True)
     hash_obj.update(problem_config_yaml.encode())
     return hash_obj.hexdigest()[:8]
 
@@ -219,7 +227,7 @@ def save_artifacts(
     flat_splits = {}
     for feature, feature_splits in splits.items():
         for split_type, indices in feature_splits.items():
-            flat_splits[f"{feature.upper()}_{split_type}"] = indices
+            flat_splits[f"{feature}_{split_type}"] = indices
 
     np.savez(output_dir / 'split_indices.npz', **flat_splits)
 
@@ -231,18 +239,21 @@ def save_artifacts(
         'dataset_version': output_dir.name.split('_')[-1],
         'creation_date': datetime.now().isoformat(),
         'raw_data_source': str(config['raw_data_path']),
+        'raw_metadata_source': str(config['raw_data_path'].replace('.npz', '.yaml')),
         'split_ratios': config['splitting']['ratios'],
         'split_seed': config['splitting']['seed'],
         'features': config['data_labels']['features'],
         'targets': config['data_labels']['targets'],
+        'targets_keys': config['output_keys'],
+        'targets_labels': config['output_labels'],
         'input_functions': config['input_function_labels'],
         'coordinates': config['coordinate_keys'],
         'shapes': shapes,
         'pod_var_share': config['var_share']
     }
 
-    with (output_dir / 'metadata.yaml').open('w') as f:
-        yaml.safe_dump(metadata, f, sort_keys=False)
+    with (output_dir / 'metadata.yaml').open('w', encoding='utf-8') as f:
+        yaml.safe_dump(metadata, f, sort_keys=False, allow_unicode=True)
 
 
 def update_version_registry(processed_dir: Path, config: dict) -> None:
@@ -266,5 +277,6 @@ def update_version_registry(processed_dir: Path, config: dict) -> None:
 
     registry.setdefault(dataset_name, []).append(entry)
 
-    with registry_path.open(mode='w') as f:
-        yaml.safe_dump(data=registry, stream=f, sort_keys=True)
+    with registry_path.open(mode='w', encoding='utf-8') as f:
+        yaml.safe_dump(data=registry, stream=f,
+                       sort_keys=True, allow_unicode=True)

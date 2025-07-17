@@ -131,7 +131,7 @@ class RajapakseFixedMaterialGenerator(BaseProblemGenerator):
             "parameters": {
                 # .item() for scalar array
                 "delta": {
-                    "shape": f"{delta.shape}",
+                    "shape": [i for i in delta.shape],
                     "min": f"{delta.min():.3E}",
                     "max": f"{delta.max():.3E}",
                     "mean": f"{delta.mean():.3E}",
@@ -139,15 +139,15 @@ class RajapakseFixedMaterialGenerator(BaseProblemGenerator):
                 },
             },
             "coordinate_statistics": {
-                "r_field": {
-                    "shape": f"{r_field.shape}",
+                "r": {
+                    "shape": [i for i in r_field.shape],
                     "min": f"{r_field.min():.3f}",
                     "max": f"{r_field.max():.3f}",
                     "mean": f"{r_field.mean():.3f}",
                     "std": f"{r_field.std():.3f}"
                 },
-                "z_field": {
-                    "shape": f"{z_field.shape}",
+                "z": {
+                    "shape": [i for i in z_field.shape],
                     "min": f"{z_field.min():.3f}",
                     "max": f"{z_field.max():.3f}",
                     "mean": f"{z_field.mean():.3f}",
@@ -156,7 +156,7 @@ class RajapakseFixedMaterialGenerator(BaseProblemGenerator):
             },
             "displacement_statistics": {
                 "g_u": {
-                    "shape": f"{u.shape}",
+                    "shape": [i for i in u.shape],
                     "min": f"{u.min():.4E}",
                     "max": f"{u.max():.4E}",
                     "mean": f"{u.mean():.4E}",
@@ -171,7 +171,7 @@ class RajapakseFixedMaterialGenerator(BaseProblemGenerator):
         np.savez(path, delta=delta, r=r_field, z=z_field, g_u=u)
         metadata_path = path.with_suffix('.yaml')  # Changes .npz to .yaml
 
-        with open(metadata_path, 'w') as f:
-            yaml.dump(metadata, f, default_flow_style=False, sort_keys=False)
+        with open(metadata_path, 'w', encoding='utf-8') as f:
+            yaml.dump(metadata, f, default_flow_style=False, sort_keys=False, allow_unicode=True)
         logger.info(f"Saved data at {path}")
         logger.info(f"Saved metadata at {metadata_path}")

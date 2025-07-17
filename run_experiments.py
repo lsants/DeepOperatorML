@@ -44,8 +44,8 @@ def run_experiments():
             config_data[key] = value
 
         temp_config_path = f"temp_config_{i}.yaml"
-        with open(temp_config_path, 'w') as file:
-            yaml.safe_dump(config_data, file)
+        with open(temp_config_path, 'w', encoding='utf-8') as file:
+            yaml.safe_dump(config_data, file, allow_unicode=True)
 
         subprocess.run(["python3", "main.py", "--train-config",
                        temp_config_path], check=True)

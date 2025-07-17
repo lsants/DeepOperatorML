@@ -23,6 +23,9 @@ class SplitOutputsHandler(OutputHandler):
             return
 
         config.trunk.output_dim *= self.num_channels  # type: ignore
+        if config.trunk.inner_config is not None:
+            config.trunk.inner_config.output_dim *= self.num_channels  # type: ignore
+
         config.branch.output_dim = config.trunk.output_dim
 
         if config.branch.output_dim != config.trunk.output_dim:
@@ -42,6 +45,4 @@ class SplitOutputsHandler(OutputHandler):
         result = torch.einsum(
             'bci,tci->btc', branch_reshaped, trunk_reshaped)  # (B, T, C)
 
-        if self.num_channels == 1:
-            return result.squeeze(-1)  # (B, T)
         return result

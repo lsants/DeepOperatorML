@@ -34,6 +34,7 @@ class TrainingLoop:
         checkpoint_dir: str | Path,
         val_loader: Optional[DataLoader] = None,
         device: str | torch.device = "cpu",
+        label_map: list[str] | None = None
     ) -> None:
         # Core references --------------------------------------------------
         self.device: torch.device = torch.device(device)
@@ -70,7 +71,11 @@ class TrainingLoop:
             self.strategy_dict.update(
                 {'inner_config': self.strategy._original_trunk_cfg})  # type: ignore
 
+        # Label map -------------------------------------------------------
+        self.label_map = label_map
+
     # ------------------------------------------------------------------ private
+
     def _init_current_optimizer(self) -> None:
         epochs, opt, sch = self.optimizer_specs[self.current_spec_idx]
         self.epochs_per_spec: int = epochs
@@ -204,6 +209,7 @@ class TrainingLoop:
                         loss=loss.item(),
                         train=train,
                         branch_input=x_branch,
+                        label_map=self.label_map
                     )
 
                     bs = y_true.size(0)
@@ -310,7 +316,7 @@ class TrainingLoop:
 
         train_error_parts = []
         for key in sorted(train_metrics.keys()):
-            if key.startswith('error_'):
+            if key.startswith('Error'):
                 train_error_parts.append(
                     f"train_{key}={train_metrics[key]:.4e}\n")
 
@@ -324,7 +330,7 @@ class TrainingLoop:
 
             val_error_parts = []
             for key in sorted(val_metrics.keys()):
-                if key.startswith('error_'):
+                if key.startswith('Error'):
                     val_error_parts.append(
                         f"val_{key}={val_metrics[key]:.4e}\n")
 

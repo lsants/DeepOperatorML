@@ -1,15 +1,6 @@
 from __future__ import annotations
-import copy
-
-"""Utility helpers to visualise *TrainingLoop* histories.
-
-Both helpers are robust to missing validation data or multi‑output error
-metrics (e.g. ``{"real": …, "imag": …}``).
-"""
-
 from collections import defaultdict
-from typing import Any, Dict, List
-
+from typing import Any
 import matplotlib.pyplot as plt
 import numpy as np
 
@@ -28,12 +19,12 @@ loss_label_map = {
 # ---------------------------------------------------------------------------
 
 
-def _pad(seq: List[Any], n: int, pad_val: Any = np.nan) -> List[Any]:
+def _pad(seq: list[Any], n: int, pad_val: Any = np.nan) -> list[Any]:
     """Right‑pad *seq* to length *n* with *pad_val*."""
     return seq + [pad_val] * (n - len(seq))
 
 
-def align_epochs(raw_history: Dict[str, Dict[str, list]]) -> Dict[str, Dict[str, Any]]:
+def align_epochs(raw_history: dict[str, dict[str, list]]) -> dict[str, dict[str, Any]]:
     """Convert raw ``HistoryStorer`` output into an epoch‑aligned structure.
 
     Returned dict (per phase)::
@@ -47,7 +38,7 @@ def align_epochs(raw_history: Dict[str, Dict[str, list]]) -> Dict[str, Dict[str,
             "output_keys": [...],
         }
     """
-    aligned: Dict[str, Dict[str, Any]] = {}
+    aligned: dict[str, dict[str, Any]] = {}
 
     for phase, metrics in raw_history.items():
         train_loss = metrics.get("train_loss", [])
@@ -62,8 +53,8 @@ def align_epochs(raw_history: Dict[str, Dict[str, list]]) -> Dict[str, Dict[str,
                 keys.update(record.keys())
         output_keys = sorted(keys)
 
-        train_err_aligned: Dict[str, List[float]] = defaultdict(list)
-        val_err_aligned: Dict[str, List[float]] = defaultdict(list)
+        train_err_aligned: dict[str, list[float]] = defaultdict(list)
+        val_err_aligned: dict[str, list[float]] = defaultdict(list)
 
         for record in train_err:
             for k in output_keys:
@@ -133,6 +124,11 @@ def plot_training(
     for row, phase in enumerate(phases):
         h = history[phase]
         # x-axis
+        if len(phase) == 3:
+            phase = phase.upper()
+        else:
+            phase = phase.capitalize()
+        phase = phase.replace('_', ' ')
         epochs = np.arange(1, len(h['train_loss']) + 1)
 
         # --- Loss plot ---
@@ -140,7 +136,7 @@ def plot_training(
         ax_loss.plot(epochs, h['train_loss'], label='Train', lw=1.2)
         if h['val_loss']:
             ax_loss.plot(epochs, h['val_loss'], label='Val', lw=1.2)
-        ax_loss.set_title(f"{phase.capitalize()} – Loss")
+        ax_loss.set_title(f"{phase} – Loss")
         ax_loss.set_xlabel("Epoch")
         ax_loss.set_ylabel(loss_label_map[plot_config['strategy']['loss']])
         ax_loss.set_yscale("log")
@@ -155,6 +151,7 @@ def plot_training(
         # --- Error plots ---
         err_keys = list(h['train_errors'].keys())
         for col, key in enumerate(err_keys, start=1):
+            title = key.replace('_', ' ')
             ax = axes[row][col]
             train_err = np.asarray(h['train_errors'][key], dtype=float)
             val_err = np.asarray(h['val_errors'].get(key, []), dtype=float)
@@ -163,7 +160,7 @@ def plot_training(
             if val_err.size:
                 ax.plot(epochs, val_err, label='Val', lw=1.2)
 
-            ax.set_title(f"{phase.capitalize()} – {key}")
+            ax.set_title(f"{phase} – {title}")
             ax.set_xlabel("Epoch")
             ax.set_ylabel(error_label_map[plot_config['strategy']['error']])
             ax.set_yscale("log")
@@ -180,5 +177,4 @@ def plot_training(
             axes[row][empty_col].axis('off')
 
     fig.tight_layout()
-    plt.show()
     return fig
