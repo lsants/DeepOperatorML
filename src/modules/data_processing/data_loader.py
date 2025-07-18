@@ -46,12 +46,12 @@ def get_split_data(data: Any,
     branch_key = features_keys[0]
     trunk_key = features_keys[1]
 
-    train_indices = (split_indices[f'{branch_key.upper()}_train'],
-                     split_indices[f'{trunk_key.upper()}_train'])
-    val_indices = (split_indices[f'{branch_key.upper()}_val'],
-                   split_indices[f'{trunk_key.upper()}_train'])
-    test_indices = (split_indices[f'{branch_key.upper()}_test'],
-                    split_indices[f'{trunk_key.upper()}_test'])
+    train_indices = (split_indices[f'{branch_key}_train'],
+                     split_indices[f'{trunk_key}_train'])
+    val_indices = (split_indices[f'{branch_key}_val'],
+                   split_indices[f'{trunk_key}_train'])
+    test_indices = (split_indices[f'{branch_key}_test'],
+                    split_indices[f'{trunk_key}_test'])
 
     train_data = slice_data(
         data=data,

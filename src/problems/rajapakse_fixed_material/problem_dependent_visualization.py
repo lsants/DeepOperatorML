@@ -41,13 +41,13 @@ def format_target(displacements: np.ndarray, data_cfg: DataConfig) -> np.ndarray
         raw_metadata = yaml.safe_load(file)
     displacements = displacements.reshape(
         -1,
-        data_cfg.shapes[data_cfg.targets[0]][-1],
         raw_metadata["displacement_statistics"][data_cfg.targets[0]]["shape"][1],
         raw_metadata["displacement_statistics"][data_cfg.targets[0]]["shape"][2],
+        data_cfg.shapes[data_cfg.targets[0]][-1],
     )
-    displacements_flipped = np.flip(displacements, axis=2)
+    displacements_flipped = np.flip(displacements, axis=1)
     displacements_full = np.concatenate(
-        (displacements, displacements_flipped), axis=2)
+        (displacements_flipped, displacements), axis=1).transpose(0, 3, 1, 2)
     return displacements_full
 
 
@@ -62,43 +62,47 @@ def reshape_coefficients(branch_out: np.ndarray, data_cfg: DataConfig, test_cfg:
 def reshape_basis(trunk_out: np.ndarray, data_cfg: DataConfig, test_cfg: TestConfig) -> np.ndarray:
     with open(data_cfg.raw_metadata_path, 'r') as file:
         raw_metadata = yaml.safe_load(file)
-
-    return trunk_out.reshape(
+    basis = trunk_out.T.reshape(
         test_cfg.model.rescaling.num_basis_functions,  # type: ignore
+        -1,
         raw_metadata["displacement_statistics"][data_cfg.targets[0]]["shape"][1],
         raw_metadata["displacement_statistics"][data_cfg.targets[0]]["shape"][2],
-        data_cfg.shapes[data_cfg.targets[0]][-1]
     )
+    print(basis.shape)
+    basis_flipped = np.flip(basis, axis=2)
+    basis_full = np.concatenate(
+        (basis_flipped, basis), axis=2)
+    return basis_full
 
 
-def get_plotted_samples_indices(data_cfg: DataConfig, test_cfg: TestConfig) -> dict[int, list[np.intp]]:
+def get_plotted_samples_indices(data_cfg: DataConfig, test_cfg: TestConfig) -> tuple[dict[int, list[np.intp]], np.ndarray]:
     if test_cfg.config is None:
         raise KeyError("Plot config not found")
     selected_indices = {}
     chosen_percentiles = min(test_cfg.config["percentiles"], len(
-        data_cfg.split_indices[data_cfg.features[0].upper() + '_test']))
+        data_cfg.split_indices[data_cfg.features[0] + '_test']))
     percentiles = np.linspace(
         0, 100, num=chosen_percentiles)
     for parameter in range(data_cfg.shapes[data_cfg.features[0]][1]):
         indices = []
         for perc in percentiles:
             target = np.percentile(
-                data_cfg.data[data_cfg.features[0]][data_cfg.split_indices[data_cfg.features[0].upper() + '_test']][:, parameter], perc)
+                data_cfg.data[data_cfg.features[0]][data_cfg.split_indices[data_cfg.features[0] + '_test']][:, parameter], perc)
             idx = np.argmin(
-                np.abs(data_cfg.data[data_cfg.features[0]][data_cfg.split_indices[data_cfg.features[0].upper() + '_test']][:, parameter] - target))
+                np.abs(data_cfg.data[data_cfg.features[0]][data_cfg.split_indices[data_cfg.features[0] + '_test']][:, parameter] - target))
             indices.append(idx)
         selected_indices[parameter] = indices
         logger.info(
             f"\nSelected indices for input parameter {parameter}: {indices}\n")
         logger.info(
             f"\nSelected values for input parameter {parameter}: {data_cfg.data[data_cfg.features[0]][indices]}\n")
-    return selected_indices
+    return selected_indices, percentiles
 
 
 def run_problem_specific_plotting(data: dict[str, Any], data_cfg: DataConfig, test_cfg: TestConfig):
     plots_path = test_cfg.output_path / test_cfg.problem / \
         test_cfg.experiment_version / 'plots'  # type: ignore
-    samples_by_percentiles = get_plotted_samples_indices(
+    samples_by_percentiles, percentiles = get_plotted_samples_indices(
         data_cfg=data_cfg, test_cfg=test_cfg)
     plane_plots_path = plots_path / 'plane_plots'
     axis_plots_path = plots_path / 'axis_plots'
@@ -125,11 +129,12 @@ def run_problem_specific_plotting(data: dict[str, Any], data_cfg: DataConfig, te
                 )
                 val_str = f"{param_val:.2f}"
                 fig_plane_path = plane_plots_path / \
-                    f"{count * 10}_th_percentile_{data_cfg.input_functions[parameter]}={val_str}.png"
+                    f"{percentiles[count]:.0f}_th_percentile_{data_cfg.input_functions[parameter]}={val_str}.png"
                 fig_plane.savefig(fig_plane_path)
                 plt.close()
-    for parameter, indices in tqdm(selected_indices.items(), colour='blue'):
+    for parameter, indices in tqdm(samples_by_percentiles.items(), colour='blue'):
         for count, idx in tqdm(enumerate(indices), colour='green'):
+            param_val = data['input_functions'][data_cfg.input_functions[0]][idx]
             if test_cfg.config['plot_axis']:
                 fig_axis = plot_axis(
                     coords=data['coordinates'],
@@ -138,9 +143,11 @@ def run_problem_specific_plotting(data: dict[str, Any], data_cfg: DataConfig, te
                     param_map={data_cfg.input_functions[parameter]: param_val},
                     target_labels=data_cfg.targets_labels
                 )
+                val_str = f"{param_val:.2f}"
                 fig_axis_path = axis_plots_path / \
-                    f"axis_parameter_{parameter}_for_param_{param_val}.png"
+                    f"axis_{data_cfg.input_functions[parameter]}={val_str}.png"
                 fig_axis.savefig(fig_axis_path)
+                plt.close()
 
     if test_cfg.config['plot_basis']:
         for i in tqdm(range(1, len(data['basis']) + 1), colour='blue'):
@@ -153,6 +160,8 @@ def run_problem_specific_plotting(data: dict[str, Any], data_cfg: DataConfig, te
                 param_val=None,
                 output_keys=data_cfg.targets_labels
             )
+            # plt.show()
+            # quit()
             fig_basis_path = basis_plots_path / f"mode_{i}.png"
             fig_basis.savefig(fig_basis_path)
             plt.close()

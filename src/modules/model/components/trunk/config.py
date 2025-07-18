@@ -7,6 +7,7 @@ from ....data_processing.config import TransformConfig
 from ..registry import ComponentRegistry
 from ....model.nn.activation_functions.activation_fns import ACTIVATION_MAP
 
+
 @dataclass
 class TrunkConfig:
     architecture: Optional[Literal["resnet", "mlp",
@@ -35,8 +36,7 @@ class TrunkConfig:
             )]
         trunk_config.input_dim = data_cfg["shapes"][data_cfg["features"][1]][1]
         trunk_config.output_dim = train_cfg["num_basis_functions"] \
-            if train_cfg['training_strategy'] != 'pod' else train_cfg["trunk"]['pod_basis'].shape[-1] \
-            if train_cfg['output_handling'] == 'shared_trunk' else train_cfg["trunk"]['pod_basis'].shape[-1] // num_channels
+            if train_cfg['training_strategy'] != 'pod' else train_cfg["trunk"]['pod_basis'].shape[-1]
         return trunk_config
 
     @classmethod

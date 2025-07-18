@@ -168,6 +168,8 @@ class TrainConfig:
         output_config = OutputConfig.setup_for_training(
             train_cfg=train_cfg, data_cfg=dataclasses.asdict(data_cfg))
         rescaling_config = RescalingConfig.setup_for_training(train_cfg)
+        if train_cfg['training_strategy'] == 'pod':
+            rescaling_config.num_basis_functions = branch_config.output_dim // output_config.num_channels  # type: ignore
         one_step_optimizer = [
             OptimizerSpec(**params)
             for params in train_cfg['optimizer_schedule']
@@ -307,7 +309,8 @@ class TestConfig:
             trunk_config = TrunkConfig.setup_for_inference(
                 cfg_dict, self.transforms)
             if cfg_dict['strategy']['name'] == 'pod':
-                trunk_config.output_dim = trunk_config.pod_basis_shape[-1] # type: ignore
+                # type: ignore
+                trunk_config.output_dim = trunk_config.pod_basis_shape[-1]
             branch_config.output_dim = trunk_config.output_dim
             output_config = OutputConfig.setup_for_inference(cfg_dict)
             rescaling_config = RescalingConfig.setup_for_inference(cfg_dict)
@@ -337,6 +340,7 @@ class TestConfig:
         """
         return replace(self, checkpoint=checkpoint)
 
+
 @dataclass
 class ExperimentConfig:
     """Aggregate configuration for the experiment."""
@@ -365,6 +369,7 @@ class ExperimentConfig:
             transforms=train_cfg.transforms,
             strategy=train_cfg.model.strategy
         )
+
 
 @dataclass
 class PathConfig:
@@ -414,7 +419,7 @@ def format_exp_cfg(exp_cfg: ExperimentConfig) -> ExperimentConfig:
         exp_cfg.model.trunk.inner_config.pod_basis = None
     if exp_cfg.model.strategy.name == 'pod':  # type: ignore
         if hasattr(exp_cfg.model.strategy, 'pod_basis'):
-            exp_cfg.model.strategy.pod_basis = None # type: ignore
+            exp_cfg.model.strategy.pod_basis = None  # type: ignore
         exp_cfg.model.bias.precomputed_mean = None
         exp_cfg.model.trunk.architecture = 'precomputed'  # type: ignore
         exp_cfg.model.trunk.component_type = 'pod_trunk'  # type: ignore

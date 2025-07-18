@@ -35,8 +35,7 @@ class ModelFactory:
         strategy.prepare_components(model_config)
 
         output_handler = OutputRegistry.create(model_config.output)
-        output_handler.adjust_dimensions(
-            model_config)
+        output_handler.adjust_dimensions(model_config)
 
         rescaler = Rescaler(model_config.rescaling)
 

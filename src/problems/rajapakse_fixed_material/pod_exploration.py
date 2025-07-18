@@ -11,6 +11,7 @@ def plot_basis_function(arr):
     fig.colorbar(contour, ax=axs)
     return fig
 
+
 def plot_basis_function_both(basis, flipped):
     fig, axs = plt.subplots(ncols=2)
     axs[0].contourf(flipped, cmap="viridis")
@@ -30,13 +31,14 @@ multi_basis = pod_data['multi_basis']
 multi_mean = pod_data['multi_mean']
 print(single_basis.shape, single_mean.shape,
       multi_basis.shape, multi_mean.shape)
-test = g_u.reshape(30, 20, 20, 2).transpose(0, 3, 2, 1)
-print(test.shape)
-fig = plot_basis_function(test[0][1])
-plt.show()
+# test = g_u.reshape(30, 20, 20, 2).transpose(0, 3, 2, 1)
+# print(test.shape)
+# fig = plot_basis_function(test[0][1])
+# plt.show()
 
-test_1 = multi_mean
+test_1 = multi_basis.T
 for i in range(test_1.shape[0]):
+    print(test_1.shape)
     fig = plot_basis_function(test_1[i].reshape(20, 20).T)
     plt.show()
 # fig = plot_basis_function(g_u_full[0].T.imag)
