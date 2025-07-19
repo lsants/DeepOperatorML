@@ -1,7 +1,7 @@
 from __future__ import annotations
 import torch
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Literal, Dict, Union, List
+from typing import TYPE_CHECKING, Literal, Union
 if TYPE_CHECKING:
     from ..optimization.optimizers.config import OptimizerSpec
 
@@ -40,9 +40,8 @@ class StrategyConfig:
 @dataclass
 class VanillaConfig(StrategyConfig):
     """Configuration for standard end-to-end training strategy."""
-    epochs: int
     loss: str
-    optimizer_scheduler: List[OptimizerSpec]
+    optimizer_scheduler: list[OptimizerSpec]
 
     def __post_init__(self):
         super().__post_init__()
@@ -55,10 +54,8 @@ class VanillaConfig(StrategyConfig):
 @dataclass
 class TwoStepConfig(StrategyConfig):
     """Configuration for two-phase training with trunk decomposition."""
-    trunk_epochs: int
-    branch_epochs: int
     loss: str
-    two_step_optimizer_schedule: Dict[str, List[OptimizerSpec]]
+    two_step_optimizer_schedule: dict[str, list[OptimizerSpec]]
     decomposition_type: Literal["svd", "qr"]  # Enforced decomposition method
 
     def __post_init__(self):
@@ -67,10 +64,6 @@ class TwoStepConfig(StrategyConfig):
 
     def _validate_two_step(self):
         """TwoStep-specific validation"""
-        # Phase epochs
-        if self.trunk_epochs <= 0 or self.branch_epochs <= 0:
-            raise ValueError("Epoch counts must be > 0")
-
         # Phase optimizer definitions
         if "trunk_phase" not in self.two_step_optimizer_schedule or "branch_phase" not in self.two_step_optimizer_schedule:
             raise ValueError(
@@ -85,7 +78,6 @@ class TwoStepConfig(StrategyConfig):
 @dataclass
 class PODConfig(StrategyConfig):
     """Configuration for Proper Orthogonal Decomposition training strategy."""
-    epochs : int
     loss: str
     pod_basis: torch.Tensor
     optimizer_scheduler: list[OptimizerSpec]

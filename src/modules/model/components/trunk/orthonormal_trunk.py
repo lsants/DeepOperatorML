@@ -11,6 +11,9 @@ class OrthonormalTrunk(torch.nn.Module):
         self.register_buffer(name='T', tensor=T)
         self.requires_grad_(False)
 
+    def __str__(self):
+        return f"OrthonormalTrunk(trunk={self.trunk}, T_matrix={self.T.shape})"
+
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         with torch.no_grad():
             trunk_out = self.trunk(x)

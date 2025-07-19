@@ -19,5 +19,8 @@ class Bias(torch.nn.Module):
         else:
             self.bias = torch.nn.Parameter(torch.zeros(num_channels))
 
+    def __str__(self):
+        return f"Bias(num_channels={self.bias.shape[0]})"
+
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         return x + self.bias

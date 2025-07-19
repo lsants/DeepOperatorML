@@ -19,7 +19,6 @@ logger = logging.getLogger(name=__name__)
 class PODStrategy(TrainingStrategy):
     def __init__(self, config: 'PODConfig'):
         super().__init__(config)
-        self.epochs = config.epochs
         self.error_metric = ERROR_METRICS[config.error.lower()]
 
     def prepare_components(self, model_config: 'ModelConfig'):

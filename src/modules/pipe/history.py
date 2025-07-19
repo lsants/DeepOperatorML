@@ -10,7 +10,8 @@ class HistoryStorer:
                 'val_loss':       [],
                 'train_errors':   defaultdict(list),
                 'val_errors':     defaultdict(list),
-                'learning_rate':  []
+                'learning_rate':  [],
+                'max_gradients':  defaultdict(list)
             }
             for phase in phases
         }
@@ -22,11 +23,16 @@ class HistoryStorer:
                 'val_loss':       [],
                 'train_errors':   defaultdict(list),
                 'val_errors':     defaultdict(list),
-                'learning_rate':  []
+                'learning_rate':  [],
+                'max_gradients':  defaultdict(list),
             }
 
     def store_learning_rate(self, phase: str, lr: float) -> None:
         self.history[phase]['learning_rate'].append(lr)
+
+    def store_max_gradients(self, phase: str, gradients: dict[str, float]) -> None:
+        for param, grad in gradients.items():
+            self.history[phase]['max_gradients'][param].append(grad)
 
     def store_epoch_metrics(
         self, phase: str, *,

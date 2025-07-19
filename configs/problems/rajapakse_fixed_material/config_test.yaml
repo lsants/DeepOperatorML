@@ -2,7 +2,7 @@ precision: float32
 device: cpu
 
 # Location of dataset to test
-experiment_version: 2025-07-17_12-29-29
+experiment_version: 2025-07-18_23-06-51
 
 # Location of outputs (data, metrics) - Set this if testing a pretrained model
 output_path: ./output
@@ -12,11 +12,8 @@ plot_plane: true
 plot_axis: true
 plot_basis: true
 plot_coefficients: true
-
-axes_to_plot:
-  - r
-  - z
+plot_coefficients_mean: true
 
 # Plot every X percentile (e.g every 10th percentile of the input functions)
 percentiles: 10
-samples_to_plot: 5
+vectors_to_highlight: 3

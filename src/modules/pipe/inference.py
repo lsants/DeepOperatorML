@@ -80,19 +80,20 @@ def inference(test_cfg: TestConfig, data_cfg: DataConfig):
     data_to_plot = {**{i: j.detach().numpy() for i, j in test_transformed.items()},
                     'predictions': predictions,
                     'branch_output': model.branch(test_transformed[data_cfg.features[0]]).detach().numpy(),
-                    'trunk_output': model.trunk(test_transformed[data_cfg.features[1]]).detach().numpy()
+                    'trunk_output': model.trunk(test_transformed[data_cfg.features[1]]).detach().numpy(),
+                    'bias': model.bias.bias.detach().numpy()
                     }
 
     saver = Saver()
 
     saver.save_errors(
         file_path=test_cfg.output_path / test_cfg.problem /  # type: ignore
-        test_cfg.experiment_version / 'metrics' / 'test_metrics.csv',
+        test_cfg.experiment_version / 'metrics' / 'test_metrics.yaml',
         errors=errors
     )
     saver.save_time(
         file_path=test_cfg.output_path / test_cfg.problem /  # type: ignore
-        test_cfg.experiment_version / 'metrics' / 'test_time.csv',
+        test_cfg.experiment_version / 'metrics' / 'test_time.yaml',
         times=times
     )
 
@@ -100,5 +101,6 @@ def inference(test_cfg: TestConfig, data_cfg: DataConfig):
                 test_cfg.experiment_version / 'aux' / 'output_data.npz', **data_to_plot)
 
     logger.info(
-        f"Saved to {test_cfg.output_path / test_cfg.problem / test_cfg.experiment_version}" # type: ignore
+        # type: ignore
+        f"Saved to {test_cfg.output_path / test_cfg.problem / test_cfg.experiment_version}"
     )

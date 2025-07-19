@@ -21,7 +21,6 @@ class TwoStepStrategy(TrainingStrategy):
     def __init__(self, config: TwoStepConfig):
         super().__init__(config)
         self._phase = 1
-        self.total_epochs = config.trunk_epochs + config.branch_epochs
 
     def prepare_components(self, model_config: 'ModelConfig'):
         self._original_branch_cfg = deepcopy(model_config.branch)
@@ -31,10 +30,6 @@ class TwoStepStrategy(TrainingStrategy):
         model_config.branch.component_type = "matrix_branch"
         model_config.branch.architecture = "trainable_matrix"
         model_config.trunk.component_type = "neural_trunk"
-
-    def training_complete(self) -> bool:
-        self.epoch_count += 1
-        return self.epoch_count > self.total_epochs
 
     def setup_training(self, model: 'DeepONet'):
         # Phase 1: Both components trainable

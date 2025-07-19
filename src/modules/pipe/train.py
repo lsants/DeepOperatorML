@@ -187,12 +187,12 @@ def train_model(
     )
 
     saver.save_time(
-        file_path=path_cfg.metrics_path / 'training_time.csv',
+        file_path=path_cfg.metrics_path / 'training_time.yaml',
         times=times
     )
 
     saver.save_history(
-        file_path=path_cfg.metrics_path / 'train_metrics.csv',
+        file_path=path_cfg.metrics_path / 'train_metrics.yaml',
         history=history
     )
     logger.info(msg=f"Experiment saved at {path_cfg.outputs_path}")

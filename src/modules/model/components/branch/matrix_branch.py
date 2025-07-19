@@ -11,5 +11,8 @@ class MatrixBranch(torch.nn.Module):
         self.weights = torch.nn.Parameter(torch.randn(output_dim, input_dim))
         torch.nn.init.xavier_uniform_(self.weights)
 
+    def __str__(self):
+        return f"MatrixBranch(input_dim={self.weights.shape[1]}, output_dim={self.weights.shape[0]})"
+
     def forward(self, x):
         return x @ self.weights.T

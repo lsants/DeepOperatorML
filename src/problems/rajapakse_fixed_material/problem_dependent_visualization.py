@@ -3,107 +3,66 @@ import yaml
 import logging
 import numpy as np
 from typing import Any
-import matplotlib.pyplot as plt
-from pathlib import Path
-from tqdm.auto import tqdm
+from src.problems.rajapakse_fixed_material import postprocessing as ppr
+from src.problems.rajapakse_fixed_material import plot_helper as helper
 from src.modules.pipe.pipeline_config import DataConfig, TestConfig
-from src.modules.plotting import plot_2D_field, plot_axis, plot_basis, plot_coefficients_with_basis, plot_coefficients
+
 logger = logging.getLogger(__file__)
 
-
-def get_output_data(test_cfg: TestConfig) -> dict[str, np.ndarray]:
-    if test_cfg.problem is None:
-        raise ValueError(f"Problem name must be set in TestConfig.")
-    base_dir = Path(__file__).parent.parent.parent.parent
-    output_data_path = base_dir / test_cfg.output_path / test_cfg.problem / \
-        test_cfg.experiment_version / 'aux' / 'output_data.npz'
-    output_data = {i: j for i, j in np.load(output_data_path).items()}
-    return output_data
-
-
-def get_input_functions(data_cfg: DataConfig) -> dict[str, np.ndarray]:
-    raw_data = np.load(data_cfg.raw_data_path)
-    delta = raw_data['delta']
-    input_functions = {data_cfg.input_functions[0]: delta}
-    return input_functions
-
-
-def get_coordinates(data_cfg: DataConfig) -> dict[str, np.ndarray]:
-    raw_data = np.load(data_cfg.raw_data_path)
-    r = raw_data['r']
-    z = raw_data['z']
-    coordinates = {'r': r, 'z': z}
-    return coordinates
-
-
-def format_target(displacements: np.ndarray, data_cfg: DataConfig) -> np.ndarray:
-    with open(data_cfg.raw_metadata_path, 'r') as file:
-        raw_metadata = yaml.safe_load(file)
-    displacements = displacements.reshape(
-        -1,
-        raw_metadata["displacement_statistics"][data_cfg.targets[0]]["shape"][1],
-        raw_metadata["displacement_statistics"][data_cfg.targets[0]]["shape"][2],
-        data_cfg.shapes[data_cfg.targets[0]][-1],
-    )
-    displacements_flipped = np.flip(displacements, axis=1)
-    displacements_full = np.concatenate(
-        (displacements_flipped, displacements), axis=1).transpose(0, 3, 1, 2)
-    return displacements_full
-
-
-def reshape_coefficients(branch_out: np.ndarray, data_cfg: DataConfig, test_cfg: TestConfig) -> np.ndarray:
-    return branch_out.reshape(
-        -1,
-        test_cfg.model.rescaling.num_basis_functions,  # type: ignore
-        data_cfg.shapes[data_cfg.targets[0]][-1]
-    )
-
-
-def reshape_basis(trunk_out: np.ndarray, data_cfg: DataConfig, test_cfg: TestConfig) -> np.ndarray:
-    with open(data_cfg.raw_metadata_path, 'r') as file:
-        raw_metadata = yaml.safe_load(file)
-    basis = trunk_out.T.reshape(
-        test_cfg.model.rescaling.num_basis_functions,  # type: ignore
-        -1,
-        raw_metadata["displacement_statistics"][data_cfg.targets[0]]["shape"][1],
-        raw_metadata["displacement_statistics"][data_cfg.targets[0]]["shape"][2],
-    )
-    print(basis.shape)
-    basis_flipped = np.flip(basis, axis=2)
-    basis_full = np.concatenate(
-        (basis_flipped, basis), axis=2)
-    return basis_full
-
-
-def get_plotted_samples_indices(data_cfg: DataConfig, test_cfg: TestConfig) -> tuple[dict[int, list[np.intp]], np.ndarray]:
+def get_plotted_samples_indices(data_cfg: DataConfig, test_cfg: TestConfig) -> tuple[dict[str, dict[str, list[np.intp | float]]], np.ndarray]:
     if test_cfg.config is None:
         raise KeyError("Plot config not found")
-    selected_indices = {}
+    percentile_sample_by_parameter = {}
     chosen_percentiles = min(test_cfg.config["percentiles"], len(
         data_cfg.split_indices[data_cfg.features[0] + '_test']))
     percentiles = np.linspace(
         0, 100, num=chosen_percentiles)
-    for parameter in range(data_cfg.shapes[data_cfg.features[0]][1]):
+    for pos, parameter in enumerate(data_cfg.input_functions):
         indices = []
+        targets = []
         for perc in percentiles:
             target = np.percentile(
-                data_cfg.data[data_cfg.features[0]][data_cfg.split_indices[data_cfg.features[0] + '_test']][:, parameter], perc)
+                data_cfg.data[data_cfg.features[0]][data_cfg.split_indices[data_cfg.features[0] + '_test']][:, pos], perc)
             idx = np.argmin(
-                np.abs(data_cfg.data[data_cfg.features[0]][data_cfg.split_indices[data_cfg.features[0] + '_test']][:, parameter] - target))
+                np.abs(data_cfg.data[data_cfg.features[0]][data_cfg.split_indices[data_cfg.features[0] + '_test']][:, pos] - target))
             indices.append(idx)
-        selected_indices[parameter] = indices
-        logger.info(
-            f"\nSelected indices for input parameter {parameter}: {indices}\n")
-        logger.info(
-            f"\nSelected values for input parameter {parameter}: {data_cfg.data[data_cfg.features[0]][indices]}\n")
-    return selected_indices, percentiles
+            targets.append(target)
+        percentile_sample_by_parameter[parameter] = {
+            'indices': indices,
+            'values': targets
+        }
+    return percentile_sample_by_parameter, percentiles
+
+def get_plot_metatada(percentiles_sample_map: dict[str, dict[str, list[Any]]], percentiles: np.ndarray):
+    metadata = {}
+    parameters_info = percentiles_sample_map.copy()
+    for param in parameters_info:
+        parameters_info[param]['values'] = [
+            float(f"{v:.3f}") for v in parameters_info[param]['values']]
+        parameters_info[param]['indices'] = [
+            int(i) for i in parameters_info[param]['indices']]
+    metadata = {
+        'percentiles': [round(perc) for perc in percentiles],
+        **parameters_info
+    }
+    return metadata
+
+def save_plot_metadata(metadata: dict[str, Any], save_path: str):
+    with open(f'{save_path}/plot_metadata.yaml', mode='w') as file:
+        yaml.safe_dump(metadata, file, allow_unicode=True)
 
 
 def run_problem_specific_plotting(data: dict[str, Any], data_cfg: DataConfig, test_cfg: TestConfig):
+    if test_cfg.problem is None:
+        raise AttributeError(f"'Problem' attribute is missing.")
     plots_path = test_cfg.output_path / test_cfg.problem / \
-        test_cfg.experiment_version / 'plots'  # type: ignore
-    samples_by_percentiles, percentiles = get_plotted_samples_indices(
+        test_cfg.experiment_version / 'plots'
+    percentile_sample_by_parameter, percentiles = get_plotted_samples_indices(
         data_cfg=data_cfg, test_cfg=test_cfg)
+    metadata = get_plot_metatada(percentile_sample_by_parameter, percentiles)
+
+    save_plot_metadata(metadata, str(plots_path))
+
     plane_plots_path = plots_path / 'plane_plots'
     axis_plots_path = plots_path / 'axis_plots'
     basis_plots_path = plots_path / 'basis_plots'
@@ -115,67 +74,56 @@ def run_problem_specific_plotting(data: dict[str, Any], data_cfg: DataConfig, te
     if test_cfg.config is None:
         raise AttributeError("Plotting config not found.")
 
-    for parameter, indices in tqdm(samples_by_percentiles.items(), colour='blue'):
-        for count, idx in tqdm(enumerate(indices), colour='green'):
-            param_val = data['input_functions'][data_cfg.input_functions[0]][idx]
-            if test_cfg.config['plot_plane']:
-                fig_plane = plot_2D_field(
-                    coords=data['coordinates'],
-                    truth_field=data['ground_truths'][idx],
-                    pred_field=data['predictions'][idx],
-                    input_function_value=param_val,
-                    input_function_labels=data_cfg.input_functions,
-                    target_labels=data_cfg.targets_labels
-                )
-                val_str = f"{param_val:.2f}"
-                fig_plane_path = plane_plots_path / \
-                    f"{percentiles[count]:.0f}_th_percentile_{data_cfg.input_functions[parameter]}={val_str}.png"
-                fig_plane.savefig(fig_plane_path)
-                plt.close()
-    for parameter, indices in tqdm(samples_by_percentiles.items(), colour='blue'):
-        for count, idx in tqdm(enumerate(indices), colour='green'):
-            param_val = data['input_functions'][data_cfg.input_functions[0]][idx]
-            if test_cfg.config['plot_axis']:
-                fig_axis = plot_axis(
-                    coords=data['coordinates'],
-                    truth_field=data['ground_truths'][idx],
-                    pred_field=data['predictions'][idx],
-                    param_map={data_cfg.input_functions[parameter]: param_val},
-                    target_labels=data_cfg.targets_labels
-                )
-                val_str = f"{param_val:.2f}"
-                fig_axis_path = axis_plots_path / \
-                    f"axis_{data_cfg.input_functions[parameter]}={val_str}.png"
-                fig_axis.savefig(fig_axis_path)
-                plt.close()
+    if test_cfg.config['plot_plane']:
+        helper.plot_planes_helper(
+            data=data, 
+            data_cfg=data_cfg, 
+            metadata=metadata, 
+            plot_path=plane_plots_path
+        )
+
+    if test_cfg.config['plot_axis']:
+        helper.plot_axis_helper(
+            data=data,
+            data_cfg=data_cfg,
+            metadata=metadata,
+            plot_path=axis_plots_path
+        )
 
     if test_cfg.config['plot_basis']:
-        for i in tqdm(range(1, len(data['basis']) + 1), colour='blue'):
-            fig_basis = plot_basis(
-                data['coordinates'],
-                data['basis'][i - 1],
-                index=i,
-                basis_config=test_cfg.model.output.handler_type,  # type: ignore
-                strategy=test_cfg.model.strategy.name,  # type: ignore
-                param_val=None,
-                output_keys=data_cfg.targets_labels
-            )
-            # plt.show()
-            # quit()
-            fig_basis_path = basis_plots_path / f"mode_{i}.png"
-            fig_basis.savefig(fig_basis_path)
-            plt.close()
+        helper.plot_basis_helper(
+            data=data,
+            data_cfg=data_cfg,
+            plot_path=basis_plots_path
+        )
+
+    if test_cfg.config['plot_coefficients']:
+        helper.plot_coefficients_helper(
+            data=data,
+            data_cfg=data_cfg,
+            metadata=metadata,
+            plot_path=coefficients_plots_path
+        )
+
+    if test_cfg.config['plot_coefficients_mean']:
+        helper.plot_coefficients_mean_helper(
+            data=data,
+            data_cfg=data_cfg,
+            test_cfg=test_cfg,
+            plot_path=coefficients_plots_path
+        )
 
 
 def plot_metrics(test_cfg: TestConfig, data_cfg: DataConfig):
-    input_functions = get_input_functions(data_cfg)
-    coordinates = get_coordinates(data_cfg)
-    output_data = get_output_data(test_cfg)
-    ground_truths = format_target(output_data[data_cfg.targets[0]], data_cfg)
-    predictions = format_target(output_data['predictions'], data_cfg)
-    coefficients = reshape_coefficients(
+    input_functions = ppr.get_input_functions(data_cfg)
+    coordinates = ppr.get_coordinates(data_cfg)
+    output_data = ppr.get_output_data(test_cfg)
+    ground_truths = ppr.format_target(output_data[data_cfg.targets[0]], data_cfg)
+    predictions = ppr.format_target(output_data['predictions'], data_cfg)
+    coefficients = ppr.reshape_coefficients(
         output_data['branch_output'], data_cfg, test_cfg)
-    basis = reshape_basis(output_data['trunk_output'], data_cfg, test_cfg)
+    basis = ppr.reshape_basis(output_data['trunk_output'], data_cfg, test_cfg)
+    bias = ppr.format_bias(output_data['bias'], data_cfg, test_cfg)
 
     data = {
         'input_functions': input_functions,
@@ -184,7 +132,8 @@ def plot_metrics(test_cfg: TestConfig, data_cfg: DataConfig):
         'ground_truths': ground_truths,
         'predictions': predictions,
         'coefficients': coefficients,
-        'basis': basis
+        'basis': basis,
+        'bias': bias,
     }
 
     run_problem_specific_plotting(

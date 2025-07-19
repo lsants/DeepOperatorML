@@ -71,28 +71,9 @@ class Saver:
         """Save model metadata or hyperparameters to a YAML file."""
         serializable = self._make_serializable(model_info)
         with open(file_path, 'w', encoding='utf-8') as f:
-            yaml.dump(serializable, f)
+            yaml.dump(serializable, f, indent=4)
         if self.full_logging:
             self.logger.info(f"Model info saved to: {file_path}")
-
-    def save_indices(self, file_path: str, indices: Dict[str, Any]) -> None:
-        """Save split or index dictionaries to a YAML file."""
-        with open(file_path, 'w', encoding='utf-8') as f:
-            yaml.dump(indices, f)
-        if self.full_logging:
-            self.logger.info(f"Indices saved to: {file_path}")
-
-    def save_norm_params(
-        self,
-        file_path: str,
-        norm_params: Dict[str, Any]
-    ) -> None:
-        """Save normalization parameters to a YAML file."""
-        serializable = self._make_serializable(norm_params)
-        with open(file_path, 'w', encoding='utf-8') as f:
-            yaml.dump(serializable, f)
-        if self.full_logging:
-            self.logger.info(f"Normalization parameters saved to: {file_path}")
 
     def save_history(
         self,
@@ -102,7 +83,7 @@ class Saver:
         """Save training history or metrics to a YAML or TXT file."""
         serializable = self._make_serializable(history)
         with open(file_path, 'w', encoding='utf-8') as f:
-            yaml.dump(serializable, f)
+            yaml.dump(serializable, f, indent=4)
         if self.full_logging:
             self.logger.info(f"History saved to: {file_path}")
 
@@ -120,7 +101,7 @@ class Saver:
         """Save error logs or dictionaries to a YAML or TXT file."""
         serializable = self._make_serializable(errors)
         with open(file_path, 'w', encoding='utf-8') as f:
-            yaml.dump(serializable, f)
+            yaml.dump(serializable, f, indent=4)
         if self.full_logging:
             self.logger.info(f"Errors saved to: {file_path}")
 
@@ -128,7 +109,7 @@ class Saver:
         """Save timing information or profiling results to a YAML or TXT file."""
         serializable = self._make_serializable(times)
         with open(file_path, 'w', encoding='utf-8') as f:
-            yaml.dump(serializable, f)
+            yaml.dump(serializable, f, indent=4)
         if self.full_logging:
             self.logger.info(f"Time information saved to: {file_path}")
 
@@ -136,7 +117,7 @@ class Saver:
         """Save metrics to a YAML or TXT file."""
         serializable = self._make_serializable(metrics)
         with open(file_path, 'w', encoding='utf-8') as f:
-            yaml.dump(serializable, f)
+            yaml.dump(serializable, f, indent=4)
         if self.full_logging:
             self.logger.info(f"Metrics saved to: {file_path}")
 

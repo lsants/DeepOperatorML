@@ -133,9 +133,9 @@ def plot_training(
 
         # --- Loss plot ---
         ax_loss = axes[row][0]
-        ax_loss.plot(epochs, h['train_loss'], label='Train', lw=1.2)
+        ax_loss.plot(epochs, h['train_loss'], label='Train', lw=1.3)
         if h['val_loss']:
-            ax_loss.plot(epochs, h['val_loss'], label='Val', lw=1.2)
+            ax_loss.plot(epochs, h['val_loss'], label='Val', lw=1.3)
         ax_loss.set_title(f"{phase} – Loss")
         ax_loss.set_xlabel("Epoch")
         ax_loss.set_ylabel(loss_label_map[plot_config['strategy']['loss']])
@@ -151,14 +151,14 @@ def plot_training(
         # --- Error plots ---
         err_keys = list(h['train_errors'].keys())
         for col, key in enumerate(err_keys, start=1):
-            title = key.replace('_', ' ')
+            title = key.replace('Error_', 'Error ')
             ax = axes[row][col]
             train_err = np.asarray(h['train_errors'][key], dtype=float)
             val_err = np.asarray(h['val_errors'].get(key, []), dtype=float)
 
-            ax.plot(epochs, train_err, label='Train', lw=1.2)
+            ax.plot(epochs, train_err, label='Train', lw=1.3)
             if val_err.size:
-                ax.plot(epochs, val_err, label='Val', lw=1.2)
+                ax.plot(epochs, val_err, label='Val', lw=1.3)
 
             ax.set_title(f"{phase} – {title}")
             ax.set_xlabel("Epoch")

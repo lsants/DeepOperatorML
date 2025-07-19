@@ -100,7 +100,7 @@ class TrainingLoop:
     # ----------------------------------------------------------------- training
     def run(self) -> None:
         epoch = 0
-        while not self.strategy.training_complete():
+        while True:
             epoch += 1
             if self.epochs_in_current_spec >= self.epochs_per_spec:
                 if self.current_spec_idx < len(self.optimizer_specs) - 1:
@@ -110,6 +110,9 @@ class TrainingLoop:
 
                 elif self.strategy.should_transition_phase(current_phase=self.current_phase, current_epoch=epoch):
                     self._handle_phase_transition()
+                    epoch = 0
+                else:
+                    break
 
             # ---------------- train ----------------
             # logger.info(
@@ -121,6 +124,17 @@ class TrainingLoop:
                 loss=train_metrics.get("loss"),
                 errors={k: v for k, v in train_metrics.items() if k != "loss"},
                 train=True
+            )
+            max_gradients = {}
+            for name, param in self.model.named_parameters():
+                if param.grad is not None:
+                    max_gradients[name] = param.grad.max().item()
+                else:
+                    max_gradients[name] = None
+
+            self.history.store_max_gradients(
+                phase=self.phases[self.current_phase - 1],
+                gradients=max_gradients
             )
 
             # ---------------- validate --------------
@@ -201,6 +215,14 @@ class TrainingLoop:
                         loss.backward()
                         self.strategy.apply_gradient_constraints(self.model)
                         self.optimizer.step()
+
+                    print(self.model.branch)
+                    print(self.model.trunk)
+                    print(self.model.bias)
+                    for param_group in self.optimizer.param_groups:
+                        for param in param_group["params"]:
+                            print(param.shape)
+                    quit()
 
                     # Per-batch metrics ------------------------------------
                     batch_metrics = self.strategy.calculate_metrics(

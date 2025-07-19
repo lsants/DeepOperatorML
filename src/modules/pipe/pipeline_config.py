@@ -123,7 +123,6 @@ class TrainConfig:
     precision: str
     device: str | torch.device
     seed: int
-    epochs: int
     branch_batch_size: int
     trunk_batch_size: int
     model: ModelConfig
@@ -182,12 +181,8 @@ class TrainConfig:
         strategy_config = {
             'name': train_cfg['training_strategy'],
             'error': train_cfg['error'],
-            'epochs': train_cfg['epochs'],
             'loss': train_cfg['loss_function'],
             'optimizer_scheduler': one_step_optimizer,
-            'branch_epochs': train_cfg['branch_epochs'],
-            'trunk_epochs': train_cfg['trunk_epochs'],
-            'num_pod_modes': train_cfg['num_pod_modes'],
             'two_step_optimizer_schedule': multi_step_optimizer,
             'decomposition_type': train_cfg['decomposition_type'],
             **pod_data
@@ -217,7 +212,6 @@ class TrainConfig:
             precision=dtype,
             device=device,
             seed=train_cfg['seed'],
-            epochs=train_cfg['epochs'],
             branch_batch_size=train_cfg["branch_batch_size"],
             trunk_batch_size=train_cfg["trunk_batch_size"],
             model=model_config,
