@@ -1,6 +1,5 @@
 #  ----------------------Location of .npz data files ----------------
-raw_data_path: ./data/raw/rajapakse_fixed_material/rajapakse_fixed_v1.npz
-dataset_version: 
+raw_data_path: ./data/raw/rajapakse_fixed_material/rajapakse_fixed_v2.npz
 
 # ------------------------- Dataset parameters ----------------
 problem: rajapakse_fixed_material
@@ -16,7 +15,7 @@ input_function_keys:
   - delta
 
 input_function_labels:
-  - δ
+  - "$\\delta$"
 
 coordinate_keys:
   - r
@@ -27,7 +26,7 @@ output_keys:
   - g_u_imag
 
 output_labels: # "$\\Re(\\vec{u})$" and "$\\Im(\\vec{u})$" for dynamic, "$\\vec{u})$" for kelvin
-  - "$\\Re(\\vec{u})$"
-  - "$\\Im(\\vec{u})$"
+  - "$\\Re(\\mathbf{u})$"
+  - "$\\Im(\\mathbf{u})$"
 
-var_share: 0.98
+var_share: 0.999
