@@ -11,15 +11,15 @@ MU_MAX: 8   # log10 [Pa] (100 MPa)
 NU_MIN: 0.1
 NU_MAX: 0.5
 
-N_X: 30
-N_Y: 30
-N_Z: 30
+N_X: 20
+N_Y: 20
+N_Z: 20
 X_MIN: 0
-X_MAX: 0.9
+X_MAX: 1
 Y_MIN: 0
-Y_MAX: 0.9
+Y_MAX: 1
 Z_MIN: 0
-Z_MAX: 0.9
+Z_MAX: 1
 LOAD_DIRECTION: z
 
 SCALER: 1 # Scale parameter for mesh transformation

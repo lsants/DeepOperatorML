@@ -27,8 +27,6 @@ def plot_coefficients_mean(
 
     for ch in range(n_channels):
         coefficients_mean_for_i_channel = coefficients_mean[..., ch]
-        print(coefficients_mean_for_i_channel)
-        quit()
         x = np.arange(len(coefficients_mean_for_i_channel))
         ax[ch].bar(x, abs(coefficients_mean_for_i_channel), align='edge',
                    color='steelblue', alpha=0.8)
@@ -83,7 +81,8 @@ def plot_coefficients(branch_output_sample: np.ndarray, basis: np.ndarray, input
     # Branch output_sample: (n_channels, n_samples)
     # Basis: (n_samples, n_channels, coord1, coord2)
     parameters_map = [(k, v) for k, v in input_function_map.items()]
-    colors = ['crimson', 'goldenrod']
+
+    colors = ['crimson', 'goldenrod', 'royalblue']
 
     fig_width, fig_height = 10, 5
     plt.subplots_adjust(wspace=0.1)
@@ -93,6 +92,7 @@ def plot_coefficients(branch_output_sample: np.ndarray, basis: np.ndarray, input
 
     fig, axes = plt.subplots(
         ncols=len(branch_output_sample), figsize=(fig_width, fig_height))
+
     for i, channel in enumerate(branch_output_sample):
         axes[i].bar(range(len(channel)), channel,
                     color=colors[i])
@@ -101,7 +101,7 @@ def plot_coefficients(branch_output_sample: np.ndarray, basis: np.ndarray, input
         axes[i].set_xlabel(r'$i$')
         axes[i].set_ylabel(r'$i$-th coefficient')
         axes[i].set_title(
-            f'{target_labels[i]} for {parameters_map[0][0]}={parameters_map[0][1]:.3f}')
+            f'{target_labels[i]} for {parameters_map[0][0]}={parameters_map[0][1]:.3E}')
 
         # positions = []
         # for j, coeff in enumerate(channel):

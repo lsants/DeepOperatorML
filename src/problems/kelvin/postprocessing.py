@@ -1,0 +1,82 @@
+from __future__ import annotations
+import yaml
+import logging
+import numpy as np
+from pathlib import Path
+from src.modules.pipe.pipeline_config import DataConfig, TestConfig
+logger = logging.getLogger(__file__)
+
+
+def get_output_data(test_cfg: TestConfig) -> dict[str, np.ndarray]:
+    if test_cfg.problem is None:
+        raise ValueError(f"Problem name must be set in TestConfig.")
+    base_dir = Path(__file__).parent.parent.parent.parent
+    output_data_path = base_dir / test_cfg.output_path / test_cfg.problem / \
+        test_cfg.experiment_version / 'aux' / 'output_data.npz'
+    output_data = {i: j for i, j in np.load(output_data_path).items()}
+    return output_data
+
+def get_input_functions(data_cfg: DataConfig) -> dict[str, np.ndarray]:
+    raw_data = np.load(data_cfg.raw_data_path)
+    mu = raw_data['mu']
+    nu = raw_data['nu']
+    input_functions = {data_cfg.input_functions[0]: nu,
+                       data_cfg.input_functions[1]: mu}
+    return input_functions
+
+
+def get_coordinates(data_cfg: DataConfig) -> dict[str, np.ndarray]:
+    raw_data = np.load(data_cfg.raw_data_path)
+    x = raw_data['x']
+    y = raw_data['y']
+    z = raw_data['z']
+    coordinates = {'x': x, 'y': y, 'z': z}
+    return coordinates
+
+def format_target(displacements: np.ndarray, data_cfg: DataConfig) -> np.ndarray:
+    with open(data_cfg.raw_metadata_path, 'r') as file:
+        raw_metadata = yaml.safe_load(file)
+
+    displacements = displacements.reshape(
+        -1,
+        raw_metadata["displacement_statistics"][data_cfg.targets[0]]["shape"][1],
+        raw_metadata["displacement_statistics"][data_cfg.targets[0]]["shape"][2],
+        raw_metadata["displacement_statistics"][data_cfg.targets[0]]["shape"][3],
+        data_cfg.shapes[data_cfg.targets[0]][-1],
+    )
+    return displacements.transpose(0, 4, 1, 2, 3)
+
+def reshape_coefficients(branch_out: np.ndarray, data_cfg: DataConfig, test_cfg: TestConfig) -> np.ndarray:
+    return branch_out.reshape(
+        -1,
+        data_cfg.shapes[data_cfg.targets[0]][-1],
+        test_cfg.model.rescaling.num_basis_functions,  # type: ignore
+    )
+
+
+def reshape_basis(trunk_out: np.ndarray, data_cfg: DataConfig, test_cfg: TestConfig) -> np.ndarray:
+    with open(data_cfg.raw_metadata_path, 'r') as file:
+        raw_metadata = yaml.safe_load(file)
+    basis = trunk_out.T.reshape(
+        test_cfg.model.rescaling.num_basis_functions,  # type: ignore
+        -1,
+        raw_metadata["displacement_statistics"][data_cfg.targets[0]]["shape"][1],
+        raw_metadata["displacement_statistics"][data_cfg.targets[0]]["shape"][2],
+        raw_metadata["displacement_statistics"][data_cfg.targets[0]]["shape"][3],
+    )
+    return basis
+
+def format_bias(bias: np.ndarray, data_cfg: DataConfig, test_cfg: TestConfig) -> np.ndarray:
+    if test_cfg.model.strategy.name != 'pod':  # type: ignore
+        return bias
+    else:
+        with open(data_cfg.raw_metadata_path, 'r') as file:
+            raw_metadata = yaml.safe_load(file)
+        bias = bias.T.reshape(
+            -1,
+            raw_metadata["displacement_statistics"][data_cfg.targets[0]]["shape"][1],
+            raw_metadata["displacement_statistics"][data_cfg.targets[0]]["shape"][2],
+            raw_metadata["displacement_statistics"][data_cfg.targets[0]]["shape"][3],
+        )
+
+        return bias

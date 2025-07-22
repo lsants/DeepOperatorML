@@ -150,14 +150,14 @@ class KelvinProblemGenerator(BaseProblemGenerator):
                 # .item() for scalar array
                 "load_magnitude": f"{F.item():.3E}" if F.size == 1 else "N/A",
                 "shear_modulus": {
-                    "shape":f"{mu.shape}",
+                    "shape": [i for i in mu.shape],
                     "min":  f"{mu.min():.3E}",
                     "max":  f"{mu.max():.3E}",
                     "mean": f"{mu.mean():.3E}",
                     "std":  f"{mu.std():.3E}"
                 },
                 "poissons_ratio": {
-                    "shape":f"{mu.shape}",
+                    "shape": [i for i in mu.shape],
                     "min":  f"{nu.min():.3f}",
                     "max":  f"{nu.max():.3f}",
                     "mean": f"{nu.mean():.3f}",
@@ -167,21 +167,21 @@ class KelvinProblemGenerator(BaseProblemGenerator):
             },
             "coordinate_statistics": {
                 "x": {
-                    "shape":f"{x_field.shape}",
+                    "shape": [i for i in x_field.shape],
                     "min":  f"{x_field.min():.3f}",
                     "max":  f"{x_field.max():.3f}",
                     "mean": f"{x_field.mean():.3f}",
                     "std":  f"{x_field.std():.3f}"
                 },
                 "y": {
-                    "shape":f"{y_field.shape}",
+                    "shape": [i for i in y_field.shape],
                     "min":  f"{y_field.min():.3f}",
                     "max":  f"{y_field.max():.3f}",
                     "mean": f"{y_field.mean():.3f}",
                     "std":  f"{y_field.std():.3f}"
                 },
                 "z": {
-                    "shape":f"{z_field.shape}",
+                    "shape": [i for i in z_field.shape],
                     "min":  f"{z_field.min():.3f}",
                     "max":  f"{z_field.max():.3f}",
                     "mean": f"{z_field.mean():.3f}",
@@ -190,7 +190,7 @@ class KelvinProblemGenerator(BaseProblemGenerator):
             },
             "displacement_statistics": {
                 "g_u": {
-                    "shape":f"{displacements.shape}",
+                    "shape": [i for i in displacements.shape],
                     "min":  f"{displacements.min():.4E}",
                     "max":  f"{displacements.max():.4E}",
                     "mean": f"{displacements.mean():.4E}",

@@ -444,7 +444,7 @@ class TwoStepStrategy(TrainingStrategy):
             T = torch.linalg.inv(R)
             return R, T
 
-        use_qr = (self.config.decomposition_type.lower() == "qr")
+        use_qr = (self.config.decomposition_type.lower() == "qr") # type: ignore
 
         if is_split:
             for c in range(C):

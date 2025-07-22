@@ -1,6 +1,5 @@
 #  ----------------------Location of .npz data files ----------------
 raw_data_path: ./data/raw/kelvin/kelvin_v4.npz
-dataset_version: 
 
 # ------------------------- Dataset parameters ----------------
 problem: kelvin
@@ -17,8 +16,8 @@ input_function_keys:
   - mu
 
 input_function_labels:
-  - ν
-  - μ 
+  - "$\\nu$"
+  - "$\\mu$"
 
 coordinate_keys:
   - x
@@ -31,9 +30,9 @@ output_keys:
   - g_u_z
 
 output_labels:
-  - "$\\u_x$"
-  - "$\\u_y$"
-  - "$\\u_z$"
+  - "$u_x$"
+  - "$u_y$"
+  - "$u_z$"
 
 load_direction: z
 

@@ -1,21 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
 
-path = '/Users/ls/Workspace/SSI_DeepONet/data/processed/kelvin/f83e9497/data.npz'
-raw_path = './data/raw/kelvin/kelvin_v4.npz'
-
-data = np.load(path)
-raw_data = np.load(raw_path)
-var_share = 0.95
-
-xb, xt, gu = data['xb'], data['xt'], data['g_u']
-x, y, z = raw_data['x'], raw_data['y'], raw_data['z']
-
-func_samples = gu.shape[0]
-domain_samples = gu.shape[1]
-num_channels = gu.shape[-1]
-
-
 def plot_pod_mode_3d(x_coords: np.ndarray, y_coords: np.ndarray, z_coords: np.ndarray,
                      mode_values: np.ndarray, title: str = "POD Mode 3D Plot"):
     """
@@ -62,7 +47,7 @@ def plot_pod_mode_3d(x_coords: np.ndarray, y_coords: np.ndarray, z_coords: np.nd
     # 'cmap' sets the colormap (e.g., 'viridis', 'jet', 'coolwarm')
     # 's' sets the size of the markers, 'alpha' sets their transparency
     scatter = ax.scatter(X_flat, Y_flat, Z_flat,
-                         c=mode_values, cmap='viridis', s=20, alpha=0.7)
+                         c=mode_values, cmap='viridis', alpha=0.7)
 
     # Add a color bar to the plot to indicate the mapping of colors to mode values
     cbar = fig.colorbar(scatter, ax=ax, pad=0.1)
@@ -81,53 +66,32 @@ def plot_pod_mode_3d(x_coords: np.ndarray, y_coords: np.ndarray, z_coords: np.nd
     plt.show()
 
 
-def single_basis_pod(data: np.ndarray) -> tuple[np.ndarray, ...]:
-    domain_samples = data.shape[1]
-    data_stacked = data.reshape(-1, domain_samples)
-
-    mean = np.mean(data, axis=0, keepdims=True)
-    mean_stacked = np.mean(data_stacked, axis=0, keepdims=True)
-    centered = (data_stacked - mean_stacked).T
-
-    U, S, _ = np.linalg.svd(centered, full_matrices=False)
-
-    explained_variance_ratio = np.cumsum(
-        S**2) / np.linalg.norm(S, ord=2)**2
-
-    n_modes = (explained_variance_ratio < var_share).sum().item()
-
-    single_basis_modes = U[:, : n_modes + 1]
-    return single_basis_modes, mean
+pod_path = '/Users/ls/Workspace/SSI_DeepONet/data/processed/kelvin/f83e9497/pod.npz'
+# processed_path = '/Users/ls/Workspace/SSI_DeepONet/data/processed/rajapakse_fixed_material/a37f8126/data.npz'
+# data = np.load(processed_path)
+# g_u = data['g_u']
+pod_data = np.load(pod_path)
+stacked_basis = pod_data['stacked_basis']
+stacked_mean = pod_data['stacked_mean']
+split_basis = pod_data['split_basis']
+split_mean = pod_data['split_mean']
+print(stacked_basis.shape, stacked_mean.shape,
+      split_basis.shape, split_mean.shape)
+# test = g_u.reshape(30, 20, 20, 2).transpose(0, 3, 2, 1)
+# print(test.shape)
+# fig = plot_basis_function(test[0][1])
+# plt.show()
 
 
-def multi_basis_pod(data: np.ndarray) -> tuple[np.ndarray, ...]:
-    mean = np.mean(data, axis=0, keepdims=True)
-    centered = (data - mean).transpose(1, 0, 2)
-
-    centered_channels_first = centered.transpose(2, 0, 1)
-    U, S, _ = np.linalg.svd(centered_channels_first, full_matrices=False)
-    U = U.transpose(1, 2, 0)
-
-    explained_variance_ratio = np.cumsum(
-        S**2, axis=1).transpose(1, 0) / np.linalg.norm(S, axis=1, ord=2)**2
-
-    modes_from_variance = (
-        explained_variance_ratio <= var_share).sum().item()
-
-    n_modes = modes_from_variance if modes_from_variance > 0  \
-        else max(np.argmax(explained_variance_ratio, axis=0))
-
-    multi_basis_modes = U[:, : n_modes + 1, :].transpose(0, 2, 1)
-    multi_basis_modes = multi_basis_modes.reshape(
-        multi_basis_modes.shape[0], -1)
-    return multi_basis_modes, mean
-
-
-single_basis_pod, _ = single_basis_pod(gu)
-multi_basis_pod, _ = multi_basis_pod(gu)
-
-print(single_basis_pod.shape)
-print(multi_basis_pod.shape)
-
+test_1 = split_basis.T
+for i in range(test_1.shape[0]):
+    print(test_1.shape)
+    x_coords = np.arange(20)
+    y_coords = np.arange(20)
+    z_coords = np.arange(20)
+    fig = plot_pod_mode_3d(x_coords, y_coords, z_coords, test_1[i].reshape(20, 20, 20).T)
+    plt.show()
+# fig = plot_basis_function(g_u_full[0].T.imag)
+# plt.show()
 plot_pod_mode_3d(
     x, y, z, single_basis_pod[:, 0], title="Single Basis POD Mode 0")
