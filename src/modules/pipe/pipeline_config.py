@@ -1,6 +1,7 @@
 from __future__ import annotations
 import dataclasses
 import os
+from re import split
 import torch
 import yaml
 import logging
@@ -9,16 +10,15 @@ from pathlib import Path
 from typing import Any
 from datetime import datetime
 from dataclasses import dataclass, replace
-from ..model.nn.activation_functions.activation_fns import ACTIVATION_MAP
-from ..model.components.output_handler.config import OutputConfig
-from ..model.components.rescaling.config import RescalingConfig
-from ..model.config import ModelConfig
-from ..data_processing.config import TransformConfig
-from ..model.components.bias.config import BiasConfig
-from ..model.components.branch.config import BranchConfig
-from ..model.components.trunk.config import TrunkConfig
-from ..model.optimization.optimizers.config import OptimizerSpec
-from ..model.training_strategies.config import StrategyConfig
+from src.modules.model.components.output_handler.config import OutputConfig
+from src.modules.model.components.rescaling.config import RescalingConfig
+from src.modules.model.config import ModelConfig
+from src.modules.data_processing.config import TransformConfig
+from src.modules.model.components.bias.config import BiasConfig
+from src.modules.model.components.branch.config import BranchConfig
+from src.modules.model.components.trunk.config import TrunkConfig
+from src.modules.model.optimization.optimizers.config import OptimizerSpec
+from src.modules.model.training_strategies.config import StrategyConfig
 
 
 logger = logging.getLogger(__name__)
@@ -33,6 +33,7 @@ class DataConfig:
     raw_outputs_path: Path
     raw_data_path: Path        # From metadata.yaml
     raw_metadata_path: Path    # From metadata.yaml
+    split_ratios: list[str]  # From metadata.yaml
     features: list[str]        # From metadata.yaml
     input_functions: list[str]        # From metadata.yaml
     coordinates: list[str]        # From metadata.yaml
@@ -70,6 +71,7 @@ class DataConfig:
             raw_outputs_path=exp_cfg['output_path'],
             raw_data_path=metadata['raw_data_source'],
             raw_metadata_path=metadata['raw_metadata_source'],
+            split_ratios=metadata['split_ratios'],
             features=metadata['features'],
             input_functions=metadata['input_functions'],
             coordinates=metadata['coordinates'],
@@ -104,6 +106,7 @@ class DataConfig:
             raw_outputs_path=exp_cfg['output_path'],
             raw_data_path=metadata['raw_data_source'],
             raw_metadata_path=metadata['raw_metadata_source'],
+            split_ratios=metadata['split_ratios'],
             features=metadata['features'],
             input_functions=metadata['input_functions'],
             coordinates=metadata['coordinates'],
@@ -124,6 +127,7 @@ class TrainConfig:
     device: str | torch.device
     seed: int
     branch_batch_size: int
+    num_branch_train_samples: int
     trunk_batch_size: int
     model: ModelConfig
     transforms: TransformConfig
@@ -138,7 +142,7 @@ class TrainConfig:
         with open(train_cfg_path) as f:
             train_cfg = yaml.safe_load(f)
 
-        pod_mask = 'multi' if train_cfg['output_handling'] == 'split_outputs' else 'single'
+        pod_mask = 'split' if train_cfg['pod'] == 'by_channel' else 'stacked'
 
         pod_data = {
             k: torch.tensor(v).to(
@@ -167,8 +171,7 @@ class TrainConfig:
         output_config = OutputConfig.setup_for_training(
             train_cfg=train_cfg, data_cfg=dataclasses.asdict(data_cfg))
         rescaling_config = RescalingConfig.setup_for_training(train_cfg)
-        if train_cfg['training_strategy'] == 'pod':
-            rescaling_config.num_basis_functions = branch_config.output_dim // output_config.num_channels  # type: ignore
+
         one_step_optimizer = [
             OptimizerSpec(**params)
             for params in train_cfg['optimizer_schedule']
@@ -185,6 +188,7 @@ class TrainConfig:
             'optimizer_scheduler': one_step_optimizer,
             'two_step_optimizer_schedule': multi_step_optimizer,
             'decomposition_type': train_cfg['decomposition_type'],
+            'num_branch_train_samples': int(data_cfg.split_ratios[0] * data_cfg.shapes[data_cfg.features[0]][0]),
             **pod_data
         }
 
@@ -213,6 +217,7 @@ class TrainConfig:
             device=device,
             seed=train_cfg['seed'],
             branch_batch_size=train_cfg["branch_batch_size"],
+            num_branch_train_samples=int(data_cfg.split_ratios[0] * data_cfg.shapes[data_cfg.features[0]][0]),
             trunk_batch_size=train_cfg["trunk_batch_size"],
             model=model_config,
             transforms=transform_config,

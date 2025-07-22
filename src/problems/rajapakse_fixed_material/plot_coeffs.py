@@ -28,11 +28,13 @@ def plot_coefficients_mean(
     fig, ax = plt.subplots(ncols=n_channels, figsize=(5 * n_channels, 5))
 
     for ch in range(n_channels):
-        coefficients_mean_for_i_channel = np.abs(coefficients_mean[..., ch])
+        coefficients_mean_for_i_channel = coefficients_mean[..., ch]
+        print(coefficients_mean_for_i_channel)
+        quit()
         x = np.arange(len(coefficients_mean_for_i_channel))
-        ax[ch].bar(x, coefficients_mean_for_i_channel, align='edge',
+        ax[ch].bar(x, abs(coefficients_mean_for_i_channel), align='edge',
                    color='steelblue', alpha=0.8)
-        ax[ch].set_ylim([None, 1.3*coefficients_mean_for_i_channel.max()])
+        ax[ch].set_ylim([None, 1.3*abs(coefficients_mean_for_i_channel).max()])
         ax[ch].tick_params(axis='y', labelsize=12)
         ax[ch].set_xlabel(r'$i$', fontsize=15)
         ax[ch].xaxis.set_major_formatter(
@@ -46,12 +48,13 @@ def plot_coefficients_mean(
         for i in range(len(k_highest_modes)):
             x_pos = min(0.15 + (i / len(k_highest_modes)) * 0.9, 0.85)
             y_pos = min(
-                coefficients_mean_for_i_channel[k_highest_modes[:, ch]][i] * 3.6, 0.81)
+                abs(coefficients_mean_for_i_channel)[k_highest_modes[:, ch]][i] * 3.6, 0.81)
             positions.append((x_pos, y_pos))
 
         for (index, pos) in zip(k_highest_modes[..., ch], positions):
             ax_inset = ax[ch].inset_axes([pos[0], pos[1], 0.16, 0.16])
-            vector_channel = vectors[index][ch]
+            vector_channel = vectors[index][ch] if n_basis > 1 else vectors[index][0]
+            vector_channel = -vector_channel if coefficients_mean_for_i_channel[index] < 0 else vector_channel
             vector_data = np.flipud(np.transpose(vector_channel, (1, 0)))
             ax_inset.imshow(vector_data, origin='lower')
             ax_inset.set_title(r'$i$'+f'={index + 1}', fontsize=14)

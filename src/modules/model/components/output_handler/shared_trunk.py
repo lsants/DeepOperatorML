@@ -38,4 +38,4 @@ class SharedTrunkHandler(OutputHandler):
         B = branch_out.size(0)
         branch_reshaped = branch_out.view(
             B, self.num_channels, -1)  # (B, C, P)
-        return torch.einsum('bci,tj->btc', branch_reshaped, trunk_out)
+        return torch.einsum('bci,ti->btc', branch_reshaped, trunk_out)

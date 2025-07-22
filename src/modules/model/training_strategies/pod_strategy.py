@@ -60,7 +60,7 @@ class PODStrategy(TrainingStrategy):
                 trainable_params.append(param)
         return trainable_params
 
-    def get_train_schedule(self) -> list[tuple[torch.optim.Optimizer, torch.optim.lr_scheduler._LRScheduler, int]]:
+    def get_train_schedule(self) -> list[tuple[torch.optim.optimizer.Optimizer, torch.optim.lr_scheduler._LRScheduler, int]]:
         if not hasattr(self, 'train_schedule'):
             raise ValueError(
                 "Training schedule not set up. Call setup_training first.")
@@ -95,7 +95,7 @@ class PODStrategy(TrainingStrategy):
         return strategy_metric
 
     def get_optimizer_scheduler(self):
-        return self.config.optimizer_scheduler
+        return self.config.optimizer_scheduler # type: ignore
 
     def should_transition_phase(self, current_phase: int, current_epoch: int) -> bool:
         return False

@@ -86,7 +86,7 @@ def plot_coefficients_helper(data: dict[str, Any], data_cfg: DataConfig, metadat
             branch_output_sample=data['coefficients'][idx],
             basis=data['basis'],
             input_function_map={
-                data_cfg.input_functions[0]: data['input_functions'][data_cfg.input_functions[0]][idx]},
+                data_cfg.input_functions[0]: param_val},
             target_labels=data_cfg.targets_labels
         )
         val_str = f"{param_val:.2f}"

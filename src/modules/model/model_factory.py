@@ -23,29 +23,25 @@ from .training_strategies.pod_strategy import PODStrategy
 
 logger = logging.getLogger(__name__)
 
-
 class ModelFactory:
     @classmethod
     def create_for_training(cls, config: ModelConfig) -> tuple[DeepONet, TrainingStrategy]:
 
-        model_config = deepcopy(config)
-
         strategy = cls._create_strategy(
-            config=dataclasses.asdict(model_config))
-        strategy.prepare_components(model_config)
+            config=dataclasses.asdict(config))
+        strategy.prepare_components(config)
+        output_handler = OutputRegistry.create(config.output)
+        output_handler.adjust_dimensions(config)
 
-        output_handler = OutputRegistry.create(model_config.output)
-        output_handler.adjust_dimensions(model_config)
+        rescaler = Rescaler(config.rescaling)
 
-        rescaler = Rescaler(model_config.rescaling)
+        BiasConfigValidator.validate(config.bias)
+        BranchConfigValidator.validate(config.branch)
+        TrunkConfigValidator.validate(config.trunk)
 
-        BiasConfigValidator.validate(model_config.bias)
-        BranchConfigValidator.validate(model_config.branch)
-        TrunkConfigValidator.validate(model_config.trunk)
-
-        branch = BranchFactory.build(model_config.branch)
-        trunk = TrunkFactory.build(model_config.trunk)
-        bias = BiasFactory.build(model_config.bias)
+        branch = BranchFactory.build(config.branch)
+        trunk = TrunkFactory.build(config.trunk)
+        bias = BiasFactory.build(config.bias)
 
         return (DeepONet(
             branch=branch,
@@ -71,6 +67,7 @@ class ModelFactory:
         trunk = TrunkFactory.build(saved_config.trunk)
         branch = BranchFactory.build(saved_config.branch)
         bias = BiasFactory.build(saved_config.bias)
+
 
         model = DeepONet(
             branch=branch,
@@ -107,9 +104,11 @@ class ModelFactory:
                 raise ValueError(
                     "Shape of precomputed POD basis must be known in order to initialize model."
                 )
+            if config.rescaling.num_basis_functions * config.output.num_channels == config.branch.output_dim:
+                if config.output.basis_adjust:
+                    config.output.basis_adjust = False
+
             config.trunk.pod_basis = torch.rand(config.trunk.pod_basis_shape)
-            if config.output.basis_adjust:
-                config.output.basis_adjust = False
         else:
             TrunkConfigValidator.validate(config.trunk)
 

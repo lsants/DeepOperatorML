@@ -70,5 +70,6 @@ class DeepONetDataset(torch.utils.data.Dataset):  # type: ignore
         return {
             self.feature_labels[0]: branch_item,
             self.feature_labels[1]: trunk_item,
+            'indices': grid_indices,
             **output_item,
         }

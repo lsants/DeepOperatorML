@@ -4,7 +4,7 @@ import logging
 from collections import defaultdict
 from pathlib import Path
 from dataclasses import asdict
-from typing import Dict, List, Optional, Tuple
+from typing import Iterable, Optional
 from torch.utils.data import DataLoader
 from ..data_processing.deeponet_sampler import DeepONetSampler
 from .history import HistoryStorer
@@ -48,15 +48,15 @@ class TrainingLoop:
         self.strategy.setup_training(self.model)
 
         # Optimisation schedule [(n_epochs, optimiser, scheduler?), ...]
-        self.optimizer_specs: List[
-            Tuple[int, torch.optim.Optimizer,
+        self.optimizer_specs: list[
+            tuple[int, torch.optim.optimizer.Optimizer,
                   Optional[torch.optim.lr_scheduler._LRScheduler]]
         ] = self.strategy.get_train_schedule()
         if not self.optimizer_specs:
             raise ValueError("Strategy produced an empty training schedule.")
 
         # Phase bookkeeping -----------------------------------------------
-        self.phases: List[str] = self.strategy.get_phases()
+        self.phases: list[str] = self.strategy.get_phases()
         self.current_phase: int = 1  # 1‑indexed for readability
         self.current_spec_idx: int = 0
         self.epochs_in_current_spec: int = 0
@@ -80,7 +80,7 @@ class TrainingLoop:
         epochs, opt, sch = self.optimizer_specs[self.current_spec_idx]
         self.epochs_per_spec: int = epochs
 
-        self.optimizer: torch.optim.Optimizer = opt
+        self.optimizer: torch.optim.optimizer.Optimizer = opt
         self.scheduler: Optional[torch.optim.lr_scheduler._LRScheduler] = sch
 
         # Ensure optimiser params reside on correct device
@@ -138,7 +138,7 @@ class TrainingLoop:
             )
 
             # ---------------- validate --------------
-            val_metrics: Dict[str, float] = {}
+            val_metrics: dict[str, float] = {}
             if self.strategy.validation_enabled() and self.val_loader is not None:
                 val_metrics = self._run_epoch(train=False)
                 self.history.store_epoch_metrics(
@@ -184,17 +184,17 @@ class TrainingLoop:
         )
 
     # -------------------------------------------------------------- core epoch
-    def _run_epoch(self, *, train: bool) -> Dict[str, float]:
+    def _run_epoch(self, *, train: bool) -> dict[str, float]:
         self.model.train(mode=train)
         # type: ignore[assignment]
         loader: DataLoader = self.train_loader if train else self.val_loader
         assert loader is not None, "Validation loader requested but not provided."
 
-        aggregated: Dict[str, float] = defaultdict(float)
+        aggregated: dict[str, float] = defaultdict(float)
         processed_samples = 0  # will replace old bs*num_batches logic
 
         # Derive total sample count for later normalisation -----------------
-        aggregated: Dict[str, float] = defaultdict(float)
+        aggregated: dict[str, float] = defaultdict(float)
 
         processed_samples = 0
 
@@ -202,35 +202,70 @@ class TrainingLoop:
         try:
             with context:
                 for i, batch in enumerate(loader):
-                    x_branch, x_trunk, y_true = self._prepare_batch(batch)
+                    x_branch, x_trunk, y_true, indices = self._prepare_batch(batch)
 
                     # Forward + loss
                     y_pred, loss = self.strategy.compute_loss(
-                        self.model, x_branch, x_trunk, y_true
+                        model=self.model, 
+                        x_branch=x_branch, 
+                        x_trunk=x_trunk, 
+                        y_true=y_true,
+                        indices=indices
                     )
-                    # if i % 10 == 0:
-                    #     print(f"Loss: {loss:.4E} for batch {i + 1}")
+
                     if train:
                         self.optimizer.zero_grad(set_to_none=True)
                         loss.backward()
                         self.strategy.apply_gradient_constraints(self.model)
                         self.optimizer.step()
 
-                    print(self.model.branch)
-                    print(self.model.trunk)
-                    print(self.model.bias)
-                    for param_group in self.optimizer.param_groups:
-                        for param in param_group["params"]:
-                            print(param.shape)
-                    quit()
+                        
+                    # if i % 10 == 0:
+                    #     print(f"Loss: {loss:.4E} for batch {i + 1}")
+
+                    # if self.current_phase == 2:
+                    #     import numpy as np
+                    #     sample = self.model.branch(x_branch).detach().numpy()
+                        
+                    #     sample = sample.reshape(
+                    #         -1, 2, 30)
+                        
+                        # sample = sample.T.reshape(-2, 2, 40, 40)
+                        # sample = np.concatenate(
+                        #     (np.flip(sample, axis=2), sample), axis=2)
+                            
+                            # print(sample[0, 0, :3, :3], sample[0, 1, :3, :3])
+                        # true = self.strategy.compute_synthetic_targets(self.model, indices[0])
+                        # true = true.reshape(
+                        #     -1, 2, 30).detach().numpy()
+                        
+                        # true = np.concatenate(
+                        #     (np.flip(true, axis=1), true), axis=1)
+                            
+                            # print(sample[indices[0].flatten()[0]][0, 1], indices[0].flatten()[0])
+                        # import matplotlib.pyplot as plt
+                        # fig, ax = plt.subplots(1, 2)
+                        # ax[0].bar(x=range(30), height=sample[indices[0].flatten()[0], 1])
+                        # ax[1].bar(x=range(30), height=true[indices[0].flatten()[0], 1])
+                        # fig.suptitle(f"Sample {indices[0].flatten()[0]}")
+                        # # ax[0].set_ylim([-0.15, 0.15])
+                        # ax[0].set_title("Predicted")
+                        # # ax[1].set_ylim([-0.15, 0.15])
+                        # ax[1].set_title("True")
+                            
+                        # ax[0].contourf(np.flipud(sample[4, 0].T))
+                        # ax[1].contourf(np.flipud(sample[4, 1].T))
+                            
+                        # plt.show()
 
                     # Per-batch metrics ------------------------------------
                     batch_metrics = self.strategy.calculate_metrics(
+                        model=self.model,
                         y_true=y_true,
                         y_pred=y_pred,
                         loss=loss.item(),
                         train=train,
-                        branch_input=x_branch,
+                        branch_indices=indices[0],
                         label_map=self.label_map
                     )
 
@@ -272,17 +307,29 @@ class TrainingLoop:
 
     def _prepare_batch(
         self,
-        batch: Tuple[torch.Tensor, torch.Tensor, torch.Tensor] | Dict[str, torch.Tensor],
-    ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+        batch: dict[str, torch.Tensor | tuple[Iterable[int], ...]],
+    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, tuple[Iterable[int], ...]]:
         if isinstance(batch, dict):
-            xb, xt, y = batch["xb"], batch["xt"], batch["g_u"]
+            xb, xt, y, idx = batch["xb"], batch["xt"], batch["g_u"], batch["indices"]
         else:
-            xb, xt, y = batch  # type: ignore[misc]
-
+            raise TypeError(
+                f"Expected batch to be a dict, got {type(batch)} instead."
+            )
+        if not isinstance(xb, torch.Tensor) or not isinstance(xt, torch.Tensor) or not isinstance(y, torch.Tensor):
+            raise TypeError(
+                "Batch tensors must be of type torch.Tensor, got "
+                f"{type(xb)}, {type(xt)}, {type(y)} instead."
+            )
+        if not isinstance(idx, tuple):
+            raise TypeError(
+                "Index must be a tuple of indices, got "
+                f"{type(idx)} instead."
+            )
         return (
             xb.to(self.device, non_blocking=True),
             xt.to(self.device, non_blocking=True),
             y.to(self.device, non_blocking=True),
+            idx
         )
 
     def _handle_phase_transition(self) -> None:
@@ -291,8 +338,9 @@ class TrainingLoop:
 
         self.strategy.execute_phase_transition(
             model=self.model,
-            full_branch_batch=self._get_full_branch_batch(),
-            full_trunk_batch=self._get_full_trunk_batch()
+            all_branch_indices=self._get_full_branch_batch(),
+            full_trunk_batch=self._get_full_trunk_batch(),
+            full_outputs_batch=self._get_full_outputs_batch()
         )
         self.current_phase += 1
         if self.current_phase > len(self.phases):
@@ -328,8 +376,8 @@ class TrainingLoop:
     def _log_progress(
         self,
         epoch: int,
-        train_metrics: Dict[str, float],
-        val_metrics: Dict[str, float],
+        train_metrics: dict[str, float],
+        val_metrics: dict[str, float],
     ) -> None:
         msg = (
             f"[{self.strategy.get_phases()[self.current_phase - 1]} | Epoch {epoch}] \n"
@@ -337,7 +385,7 @@ class TrainingLoop:
         )
 
         train_error_parts = []
-        for key in sorted(train_metrics.keys()):
+        for key in (train_metrics.keys()):
             if key.startswith('Error'):
                 train_error_parts.append(
                     f"train_{key}={train_metrics[key]:.4e}\n")
@@ -351,7 +399,7 @@ class TrainingLoop:
             )
 
             val_error_parts = []
-            for key in sorted(val_metrics.keys()):
+            for key in (val_metrics.keys()):
                 if key.startswith('Error'):
                     val_error_parts.append(
                         f"val_{key}={val_metrics[key]:.4e}\n")
@@ -361,21 +409,27 @@ class TrainingLoop:
 
         logger.info(msg)
 
-    def _get_full_trunk_batch(self) -> torch.Tensor:
-        xs = []
+    def _get_full_trunk_batch(self) -> torch.Tensor: # Trunk is not batched
         for batch in self.train_loader:  # type: ignore[misc]
-            x_trunk = batch['xt']
-            xs.append(x_trunk)
-        return torch.cat(xs, dim=0).to(self.device)
+            xs = batch['xt']
+            break
+        return xs
 
     def _get_full_branch_batch(self) -> torch.Tensor:
         xs = []
         for batch in self.train_loader:  # type: ignore[misc]
-            x_branch = batch['xb']
-            xs.append(x_branch)
+            branch_indices = batch['indices'][0]
+            xs.append(torch.tensor(branch_indices, dtype=torch.int))
         return torch.cat(xs, dim=0).to(self.device)
+    
+    def _get_full_outputs_batch(self) -> torch.Tensor:
+        ys = []
+        for batch in self.train_loader:  # type: ignore[misc]
+            targets = batch['g_u']
+            ys.append(targets)
+        return torch.cat(ys, dim=0).to(self.device)
 
     # ------------------------------------------------------------------- public
-    def get_history(self) -> Dict[str, Dict[str, list]]:
+    def get_history(self) -> dict[str, dict[str, list]]:
         """Return accumulated training/validation history."""
         return self.history.get_history()

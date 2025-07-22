@@ -1,4 +1,6 @@
 import torch
+import numpy
+from typing import Iterable
 from ..registry import ComponentRegistry
 
 
@@ -10,9 +12,12 @@ class MatrixBranch(torch.nn.Module):
         super().__init__()
         self.weights = torch.nn.Parameter(torch.randn(output_dim, input_dim))
         torch.nn.init.xavier_uniform_(self.weights)
+        # torch.nn.init.kaiming_uniform_(self.weights)
 
     def __str__(self):
         return f"MatrixBranch(input_dim={self.weights.shape[1]}, output_dim={self.weights.shape[0]})"
 
-    def forward(self, x):
-        return x @ self.weights.T
+    def forward(self, index: numpy.ndarray) -> torch.Tensor: # Need to figure out how to correctl index the vector to be multiplied by the sample.
+        coefficients_matrix = self.weights.T 
+        batch_coefficients = coefficients_matrix[index.flatten()]
+        return batch_coefficients

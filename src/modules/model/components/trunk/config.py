@@ -19,6 +19,8 @@ class TrunkConfig:
     # Neural architecture params
     hidden_layers: Optional[list[int]] = None
     dropout_rates: Optional[list[float]] = None
+    batch_normalization: Optional[list[bool]] = None
+    layer_normalization: Optional[list[bool]] = None
     activation: Optional[Callable | str] = None
     degree: Optional[int] = None
     # POD/Decomposed params

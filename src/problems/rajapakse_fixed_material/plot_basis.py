@@ -5,6 +5,8 @@ plt.rc('font', family='serif', size=15)
 plt.rc('text', usetex=True)
 plt.rc('axes', labelsize=15)
 plt.rc('legend', fontsize=12)
+cmap = plt.get_cmap('viridis') # tried: 'RdBu'
+plt.rc('image', cmap=cmap.name)
 # matplotlib.rcParams['text.latex.preamble'] = r'\math'
 
 
@@ -49,7 +51,8 @@ def plot_basis(coords: dict[str, np.ndarray],
             raise ValueError(
                 f"Shape mismatch in channel {output_map[ch]}: field shape {field_ch.shape} vs X shape {X.shape}")
 
-        contour = axs[ch].contourf(X, Y, field_ch, cmap="viridis")
+        contour = axs[ch].contourf(X, Y, field_ch)
+        # contour = axs[ch].imshow(np.flipud(field_ch.T))
         axs[ch].invert_yaxis()
         axs[ch].set_xlabel(x_label, fontsize=12)
         axs[ch].set_ylabel(y_label, fontsize=12)

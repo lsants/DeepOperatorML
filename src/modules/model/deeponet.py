@@ -32,6 +32,7 @@ class DeepONet(torch.nn.Module):
         branch_out = self.branch(branch_input)
         trunk_out = self.trunk(trunk_input)
 
+
         dot_product = self.output_handler.combine(
             branch_out, trunk_out)
         output = self.bias(dot_product)

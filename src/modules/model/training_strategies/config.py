@@ -57,6 +57,7 @@ class TwoStepConfig(StrategyConfig):
     loss: str
     two_step_optimizer_schedule: dict[str, list[OptimizerSpec]]
     decomposition_type: Literal["svd", "qr"]  # Enforced decomposition method
+    num_branch_train_samples: int
 
     def __post_init__(self):
         super().__post_init__()

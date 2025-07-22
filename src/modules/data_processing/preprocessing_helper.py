@@ -1,5 +1,4 @@
 from __future__ import annotations
-import matplotlib.pyplot as plt
 import hashlib
 import numpy as np
 import logging
@@ -7,7 +6,6 @@ import yaml
 from datetime import datetime
 from pathlib import Path
 from typing import Any
-from .deeponet_dataset import DeepONetDataset
 
 logger = logging.getLogger(__name__)
 
@@ -136,37 +134,57 @@ def compute_pod(
     var_share: float,
 ) -> dict[str, np.ndarray]:
 
-    def single_basis_pod(data: np.ndarray) -> tuple[np.ndarray, ...]:
+    def pod_stacked_data(data: np.ndarray, var_share: float) -> tuple[np.ndarray, ...]:
         n_samples, n_space, n_channels = data.shape
         snapshots = data.swapaxes(1, 2).reshape(
-            n_samples * n_channels, n_space)
+            n_samples * n_channels, n_space)  # (n_samples * n_channels, n_space))
 
-        mean_field = np.mean(snapshots, axis=0, keepdims=True)
+        mean_field = np.mean(snapshots, axis=0, keepdims=True)  # (1, n_space)
         centered = (snapshots - mean_field)
         W, S, Vt = np.linalg.svd(centered, full_matrices=False)
-        spatial_modes = Vt.T
+        spatial_vectors = Vt.T
 
         explained_variance_ratio = np.cumsum(
             S**2) / np.linalg.norm(S, ord=2)**2
 
-        n_modes = (explained_variance_ratio < var_share).sum().item()
+        n_vectors = (explained_variance_ratio < var_share).sum().item()
 
-        basis = spatial_modes[:, : n_modes]
+        basis = spatial_vectors[:, : n_vectors]  # (n_space, n_vectors)
+
+        # import matplotlib.pyplot as plt
+
+        # i = 0
+        # for v in basis.T:
+        #     v = np.concatenate(
+        #         (np.flip(v.reshape(40, 40), axis=0), v.reshape(40, 40)), axis=0)
+        #     plt.contourf(np.flipud(v.T), cmap="viridis")
+        #     plt.colorbar()
+        #     plt.show()
+        #     i += 1
+        #     if i >= 10:
+        #         break
+        # quit()
+        # for snap in snapshots:
+        #     snap = np.concatenate(
+        #         (np.flip(snap.reshape(40, 40), axis=0), snap.reshape(40, 40)), axis=0)
+        #     plt.contourf(np.flipud(snap.T), cmap="viridis")
+        #     plt.colorbar()
+        #     plt.show()
+        # quit()
 
         return basis, mean_field
 
-    def multi_basis_pod(
+    def pod_split_data(
         data: np.ndarray,              # (N_s, N_r*N_z, N_c)
-        var_share: float = 0.95
+        var_share: float
     ) -> tuple[np.ndarray, np.ndarray]:
 
         n_samp, n_space, n_chan = data.shape
         mean_field = np.empty((n_chan, n_space))
-        modes_list: list[np.ndarray] = []
+        vectors_list: list[np.ndarray] = []
 
         for c in range(n_chan):
             snapshots = data[:, :, c]                      # (N_samp, n_space)
-
             mean_c = snapshots.mean(axis=0)                # (n_space,)
             mean_field[c] = mean_c
             A = snapshots - mean_c                         # centred
@@ -175,28 +193,32 @@ def compute_pod(
             V = Vt.T                                       # (n_space, rank)
 
             cum_var = np.cumsum(S**2) / np.sum(S**2)
-            n_modes_c = np.searchsorted(cum_var, var_share) + 1
+            n_vectors_c = np.searchsorted(cum_var, var_share) + 1
 
-            logger.info(f"Channel {c + 1} has {n_modes_c} modes")
+            logger.info(f"Channel {c + 1} has {n_vectors_c} vectors")
 
-            modes_c = V[:, : n_modes_c]
-            modes_list.append(modes_c)
-
-        basis = np.concatenate(modes_list, axis=1)
+            # (n_space, n_vectors_c)
+            vectors_c = V[:, : n_vectors_c]
+            vectors_list.append(vectors_c)
+        min_n_vectors = min(v.shape[1] for v in vectors_list)
+        adjusted_vectors_list = [v[:, : min_n_vectors] for v in vectors_list]
+        basis = np.concatenate(adjusted_vectors_list, axis=1)
         return basis, mean_field
 
-    logger.info(f"Computing POD with single basis...")
-    single_basis, single_mean = single_basis_pod(data)
+    logger.info(f"Computing POD with stacked basis...")
+    stacked_basis, stacked_mean = pod_stacked_data(
+        data=data, var_share=var_share)
     logger.info(f"Done.")
-    logger.info(f"Computing POD with multiple basis...")
-    multi_basis, multi_mean = multi_basis_pod(data)
+    logger.info(f"Computing POD with split basis...")
+    split_basis, split_mean = pod_split_data(data=data, var_share=var_share)
     logger.info(f"Done.")
 
-    pod_data = {"single_basis": single_basis,
-                "single_mean": single_mean,
-                "multi_basis": multi_basis,
-                "multi_mean": multi_mean
-                }
+    pod_data = {
+        "stacked_basis": stacked_basis,
+        "stacked_mean": stacked_mean,
+        "split_basis": split_basis,
+        "split_mean": split_mean
+    }
     logger.info(f"Concluded proper orthogonal decomposition")
     return pod_data
 

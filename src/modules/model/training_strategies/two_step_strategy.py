@@ -1,10 +1,11 @@
 from __future__ import annotations
 import torch
+import numpy
 from copy import deepcopy
 from collections import defaultdict
 from ...model.deeponet import DeepONet
 from .base import TrainingStrategy
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Iterable
 from .config import TwoStepConfig
 from ..components.component_factory import BranchFactory
 from ..optimization.optimizers.config import OptimizerSpec
@@ -27,6 +28,7 @@ class TwoStepStrategy(TrainingStrategy):
         self._original_trunk_cfg = deepcopy(model_config.trunk)
 
         # Phase 1 components
+        model_config.branch.input_dim = self.config.num_branch_train_samples # type: ignore
         model_config.branch.component_type = "matrix_branch"
         model_config.branch.architecture = "trainable_matrix"
         model_config.trunk.component_type = "neural_trunk"
@@ -43,8 +45,7 @@ class TwoStepStrategy(TrainingStrategy):
         self.trunk_train_schedule = []
         self.branch_train_schedule = []
 
-        # type: ignore
-        for spec in self.config.two_step_optimizer_schedule['trunk_phase']:
+        for spec in self.config.two_step_optimizer_schedule['trunk_phase']: # type: ignore
             if isinstance(spec, dict):
                 spec = OptimizerSpec(**spec)
             trunk_phase_optimizer = create_optimizer(
@@ -54,8 +55,7 @@ class TwoStepStrategy(TrainingStrategy):
             self.trunk_train_schedule.append(
                 (spec.epochs, trunk_phase_optimizer, trunk_phase_scheduler))
 
-        # type: ignore
-        for spec in self.config.two_step_optimizer_schedule['branch_phase']:
+        for spec in self.config.two_step_optimizer_schedule['branch_phase']: # type: ignore
             if isinstance(spec, dict):
                 spec = OptimizerSpec(**spec)
             branch_phase_optimizer = create_optimizer(
@@ -78,7 +78,7 @@ class TwoStepStrategy(TrainingStrategy):
                 trainable_params.append(param)
         return trainable_params
 
-    def get_train_schedule(self) -> list[tuple[torch.optim.Optimizer, torch.optim.lr_scheduler._LRScheduler, int]]:
+    def get_train_schedule(self) -> list[tuple[torch.optim.optimizer.Optimizer, torch.optim.lr_scheduler._LRScheduler, int]]:
         if self._phase == 1:
             if not hasattr(self, 'trunk_train_schedule'):
                 raise ValueError(
@@ -92,7 +92,7 @@ class TwoStepStrategy(TrainingStrategy):
         else:
             raise RuntimeError("Invalid training phase")
 
-    def execute_phase_transition(self, model: 'DeepONet', full_branch_batch: torch.Tensor, full_trunk_batch: torch.Tensor):
+    def execute_phase_transition(self, model: 'DeepONet', all_branch_indices: torch.Tensor, full_trunk_batch: torch.Tensor, full_outputs_batch: torch.Tensor):
         """Decomposes the trunk and updates the model for phase 2 training."""
         if not isinstance(self.config, TwoStepConfig):
             raise TypeError("TwoStepStrategy requires TwoStepConfig")
@@ -100,12 +100,21 @@ class TwoStepStrategy(TrainingStrategy):
         if self._phase != 1:
             raise RuntimeError("Phase transition from invalid state")
 
-        R, T_matrix = self._decompose_trunk(
-            trunk=model.trunk, full_trunk_batch=full_trunk_batch)
+        R, T = self._decompose_trunk(
+            model=model,
+            trunk=model.trunk, 
+            full_trunk_batch=full_trunk_batch
+        )
 
+        self._check_RT_invertibilty(model, R, T)
+
+        
         self.R = R
         self.A = model.branch
-        self.all_branch_inputs = full_branch_batch
+        self.all_branch_indices = all_branch_indices
+
+        with torch.no_grad():
+            self.A_full = self.A(self.all_branch_indices.flatten())
 
         new_trunk_config = deepcopy(self._original_trunk_cfg)
         new_trunk_config.component_type = "orthonormal_trunk"
@@ -116,19 +125,18 @@ class TwoStepStrategy(TrainingStrategy):
         self.final_trunk_config = new_trunk_config
         self.final_branch_config = deepcopy(self._original_branch_cfg)
 
-        self._original_branch_cfg.output_dim *= model.output_handler.num_channels
+        if self._original_branch_cfg.output_dim is not None:
+            self._original_branch_cfg.output_dim *= model.output_handler.num_channels
         if isinstance(model.output_handler, SplitOutputsHandler):
-            self.final_trunk_config.output_dim *= model.output_handler.num_channels
-
-        with torch.no_grad():
-            self.A_full = self.A(self.all_branch_inputs)
+            if self.final_trunk_config.output_dim is not None:
+                self.final_trunk_config.output_dim *= model.output_handler.num_channels
 
         self.output_handler = model.output_handler
 
         if self._original_branch_cfg is None:
             raise RuntimeError("Missing original component configs.")
 
-        new_trunk = OrthonormalTrunk(model.trunk, T_matrix)
+        new_trunk = OrthonormalTrunk(model.trunk, T)
         new_branch = BranchFactory.build(self._original_branch_cfg)
 
         model.trunk = new_trunk
@@ -137,9 +145,121 @@ class TwoStepStrategy(TrainingStrategy):
         model.trunk.requires_grad_(False)
         model.branch.requires_grad_(True)
 
+        model.trunk.eval()
+
+        self._check_orthonormality(model, full_trunk_batch, T)
+        self._check_target_reconstruction(model, full_trunk_batch, full_outputs_batch, T)
+
         self._update_optimizer_parameters(model)
 
         self._phase = 2
+
+    def _check_RT_invertibilty(self, model: torch.nn.Module, R: torch.Tensor, T: torch.Tensor):
+        if isinstance(model.output_handler, SplitOutputsHandler):
+            n_channels = model.output_handler.num_channels
+            for i in range(n_channels):
+                rows = slice(i * R.shape[0] // n_channels, (i + 1) * R.shape[0] // n_channels)
+                R_i = R[rows, rows]
+                T_i = T[rows, rows]
+
+                should_be_I = R_i @ T_i
+
+                if not torch.allclose(should_be_I, torch.eye(R_i.shape[0]), atol=1e-4):
+                    raise RuntimeError(f"Decomposition did not produce identity matrix for channel {i}.")
+
+        else:
+            should_be_I = R @ T
+            if not torch.allclose(should_be_I, torch.eye(R.shape[0]), atol=1e-4):
+                raise RuntimeError("Decomposition did not produce identity matrix.")
+        
+
+    def _check_orthonormality(self, model: 'DeepONet', full_trunk_batch: torch.Tensor, T: torch.Tensor):
+        """Checks if the trunk outputs are orthonormal after decomposition."""
+        with torch.no_grad():
+            old_trunk = model.trunk.trunk           # unwrap the base trunk
+            phi      = old_trunk(full_trunk_batch)  # (T , C·P or P)
+            C = model.output_handler.num_channels
+
+            if isinstance(model.output_handler, SplitOutputsHandler):
+                CtimesP = phi.shape[1]
+                P = CtimesP // C
+                I =  torch.eye(P, device=phi.device)
+
+                # 1)  columns = phi @ T1
+                Z1 = phi @ T[:, : P]                      # should be orthonormal
+                err1 = torch.linalg.norm(Z1.T @ Z1 - I) / torch.linalg.norm(I)
+
+                # 2)  columns = phi @ T2
+                Z2 = phi @ T[:, P :]
+                err2 = torch.linalg.norm(Z2.T @ Z2 - I) / torch.linalg.norm(I)
+
+                print('‖I - (phi T)ᵀ(phi T)‖₂ / ‖I‖ =', f"{err1.item():.6%}")
+                print('‖I - (phi Tᵀ)ᵀ(phi Tᵀ)‖₂ / ‖I‖ =', f"{err2.item():.6%}")
+                if 100 * err1 > 1 or 100 * err2 > 1:
+                    raise RuntimeError("Trunk outputs are not orthonormal after decomposition.")
+        
+    def _check_target_reconstruction(self, model: 'DeepONet', full_trunk_batch: torch.Tensor, full_outputs_batch: torch.Tensor, T: torch.Tensor):
+        with torch.no_grad():
+            baseline_Y  = full_outputs_batch  # whatever you used as ground‑truth in phase 1
+            C = model.output_handler.num_channels
+            A = self.A_full.reshape(full_outputs_batch.shape[0], C, -1)
+            coeff = self._matmul_blockwise(A, self.R.T) # (B, C, P)
+            trunk_out = model.trunk(full_trunk_batch)          # (T, C·P)
+            raw_trunk_out =   model.trunk.trunk(full_trunk_batch)
+
+            if isinstance(model.output_handler, SplitOutputsHandler):
+                # 1) coefficients in the orthonormal basis  C = A Rᵀ
+                B, C, P = coeff.shape
+
+                # 2) trunk evaluated on every location, already orthonormal
+
+                print("coeff shape:", coeff.shape)         # (B, C, P)
+                print("trunk_out shape:", trunk_out.shape) # (T, C, P)
+
+                # Check norms channel-wise
+                print("||coeff|| per channel:", coeff.norm(dim=(0,2)))
+                print("||trunk_out|| per channel:", trunk_out.reshape(-1, C, P).norm(dim=(0,2)))
+                print("||baseline_Y||:", baseline_Y.norm())
+
+                T_loc = trunk_out.shape[0]
+                trunk_out = trunk_out.view(T_loc, C, P)            # (T, C, P)
+                raw_trunk_out = raw_trunk_out.view(T_loc, C, P)            # (T, C, P)
+
+                # 3) reproduce the model’s combine() logic
+                raw_Y_recon = model.rescaler(torch.einsum('bcp,tcp->btc', A, raw_trunk_out) + model.bias.bias) # (B, T, C)
+                Y_recon = model.rescaler(torch.einsum('bcp,tcp->btc', coeff, trunk_out) + model.bias.bias)  # (B, T, C)
+
+                # 4) compare with ground‑truth used in phase 1
+                rel_err = (Y_recon - baseline_Y).norm(dim=(0, 1)) / baseline_Y.norm(dim=(0, 1)).detach().numpy()
+                for ch in range(C):
+                    print(f'ϵ_rel_{ch}(Y_recon) = {rel_err[ch]:.3e}')
+                
+                dot_err = (Y_recon - raw_Y_recon).norm() / raw_Y_recon.norm()
+                print(f'ϵ_rel(dot_product) = {dot_err:.3e}')
+
+            else:
+                trunk_out = model.trunk(full_trunk_batch)          # (T, C·P)
+                print("coeff shape:", coeff.shape)         # (B, C, P)
+                print("trunk_out shape:", trunk_out.shape) # (T, P)
+
+                # Check norms channel-wise
+                print("||coeff|| per channel:", coeff.norm(dim=(0,2)))
+                print("||trunk_out||:", trunk_out.norm(dim=(0,1)))
+                print("||baseline_Y||:", baseline_Y.norm())
+
+                T_loc = trunk_out.shape[0]
+
+                # 3) reproduce the model’s combine() logic
+                raw_Y_recon = model.rescaler(torch.einsum('bcp,tp->btc', A, raw_trunk_out) + model.bias.bias)  # (B, T, C)
+                Y_recon = model.rescaler(torch.einsum('bcp,tp->btc', coeff, trunk_out) + model.bias.bias)  # (B, T, C)
+                rel_err = (Y_recon - baseline_Y).norm(dim=(0, 1)) / baseline_Y.norm(dim=(0, 1)).detach().numpy()
+                for ch, r_e in enumerate(rel_err):
+                    print(f'ϵ_rel_{ch}(Y_recon) = {r_e:.3e}')
+
+                dot_err = (Y_recon - raw_Y_recon).norm() / raw_Y_recon.norm()
+                print(f'ϵ_rel(dot_product) = {dot_err:.3e}')
+            
+
 
     def _update_optimizer_parameters(self, model: 'DeepONet'):
         """Updates optimizer parameters to match current model parameters"""
@@ -166,15 +286,17 @@ class TwoStepStrategy(TrainingStrategy):
             return current_epoch >= trunk_epochs
         return False
 
-    def compute_loss(self, model: DeepONet,
+    def compute_loss(self, 
+                     model: DeepONet,
                      x_branch: torch.Tensor,
                      x_trunk: torch.Tensor,
-                     y_true: torch.Tensor) -> tuple[torch.Tensor, ...]:
+                     y_true: torch.Tensor,
+                     indices: tuple[numpy.ndarray, ...]) -> tuple[torch.Tensor, ...]:
         """Computes the loss for the given model and data"""
         if self._phase == 1:
-            y_pred = model(x_branch, x_trunk)
+            y_pred = model(indices[0], x_trunk)
         elif self._phase == 2:
-            y_true = self.compute_synthetic_targets(x_branch)
+            y_true = self.compute_synthetic_targets(model=model, branch_indices=indices[0])
             y_pred = model.branch(x_branch)
         else:
             raise RuntimeError("Invalid training phase")
@@ -182,11 +304,12 @@ class TwoStepStrategy(TrainingStrategy):
         return y_pred, loss
 
     def calculate_metrics(self,
+                          model: torch.nn.Module,
                           y_true: torch.Tensor,
                           y_pred: torch.Tensor,
                           loss: float,
                           train: bool,
-                          branch_input: torch.Tensor,
+                          branch_indices: numpy.ndarray,
                           label_map: list[str] | None = None) -> dict[str, float]:
         """Combines base and strategy-specific metrics"""
         if self._phase == 1:
@@ -194,15 +317,16 @@ class TwoStepStrategy(TrainingStrategy):
         else:
             metrics = {'loss': loss}
         metrics.update(self.strategy_specific_metrics(
-            y_true=y_true, y_pred=y_pred, branch_input=branch_input, label_map=label_map))
+            model=model,
+            y_true=y_true, y_pred=y_pred, branch_indices=branch_indices, label_map=label_map))
         return metrics
 
-    def strategy_specific_metrics(self, y_true: torch.Tensor, y_pred: torch.Tensor, branch_input: torch.Tensor, label_map: list[str] | None = None) -> dict[str, float]:
+    def strategy_specific_metrics(self, model: torch.nn.Module, y_true: torch.Tensor, y_pred: torch.Tensor, branch_indices: numpy.ndarray, label_map: list[str] | None = None) -> dict[str, float]:
         if self._phase == 1:
             relative_error = self.error_metric(
                 y_true - y_pred) / self.error_metric(y_true)
         elif self._phase == 2:
-            y_true = self.compute_synthetic_targets(branch_input)
+            y_true = self.compute_synthetic_targets(model=model, branch_indices=branch_indices)
             if y_true.shape != y_pred.shape:
                 raise ValueError(
                     "Synthetic targets and predictions must have the same shape.")
@@ -224,28 +348,48 @@ class TwoStepStrategy(TrainingStrategy):
             strategy_metric = {f'Error': relative_error.item()}
         return strategy_metric
 
-    def compute_synthetic_targets(self, branch_inputs) -> torch.Tensor:
+    def _matmul_blockwise(self,
+                          A_flat: torch.Tensor,   # (B, C, P)
+                          R_T: torch.Tensor,   # (C·P, C·P) or (P, P)
+                        ) -> torch.Tensor:
+        """
+        Returns C = A · (Rᵀ) block‑by‑block.
+        Works for any C >= 1.  Output shape (B, C, P).
+        The number of R blocks is the number of orthonormal basis sets.
+        """
+        B, C, P = A_flat.shape
+        coeff = torch.empty_like(A_flat)
+
+        for c in range(C):
+            rows = slice(c * P, (c + 1) * P)
+
+            if R_T.shape[0] == C * P:
+                R_c = R_T[rows, rows]            # (P, P) block
+                Rc = R_c
+            else:
+                Rc = R_T
+            coeff[:, c, :] = A_flat[:, c, :] @ Rc
+
+        return coeff        # (B, C, P)
+
+
+    def compute_synthetic_targets(self, model: torch.nn.Module, branch_indices: numpy.ndarray) -> torch.Tensor:
         """Computes synthetic targets using the decomposed trunk and branch"""
         if self.A is None or self.R is None:
             raise RuntimeError(
                 "A and R matrices must be set before computing synthetic targets.")
-        if self.output_handler is None:
-            raise RuntimeError(
-                "Output handler must be known by strategy before computing synthetic targets.")
-
-        indices = self._find_branch_indices(branch_inputs)
+        
+        indices = branch_indices.flatten()
 
         A_batch = self.A_full[indices]
 
-        if isinstance(self.output_handler, SharedTrunkHandler):
-            num_channels = self.output_handler.num_channels
-            P = self.R.shape[0]  # Basis size
-            A_reshaped = A_batch.view(-1, num_channels, P)  # (B, C, P)
-            # (B, C, P) @ (P, P) -> (B, C, P)
-            synthetic = torch.einsum('bcp,pq->bcq', A_reshaped, self.R.T)
-            return synthetic.reshape(-1, num_channels * P)
-        else:  # (B, C*P) @ (C*P, C*P) -> (B, C*P)
-            return A_batch @ self.R.T
+        B, CtimesP = A_batch.shape
+        C = model.output_handler.num_channels
+        P = CtimesP // C
+        A_flat = A_batch.view(B, C, P)
+
+        coeff = self._matmul_blockwise(A_flat, self.R.T)
+        return coeff.reshape(B, C * P)
 
     def get_optimizer_scheduler(self):
         return self.config.optimizer_scheduler  # type: ignore
@@ -258,27 +402,67 @@ class TwoStepStrategy(TrainingStrategy):
         """Optional gradient clipping/normalization"""
         pass
 
-    def _find_branch_indices(self, batch_inputs: torch.Tensor) -> torch.Tensor:
-        """Finds indices of batch inputs in full branch set"""
-        # Compute distances (memory efficient for large datasets)
-        dists = torch.cdist(batch_inputs, self.all_branch_inputs)
-        min_dists = torch.min(dists, dim=1).values
-        return torch.where(min_dists < 1e-6, torch.argmin(dists, dim=1), -1)
+    def _decompose_trunk(self, model: torch.nn.Module, trunk: torch.nn.Module, full_trunk_batch: torch.Tensor) -> tuple[torch.Tensor, ...]:
+        """SVD decomposition of final trunk layer.
+        Returns (R, T) with shapes            (D, D)  and  (D, D)
+        where D = C·P  for split‑channel handlers,  D = P otherwise.
+        """
 
-    def _decompose_trunk(self, trunk: torch.nn.Module, full_trunk_batch: torch.Tensor) -> tuple[torch.Tensor, ...]:
-        """SVD decomposition of final trunk layer"""
+        was_training = trunk.training
+        trunk.eval()
+
         with torch.no_grad():
-            phi_matrix = trunk(full_trunk_batch)
-        if self.config.decomposition_type.lower() == "qr":  # type: ignore
-            Q, R = torch.linalg.qr(phi_matrix)
-        elif self.config.decomposition_type.lower() == "svd":  # type: ignore
-            Q, S, V = torch.svd(phi_matrix)
-            R = torch.diag(S) @ V
+            phi = trunk(full_trunk_batch)
+        if was_training:
+            trunk.train()
 
+        D = phi.shape[1]
+
+        handler = model.output_handler
+        is_split = isinstance(handler, SplitOutputsHandler)
+        C = getattr(handler, 'num_channels')
+        if is_split:
+            if D % C != 0:
+                raise ValueError(
+                    f"Trunk outputs {D} columns but handler expects "
+                    f"{C} channels -> columns must be divisible by channels."
+                )
+            P = D // C
         else:
-            raise NotImplementedError(
-                # type: ignore
-                f"Decomposition type '{self.config.decomposition_type}' is not implemented."
-            )
-        T = torch.linalg.pinv(R)
+            P = D
+
+        R_blocks, T_blocks = [],[]
+
+        def _svd_block(mat: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
+            _, S, Vh = torch.linalg.svd(mat, full_matrices=True)
+            R = torch.diag(S) @ Vh
+            T = Vh.T @ torch.diag(1.0 / S)
+            return R, T
+        
+        def _qr_block(mat: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
+            _, R = torch.linalg.qr(mat)
+            T = torch.linalg.inv(R)
+            return R, T
+
+        use_qr = (self.config.decomposition_type.lower() == "qr")
+
+        if is_split:
+            for c in range(C):
+                cols = slice(c * P, (c + 1) * P)
+                phi_ch = phi[:, cols]
+                if use_qr:
+                    R_ch, T_ch = _qr_block(phi_ch)
+                else:
+                    R_ch, T_ch = _svd_block(phi_ch)
+                R_blocks.append(R_ch)
+                T_blocks.append(T_ch)
+
+            R = torch.block_diag(*R_blocks) # (C·P, C·P)
+            T = torch.block_diag(*T_blocks) 
+        else:
+            R, T = (_qr_block(phi) if use_qr else _svd_block(phi)) # (P, P)
+
+        if was_training:
+            trunk.train()
+
         return R, T

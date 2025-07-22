@@ -21,6 +21,8 @@ class BranchConfig:
     # Architecture-specific parameters (for neural)
     hidden_layers: Optional[list[int]] = None
     dropout_rates: Optional[list[float]] = None
+    batch_normalization: Optional[list[bool]] = None
+    layer_normalization: Optional[list[bool]] = None
     activation: Optional[Callable | str] = None
     degree: Optional[int] = None
     # Matrix-specific parameters

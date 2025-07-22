@@ -2,11 +2,17 @@ from __future__ import annotations
 from collections import defaultdict
 from typing import Any
 import matplotlib.pyplot as plt
+from matplotlib.ticker import PercentFormatter
 import numpy as np
 
+plt.rc('font', family='serif', size=15)
+plt.rc('text', usetex=True)
+plt.rc('axes', labelsize=14)
+plt.rc('legend', fontsize=12)
+
 error_label_map = {
-    'vector_l2': r'$L_{2} [\%]$',
-    'matrix_fro': r'$L_{F} [\%]$',
+    'vector_l2': r'$L_{2}$',
+    'matrix_fro': r'$L_{F}$',
 }
 
 loss_label_map = {

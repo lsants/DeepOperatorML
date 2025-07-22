@@ -15,7 +15,6 @@ if TYPE_CHECKING:
 class VanillaStrategy(TrainingStrategy):
     def __init__(self, config: VanillaConfig):
         super().__init__(config)
-        self.epochs = config.epochs
         self.error_metric = ERROR_METRICS[config.error.lower()]
 
     def prepare_components(self, model_config: ModelConfig):
@@ -52,7 +51,7 @@ class VanillaStrategy(TrainingStrategy):
                 trainable_params.append(param)
         return trainable_params
 
-    def get_train_schedule(self) -> list[tuple[int, torch.optim.Optimizer, torch.optim.lr_scheduler._LRScheduler]]:
+    def get_train_schedule(self) -> list[tuple[int, torch.optim.optimizer.Optimizer, torch.optim.lr_scheduler._LRScheduler]]:
         if not hasattr(self, 'train_schedule'):
             raise ValueError(
                 "Training schedule not set up. Call setup_training first.")

@@ -83,6 +83,7 @@ def train_model(
                                     branch_batch_size=train_cfg.branch_batch_size,
                                     num_trunk_samples=train_trunk_samples,
                                     trunk_batch_size=train_cfg.trunk_batch_size,
+                                    shuffle=False
                                     )
 
     val_sampler = DeepONetSampler(num_branch_samples=val_branch_samples,
@@ -120,7 +121,7 @@ def train_model(
         )
     )
 
-    model.to(device=exp_cfg.device, dtype=exp_cfg.precision)
+    model.to(device=exp_cfg.device, dtype=exp_cfg.precision) # type: ignore
 
     PathConfig.create_directories(path_cfg)
 
@@ -160,9 +161,15 @@ def train_model(
 
     exp_cfg = format_exp_cfg(exp_cfg)
 
+
+
     if hasattr(train_strategy, 'final_trunk_config'):
         final_model_config = deepcopy(exp_cfg.model)
         final_model_config.trunk = train_strategy.final_trunk_config  # type: ignore
+        final_model_config.trunk.pod_basis = None
+        if final_model_config.trunk.inner_config is not None:
+            final_model_config.trunk.inner_config.pod_basis = None
+        final_model_config.branch = train_strategy.final_branch_config  # type: ignore
     else:
         final_model_config = exp_cfg.model
 
