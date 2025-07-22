@@ -5,7 +5,7 @@ from tqdm.auto import tqdm
 from pathlib import Path
 from src.modules.pipe.pipeline_config import DataConfig, TestConfig
 # from src.problems.kelvin.plot_field import plot_3D_field
-# from src.problems.kelvin.plot_basis import plot_basis
+from src.problems.kelvin.plot_basis import plot_basis
 from src.problems.kelvin.plot_coeffs import plot_coefficients, plot_coefficients_mean
 
 logger = logging.getLogger(__file__)
@@ -52,29 +52,28 @@ logger = logging.getLogger(__file__)
 #         plt.close()
 
 
-# def plot_basis_helper(data: dict[str, Any], data_cfg: DataConfig, plot_path: Path):
-#     if data['bias'].ndim > 1:
-#         fig_bias = plot_basis(
-#             coords=data['coordinates'],
-#             basis=data['bias'],
-#             index=0,
-#             target_labels=data_cfg.targets_labels
-#         )
-#         fig_basis_path = plot_path / f"bias.png"
-#         fig_bias.savefig(fig_basis_path)
-#         plt.close()
+def plot_basis_helper(data: dict[str, Any], data_cfg: DataConfig, plot_path: Path):
+    if data['bias'].ndim > 1:
+        fig_bias = plot_basis(
+            coords=data['coordinates'],
+            basis=data['bias'],
+            index=0,
+            target_labels=data_cfg.targets_labels
+        )
+        fig_basis_path = plot_path / f"bias.png"
+        fig_bias.savefig(fig_basis_path)
+        plt.close()
 
-#     for i in tqdm(range(1, len(data['basis']) + 1), colour='blue'):
-#         fig_basis = plot_basis(
-#             coords=data['coordinates'],
-#             basis=data['basis'][i - 1],
-#             index=i,
-#             target_labels=data_cfg.targets_labels
-#         )
-#         fig_basis_path = plot_path / f"vector_{i}.png"
-#         fig_basis.savefig(fig_basis_path)
-#         plt.close()
-
+    for i in tqdm(range(1, len(data['basis']) + 1), colour='blue'):
+        fig_basis = plot_basis(
+            coords=data['coordinates'],
+            basis=data['basis'][i - 1],
+            index=i,
+            target_labels=data_cfg.targets_labels
+        )
+        fig_basis_path = plot_path / f"vector_{i}.png"
+        fig_basis.savefig(fig_basis_path)
+        plt.close()
 
 def plot_coefficients_helper(data: dict[str, Any], data_cfg: DataConfig, metadata: dict[str, Any], plot_path: Path):
     mask = [i for i in metadata.keys() if i != 'percentiles']
@@ -84,15 +83,18 @@ def plot_coefficients_helper(data: dict[str, Any], data_cfg: DataConfig, metadat
     for param in mask:
         sample_map = metadata[param]
         for count, idx in enumerate(sample_map['indices']):
-            param_val = sample_map['values'][count]
+            param_val_0 = metadata[mask[0]]['values'][count]
+            param_val_1 = metadata[mask[1]]['values'][count]
             fig_coeffs = plot_coefficients(
                 branch_output_sample=data['coefficients'][idx],
                 basis=data['basis'],
                 input_function_map={
-                    data_cfg.input_functions[0]: param_val},
+                    data_cfg.input_functions[0]: param_val_0,
+                    data_cfg.input_functions[1]: param_val_1,
+                    },
                 target_labels=data_cfg.targets_labels
             )
-            val_str = f"{param_val:.3E}"
+            val_str = f"{sample_map['values'][count]:.3E}"
             file_name = f"{for_filename[param]}_{percentiles[count]}_perc_{val_str}.png"
             fig_coeffs_path = plot_path / file_name
             fig_coeffs.savefig(fig_coeffs_path)

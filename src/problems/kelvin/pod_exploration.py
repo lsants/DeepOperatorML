@@ -1,5 +1,11 @@
 import numpy as np
+import os
+import plotly.express as px
 import matplotlib.pyplot as plt
+from sklearn.decomposition import PCA
+import http.server
+import socketserver
+import webbrowser
 
 def plot_pod_mode_3d(x_coords: np.ndarray, y_coords: np.ndarray, z_coords: np.ndarray,
                      mode_values: np.ndarray, title: str = "POD Mode 3D Plot"):
@@ -38,7 +44,6 @@ def plot_pod_mode_3d(x_coords: np.ndarray, y_coords: np.ndarray, z_coords: np.nd
                 "Please ensure mode_values is flattened correctly (e.g., mode_values = mode_values.flatten())."
             )
 
-    # Create a new figure and a 3D subplot
     fig = plt.figure(figsize=(10, 8))
     ax = fig.add_subplot(111, projection='3d')
 
@@ -53,7 +58,6 @@ def plot_pod_mode_3d(x_coords: np.ndarray, y_coords: np.ndarray, z_coords: np.nd
     cbar = fig.colorbar(scatter, ax=ax, pad=0.1)
     cbar.set_label("Mode Value")
 
-    # Set labels for the axes and the title of the plot
     ax.set_xlabel("X-axis")
     ax.set_ylabel("Y-axis")
     ax.set_zlabel("Z-axis")
@@ -67,9 +71,66 @@ def plot_pod_mode_3d(x_coords: np.ndarray, y_coords: np.ndarray, z_coords: np.nd
 
 
 pod_path = '/Users/ls/Workspace/SSI_DeepONet/data/processed/kelvin/f83e9497/pod.npz'
-# processed_path = '/Users/ls/Workspace/SSI_DeepONet/data/processed/rajapakse_fixed_material/a37f8126/data.npz'
-# data = np.load(processed_path)
-# g_u = data['g_u']
+processed_path = '/Users/ls/Workspace/SSI_DeepONet/data/processed/kelvin/f83e9497/data.npz'
+data = np.load(processed_path)
+g_u_original = data['g_u']
+g_u = data['g_u'].reshape(500, -1)
+num_time_steps = g_u_original.shape[0]
+num_channels = g_u_original.shape[-1]
+spatial_dims_product = np.prod(g_u_original.shape[1:-1])
+pca = PCA(n_components=3)
+# Initialize lists to store components and their corresponding channel labels
+all_components = []
+channel_labels = []
+channels = ['x', 'y', 'z']
+
+for i in range(num_channels):
+    current_channel_data = g_u_original[:, ..., i]
+
+    current_channel_data_reshaped = current_channel_data.reshape(num_time_steps, -1)
+
+    components_channel_i = pca.fit_transform(current_channel_data_reshaped)
+
+    # Store the components
+    all_components.append(components_channel_i)
+
+    # Create labels for this channel's components
+    # Each label indicates which channel the PCA point belongs to
+    channel_labels.extend([f'Channel {channels[i]}'] * num_time_steps)
+
+# Concatenate all components into a single NumPy array
+# The shape will be (num_time_steps * num_channels, 3)
+final_components = np.vstack(all_components)
+
+
+
+fig = px.scatter_3d(final_components,
+                    x=0, y=1, z=2, # Specify columns for x, y, z
+                    color=channel_labels,
+                    labels={'0': 'x', '1': 'y', '2': 'z'}, # Custom labels
+                    title="PCA Components 3D Plot")
+
+# --- Save the Plotly figure to an HTML file ---
+html_file_path = "pca_3d_plot.html"
+fig.write_html(html_file_path, auto_open=False) # auto_open=False to open manually via server
+
+print(f"Plotly figure saved to: {os.path.abspath(html_file_path)}")
+
+PORT = 8000 # You can use any available port
+Handler = http.server.SimpleHTTPRequestHandler
+
+with socketserver.TCPServer(("", PORT), Handler) as httpd:
+    print(f"Serving at http://localhost:{PORT}/{html_file_path}")
+    # Open the browser to the served file
+    webbrowser.open_new_tab(f"http://localhost:{PORT}/{html_file_path}")
+
+    # To keep the server running until you manually stop it (Ctrl+C)
+    print("Press Ctrl+C to stop the server.")
+    try:
+        httpd.serve_forever()
+    except KeyboardInterrupt:
+        print("\nServer stopped.")
+
 pod_data = np.load(pod_path)
 stacked_basis = pod_data['stacked_basis']
 stacked_mean = pod_data['stacked_mean']
@@ -83,15 +144,25 @@ print(stacked_basis.shape, stacked_mean.shape,
 # plt.show()
 
 
-test_1 = split_basis.T
-for i in range(test_1.shape[0]):
-    print(test_1.shape)
-    x_coords = np.arange(20)
-    y_coords = np.arange(20)
-    z_coords = np.arange(20)
-    fig = plot_pod_mode_3d(x_coords, y_coords, z_coords, test_1[i].reshape(20, 20, 20).T)
-    plt.show()
+test_1 = split_basis.T.reshape(3, 20, 20, 20)
+test_2 = (test_1.swapaxes(0, 3) - test_1.mean(axis=(1, 2, 3))) / test_1.std(axis=(1, 2, 3))
+# for i in range(test_1.shape[0]):
+#     print(test_2.shape)
+#     x_coords = np.linspace(0, 1, 20)
+#     y_coords = np.linspace(0, 1, 20)
+#     z_coords = -np.linspace(0, 1, 20)
+#     fig = plot_pod_mode_3d(x_coords, y_coords, z_coords, test_2[i])
+#     plt.show()
 # fig = plot_basis_function(g_u_full[0].T.imag)
 # plt.show()
-plot_pod_mode_3d(
-    x, y, z, single_basis_pod[:, 0], title="Single Basis POD Mode 0")
+# print(stacked_basis)
+# quit()
+# x_coords = np.linspace(0, 1, 20)
+# y_coords = np.linspace(0, 1, 20)
+# z_coords = -np.linspace(0, 1, 20)
+# U, V = np.meshgrid(test_1[0, :, 0, 0], test_1[0, 0, 0, :])
+# fig, ax = plt.subplots()
+# q = ax.quiver(x_coords, z_coords, U, V)
+# plt.show()
+# plot_pod_mode_3d(
+#     x_coords, y_coords, z_coords, split_basis[:, 0], title="Single Basis POD Mode 0")

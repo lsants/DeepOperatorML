@@ -20,8 +20,6 @@ class TransformConfig:
     target: ComponentTransformConfig
     device: str | torch.device  # Will be set from TrainConfig
     dtype: torch.dtype  # Will be set from TrainConfig
-    target_normalization: Optional[Literal["minmax_0_1",
-                                           "minmax_-1_1", "standardize"]] = None
 
     @classmethod
     def from_train_config(cls,

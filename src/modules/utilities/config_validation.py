@@ -34,10 +34,6 @@ def validate_config_compatibility(
         data_cfg=data_cfg
     )
 
-    # Strategy-specific rules
-    if train_cfg.model.strategy.name == 'pod':
-        if train_cfg.transforms.target_normalization is not None:
-            raise ValueError("POD requires unnormalized outputs")
 
 
 def validate_normalization(
@@ -62,14 +58,14 @@ def validate_normalization(
                 f"Missing '{data_cfg.features[1]}_std' in scalers")
 
     # Output normalization
-    if transform_cfg.target_normalization == 'minmax_0_1' or \
-            transform_cfg.target_normalization == 'minmax_-1_1':
+    if transform_cfg.target.normalization == 'minmax_0_1' or \
+            transform_cfg.target.normalization == 'minmax_-1_1':
         if f'{data_cfg.targets[0]}_min' not in data_cfg.scalers:
             raise ValueError(f"Missing '{data_cfg.targets[0]}_min' in scalers")
         if f'{data_cfg.targets[0]}_max' not in data_cfg.scalers:
             raise ValueError(f"Missing '{data_cfg.targets[0]}_min' in scalers")
 
-    if transform_cfg.target_normalization == 'standardize':
+    if transform_cfg.target.normalization == 'standardize':
         if f'{data_cfg.targets[0]}_mean' not in data_cfg.scalers:
             raise ValueError(
                 f"Missing '{data_cfg.targets[0]}_mean' in scalers")

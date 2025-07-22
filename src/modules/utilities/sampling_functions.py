@@ -23,8 +23,8 @@ def numpy_random_open_0_1(size=None):
 
 #     return c * (numerator / denominator)
 
-def mesh_rescaling(arr: np.ndarray, c: float) -> np.ndarray:
-    return arr
-
 # def mesh_rescaling(arr: np.ndarray, c: float) -> np.ndarray:
-#     return c * np.log(arr / (1 - arr))
+#     return arr
+
+def mesh_rescaling(arr: np.ndarray, c: float) -> np.ndarray:
+    return c * np.log(arr / (1 - arr))

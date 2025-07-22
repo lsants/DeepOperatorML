@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 from matplotlib.patches import ConnectionPatch
 import matplotlib.ticker as ticker
 
-plt.rc('font', family='serif', size=15)
+plt.rc('font', family='serif', size=14)
 plt.rc('text', usetex=True)
 plt.rc('axes', labelsize=14)
 plt.rc('legend', fontsize=12)
@@ -84,7 +84,7 @@ def plot_coefficients(branch_output_sample: np.ndarray, basis: np.ndarray, input
 
     colors = ['crimson', 'goldenrod', 'royalblue']
 
-    fig_width, fig_height = 10, 5
+    fig_width, fig_height = 14, 5
     plt.subplots_adjust(wspace=0.1)
     wspace = 0.2
     subplot_width = (fig_width - (len(branch_output_sample) - 1)
@@ -101,7 +101,7 @@ def plot_coefficients(branch_output_sample: np.ndarray, basis: np.ndarray, input
         axes[i].set_xlabel(r'$i$')
         axes[i].set_ylabel(r'$i$-th coefficient')
         axes[i].set_title(
-            f'{target_labels[i]} for {parameters_map[0][0]}={parameters_map[0][1]:.3E}')
+            f'{target_labels[i]} ({parameters_map[0][0]}={parameters_map[0][1]:.1E}, {parameters_map[1][0]}={parameters_map[1][1]:.1E})')
 
         # positions = []
         # for j, coeff in enumerate(channel):

@@ -146,8 +146,8 @@ def compute_pod(
 
         explained_variance_ratio = np.cumsum(
             S**2) / np.linalg.norm(S, ord=2)**2
-
-        n_vectors = (explained_variance_ratio < var_share).sum().item()
+        
+        n_vectors = max(1, (explained_variance_ratio < var_share).sum().item())
 
         basis = spatial_vectors[:, : n_vectors]  # (n_space, n_vectors)
 
