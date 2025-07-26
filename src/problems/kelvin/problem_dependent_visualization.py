@@ -63,39 +63,31 @@ def run_problem_specific_plotting(data: dict[str, Any], data_cfg: DataConfig, te
 
     save_plot_metadata(metadata, str(plots_path))
 
-    # plane_plots_path = plots_path / 'plane_plots'
-    # axis_plots_path = plots_path / 'axis_plots'
-    # basis_plots_path = plots_path / 'basis_plots'
+    plane_plots_path = plots_path / 'plane_plots'
+    basis_plots_path = plots_path / 'basis_plots'
     coefficients_plots_path = plots_path / 'coefficients_plots'
 
-    for path in [coefficients_plots_path]:
+    for path in [coefficients_plots_path, plane_plots_path]:
         path.mkdir(exist_ok=True)
 
     if test_cfg.config is None:
         raise AttributeError("Plotting config not found.")
 
-    # if test_cfg.config['plot_plane']:
-    #     helper.plot_planes_helper(
-    #         data=data, 
-    #         data_cfg=data_cfg, 
-    #         metadata=metadata, 
-    #         plot_path=plane_plots_path
-    #     )
+    if test_cfg.config['plot_plane']:
+        helper.plot_planes_helper(
+            data=data, 
+            data_cfg=data_cfg, 
+            metadata=metadata, 
+            plot_path=plane_plots_path,
+            test_cfg=test_cfg
+        )
 
-    # if test_cfg.config['plot_axis']:
-    #     helper.plot_axis_helper(
-    #         data=data,
-    #         data_cfg=data_cfg,
-    #         metadata=metadata,
-    #         plot_path=axis_plots_path
-    #     )
-
-    # if test_cfg.config['plot_basis']:
-    #     helper.plot_basis_helper(
-    #         data=data,
-    #         data_cfg=data_cfg,
-    #         plot_path=basis_plots_path
-    #     )
+    if test_cfg.config['plot_basis']:
+        helper.plot_basis_helper(
+            data=data,
+            data_cfg=data_cfg,
+            plot_path=basis_plots_path
+        )
 
     if test_cfg.config['plot_coefficients']:
         helper.plot_coefficients_helper(

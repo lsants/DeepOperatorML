@@ -1,13 +1,6 @@
 import numpy as np
+import pyvista as pv
 import matplotlib.pyplot as plt
-
-
-plt.rc('font', family='serif', size=15)
-plt.rc('text', usetex=True)
-plt.rc('axes', labelsize=14)
-plt.rc('legend', fontsize=12)
-cmap = plt.get_cmap('viridis') # # tried: 'RdBu'
-plt.rc('image', cmap=cmap.name)
 
 plt.rc('font', family='serif', size=15)
 plt.rc('text', usetex=True)

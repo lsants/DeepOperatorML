@@ -13,14 +13,14 @@ cmap = plt.get_cmap('viridis') # # tried: 'RdBu'
 plt.rc('image', cmap=cmap.name)
 # matplotlib.rcParams['text.latex.preamble'] = r'\math'
 
-
-def plot_2D_field(coords: dict[str, np.ndarray],
-                  truth_field: np.ndarray,
-                  pred_field: np.ndarray,
-                  input_function_labels: list[str],
-                  input_function_value: list[float],
-                  target_labels: list[str]
-                  ) -> plt.Figure:
+def plot_2D_field(
+        coords: dict[str, np.ndarray],
+        truth_field: np.ndarray,
+        pred_field: np.ndarray,
+        input_function_labels: list[str],
+        input_function_value: list[float],
+        target_labels: list[str]
+    ) -> plt.Figure:
     dims = list(coords.keys())
     if len(dims) < 2:
         raise ValueError(

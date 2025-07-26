@@ -1,37 +1,39 @@
 # ------------------- Model architecture ------------------
 seed: 42
-training_strategy: pod
-output_handling: shared_trunk
+training_strategy: two_step
+output_handling: split_outputs
 num_basis_functions: 30
 branch:
   architecture: resnet
   activation: relu
-  hidden_layers: [256, 256, 128, 128, 128]
-  dropout_rates: [0.0, 0.0, 0.0, 0.1, 0.0, 0.0]
-  batch_normalization: [False, False, False, False, False, False]
-  layer_normalization: [False, False, False, False, False, False]
+  hidden_layers: [256, 256, 256, 128, 128, 128, 128]
+  dropout_rates: [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+  batch_normalization: [False, False, False, False, False, False, False, False]
+  layer_normalization: [False, False, False, False, False, False, False, False]
   degree: 8
 trunk:
   architecture: resnet
-  activation: relu
-  hidden_layers: [256, 256, 128, 128, 128]
-  dropout_rates: [0.0, 0.0, 0.0, 0.1, 0.1, 0.0]
-  batch_normalization: [False, True, False, False, False, False]
-  layer_normalization: [False, False, False, True, False, False]
+  activation: silu
+  hidden_layers: [256, 256, 256, 128, 128, 128, 128]
+  dropout_rates: [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.1, 0.0]
+  batch_normalization: [False, False, False, False, False, False, False, False]
+  layer_normalization: [False, False, False, False, False, False, False, False]
   degree: 8
+bias:
+  use_zero_bias: true
 loss_function: mse
 transforms:
   branch:
-    normalization: standardize
+    normalization: standardize # check if channel-wise
     feature_expansion: null
   trunk:
-    normalization: minmax_-1-1 # minmax_0_1, minmax_-1_1, standardize, null
-    feature_expansion:
-      # null
+    normalization: standardize # minmax_0_1, minmax_-1_1, standardize, null
+    feature_expansion: #null
       type: cosine
       size: 5
   target:
-    normalization: null
+    normalization: standardize
+    feature_expansion: null
 rescaling:
   exponent: 0 #  Used to rescale the output of the DeepONet by the number of basis functions to the power of the exponent (use exponent < 0).
 
@@ -43,14 +45,18 @@ branch_batch_size: 400 # Can't be null
 trunk_batch_size: null
 error: matrix_fro
 optimizer_schedule:
-  - epochs: 400
+  - epochs: 2000
     optimizer_type: adam
     learning_rate: 0.001
-    l2_regularization: 0.0000
+    l2_regularization: 0.00000001
     lr_scheduler:
       type: step
-      step_size: 2000
-      gamma: 0.5
+      step_size: 500
+      gamma: 0.7
+  - epochs: 1000
+    optimizer_type: adam
+    learning_rate: 0.0001
+    l2_regularization: 0.0000000
 
 # ------------------- Parameters for two step training ------------------
 decomposition_type: svd
@@ -60,17 +66,21 @@ two_step_optimizer_schedule:
     - epochs: 500
       optimizer_type: adam
       learning_rate: 0.001
-      l2_regularization: 0.00001
+      l2_regularization: 1.0e-5
+    - epochs: 500
+      optimizer_type: adam
+      learning_rate: 0.001
+      l2_regularization: 1.0e-5
       lr_scheduler:
         type: step
-        step_size: 500
+        step_size: 100
         gamma: 0.7
 
   branch_phase:
-    - epochs: 1000
+    - epochs: 2000
       optimizer_type: adam
       learning_rate: 0.001
-      l2_regularization: 0.00001
+      l2_regularization: 0.000001
       lr_scheduler:
         type: step
         step_size: 500

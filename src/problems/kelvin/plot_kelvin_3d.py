@@ -1,106 +1,113 @@
 import numpy as np
-import matplotlib.pyplot as plt
-from pathlib import Path
-from mpl_toolkits.mplot3d import Axes3D  # noqa: F401 (needed for 3D projection)
+import pyvista as pv
+
+raw_path = './data/raw/kelvin/kelvin_v4.npz'
+raw_data = np.load(raw_path)
+
+all_vectors = raw_data['g_u']
+n_samples = all_vectors.shape[0]
+
+sample_index_to_plot = 1
+vector_field_3d = all_vectors[sample_index_to_plot]
+
+x_coords = raw_data['x']
+y_coords = raw_data['y']
+z_coords = raw_data['z']
+
+X, Y, Z = np.meshgrid(x_coords, y_coords, z_coords, indexing='ij')
+
+pl = pv.Plotter(window_size=(1500, 900))
+
+full_grid = pv.StructuredGrid(X, Y, Z)
+pl.add_mesh(full_grid.outline(), color='gray', line_width=1)
+
+stride = 2
+
+X_sub = X[::stride, ::stride, ::stride]
+Y_sub = Y[::stride, ::stride, ::stride]
+Z_sub = Z[::stride, ::stride, ::stride]
+sub_grid = pv.StructuredGrid(X_sub, Y_sub, Z_sub)
+
+sub_vectors_3d = vector_field_3d[::stride, ::stride, ::stride, :]
 
 
-def plot_kelvin_solution(
-    data: dict[str, np.ndarray],
-    sample_index: int = 0,
-    stride: int = 1,
-) -> None:
-    """
-    Load a .npz file produced by the Kelvin‐solution generator and plot
-    the 3D displacement field (quiver) for one branch sample.
+sub_vectors_flat = sub_vectors_3d.reshape(-1, 3)
 
-    Args:
-        npz_path (str): Path to the .npz file containing:
-                        F, mu, nu, x, y, z, g_u.
-        sample_index (int): Index of the branch sample to visualize (default: 0).
-        stride (int): Plot every 'stride' points along each axis to reduce clutter.
-                      E.g., stride=2 will plot every other point in x,y,z.
-    """
-    # 1. Load data
-    x_field: np.ndarray = data["x"]         # shape (n_x,)
-    y_field: np.ndarray = data["y"]         # shape (n_y,)
-    z_field: np.ndarray = data["z"]         # shape (n_z,)
-    g_u: np.ndarray = data["g_u"]           # shape (N, n_x, n_y, n_z, 3)
+sub_grid['vectors'] = sub_vectors_flat
 
-    N, n_x, n_y, n_z, _ = g_u.shape
+sub_grid['magnitude'] = np.linalg.norm(sub_vectors_flat, axis=1)
 
-    if sample_index < 0 or sample_index >= N:
-        raise IndexError(
-            f"sample_index {sample_index} out of bounds (0 ≤ i < {N}).")
+arrows = sub_grid.glyph(
+    orient='vectors',
+    scale=False,
+    factor=0.1,
+    geom=pv.Arrow()
+)
 
-    # 2. Create a meshgrid of all (x,y,z) points
-    # each shape (n_x, n_y, n_z)
-    X, Y, Z = np.meshgrid(x_field, y_field, z_field, indexing="ij")
+pl.add_mesh(
+    arrows,
+    cmap='viridis',
+    show_scalar_bar=True,
+    scalar_bar_args={'title': 'Vector Magnitude'}
+)
 
-    # 3. Extract the displacement vectors for the chosen sample
-    #    g_u has shape (N, n_x, n_y, n_z, 3). We take index sample_index:
-    U_sample: np.ndarray = g_u[sample_index,
-                               :, :, :, :]  # shape (n_x, n_y, n_z, 3)
+pl.add_axes(
+    xlabel='X',
+    ylabel='Y',
+    zlabel='Z'
+)
 
-    # 4. Optionally subsample every `stride` points to avoid overcrowding
-    Xs = X[::stride, ::stride, ::stride]
-    Ys = Y[::stride, ::stride, ::stride]
-    Zs = Z[::stride, ::stride, ::stride]
-    Us = U_sample[::stride, ::stride, ::stride, :]
+# axes = pl.add_axes_at_origin(
+#     x_color='red',   # X‐axis in red
+#     y_color='green', # Y‐axis in green
+#     z_color='blue',  # Z‐axis in blue
+#     line_width=0.1
+# )
 
-    # 5. Flatten for plotting
-    #    Each of Xs, Ys, Zs, Us[...,0], Us[...,1], Us[...,2] will become 1D arrays
-    X_flat = Xs.ravel()
-    Y_flat = Ys.ravel()
-    Z_flat = Zs.ravel()
-    Ux_flat = Us[..., 0].ravel()
-    Uy_flat = Us[..., 1].ravel()
-    Uz_flat = Us[..., 2].ravel()
-
-    # 6. Build a 3D quiver plot
-    fig = plt.figure(figsize=(10, 8))
-    ax = fig.add_subplot(111, projection="3d")
-
-    # quiver: (x, y, z, u, v, w), length=scale of arrows
-    ax.quiver(
-        X_flat,
-        Y_flat,
-        Z_flat,
-        Ux_flat,
-        Uy_flat,
-        Uz_flat,
-        length=0.1 * np.max([x_field.ptp(), y_field.ptp(), z_field.ptp()]),
-        normalize=True,
-        linewidth=0.5,
-    )
-
-    ax.set_title(f"Kelvin Displacement Field (sample {sample_index})")
-    ax.set_xlabel("x")
-    ax.set_ylabel("y")
-    ax.set_zlabel("z")
-    plt.tight_layout()
-    plt.show()
+# for caption_actor in (
+#     axes.GetXAxisCaptionActor2D(),
+#     axes.GetYAxisCaptionActor2D(),
+#     axes.GetZAxisCaptionActor2D(),
+# ):
+#     txt_prop = caption_actor.GetCaptionTextProperty()
+#     txt_prop.SetFontSize(3)        # shrink this number to taste
+#     txt_prop.BoldOff()              # if you want them normal weight
 
 
-if __name__ == "__main__":
-    # ─── USER CONFIGURATION ─────────────────────────────────────────────────────
-    # Path to the .npz file you’ve saved in your generate() step:
-    npz_filename = "/Users/ls/Workspace/SSI_DeepONet/data/raw/kelvin/kelvin_v4.npz"
 
-    # Which branch‐sample index to plot (0 ≤ sample_index < N):
-    sample_to_plot = 0
+axis_length = 1e-3
 
-    # To reduce arrow density, you can set stride > 1 (e.g., stride=2 or 3),
-    # otherwise keep stride=1 to plot every grid point.
-    subsample_stride = 2
-    vector_display_scale = 1000
-    # ─────────────────────────────────────────────────────────────────────────────
+arrow_kwargs = dict(
+    tip_length=0.05,    # fraction of total length
+    tip_radius=0.02,
+    shaft_radius=0.005,
+    scale=1   # scale the whole arrow to `axis_length`
+)
 
-    # Verify file exists
-    if not Path(npz_filename).is_file():
-        raise FileNotFoundError(f"Cannot find file: {npz_filename}")
 
-    plot_kelvin_solution(
-        npz_path=npz_filename,
-        sample_index=sample_to_plot,
-        stride=subsample_stride,
-    )
+# X–axis (red)
+arrow_x = pv.Arrow(start=(0, 0, 0), direction=(1, 0, 0), **arrow_kwargs)
+pl.add_mesh(arrow_x, color='red', name='X axis')
+
+letter = 'x'
+dir_arr = np.array((1,0,0)) / np.linalg.norm((1,0,0))
+tip_pos = dir_arr * axis_length * (1 + arrow_kwargs['tip_length'] + 0.02)
+
+# txt_x = pv.Text3D(letter,
+#                   depth=axis_length*0.02,
+#                   center=tip_pos,
+#                   direction=
+# #                 )
+# pl.add_mesh(txt_x, color='black', name='X axis')
+
+
+# Y–axis (green)
+arrow_y = pv.Arrow(start=(0, 0, 0), direction=(0, 1, 0), **arrow_kwargs)
+pl.add_mesh(arrow_y, color='green', name='Y axis')
+
+# Z–axis (blue)
+arrow_z = pv.Arrow(start=(0, 0, 0), direction=(0, 0, 1), **arrow_kwargs)
+pl.add_mesh(arrow_z, color='blue', name='Z axis')
+
+pl.camera_position = 'iso'
+pl.show()

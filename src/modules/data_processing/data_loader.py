@@ -1,11 +1,8 @@
 from __future__ import annotations
 import numpy as np
-import torch
-import pathlib
 from typing import Any
 from collections.abc import Mapping
-from .deeponet_transformer import DeepONetTransformPipeline
-
+from src.modules.data_processing.deeponet_transform import DeepONetTransformPipeline
 
 def slice_data(data: Mapping[str, np.ndarray],
                feature_keys: list[str],
@@ -104,71 +101,3 @@ def get_stats(data: dict[str, np.ndarray], keys: list[str]) -> dict[str, Any]:
             }
     return stats
 
-
-def don_to_meshgrid(arr: np.ndarray) -> tuple[np.ndarray]:
-    """
-    Recovers the original coordinate arrays from a trunk (or branch) array.
-
-    Assumes that the trunk array was created via a meshgrid operation (with 'ij' indexing)
-    from one or more 1D coordinate arrays. The trunk is a 2D array of shape (N, d) where d is
-    the number of coordinate dimensions and N is the product of the lengths of the coordinate arrays.
-
-    Returns a tuple of d 1D arrays containing the unique coordinate values for each dimension.
-    For example, for a 2D case it returns (r, z); for a 3D case, (x, y, z).
-
-    Args:
-        arr (numpy.ndarray): Trunk array of shape (N, d).
-
-    Returns:
-        tuple: A tuple of d 1D numpy arrays corresponding to the coordinates.
-    """
-    d = arr.shape[1]
-    coords = tuple(np.unique(arr[:, i]) for i in range(d))
-    return coords
-
-
-def meshgrid_to_don(*coords: np.ndarray) -> np.ndarray:
-    """
-    Generates the trunk/branch matrix for DeepONet training from given coordinate arrays.
-
-    This function accepts either multiple coordinate arrays as separate arguments,
-    or a single argument that is a list (or tuple) of coordinate arrays. It returns
-    a 2D array where each row corresponds to one point in the Cartesian product of the
-    input coordinate arrays.
-
-    Examples:
-        For 2D coordinates:
-            xt = meshgrid_to_trunk(r_values, z_values)
-        For 3D coordinates:
-            xt = meshgrid_to_trunk(x_values, y_values, z_values)
-        Or:
-            xt = meshgrid_to_trunk([x_values, y_values, z_values])
-
-    Args:
-        *coords: One or more 1D numpy arrays representing coordinate values.
-
-    Returns:
-        numpy.ndarray: A 2D array of shape (N, d) where d is the number of coordinate arrays
-                       and N is the product of the lengths of these arrays.
-    """
-
-    if len(coords) == 1 and isinstance(coords[0], (list, tuple)):
-        coords = coords[0]
-
-    meshes = np.meshgrid(*coords, indexing='ij')
-
-    data = np.column_stack([m.flatten() for m in meshes])
-    return data
-
-
-def get_trained_model_params(path: str | pathlib.Path) -> dict[str, Any]:
-    """
-    Loads the trained model parameters from a given path.
-
-    Args:
-        path (str | pathlib.Path): Path to the file containing the model parameters.
-
-    Returns:
-        dict: A dictionary containing the model parameters.
-    """
-    return torch.load(path, weights_only=False)

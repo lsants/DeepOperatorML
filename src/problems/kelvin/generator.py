@@ -5,11 +5,10 @@ import logging
 import numpy as np
 from typing import Any
 from pathlib import Path
-from ..base_generator import BaseProblemGenerator
-from ...modules.utilities.sampling_functions import mesh_rescaling, numpy_random_open_0_1
+from src.problems.base_generator import BaseProblemGenerator
+from src.modules.utilities.sampling_functions import mesh_rescaling, numpy_random_open_0_1
 
 logger = logging.getLogger(__name__)
-
 
 class KelvinProblemGenerator(BaseProblemGenerator):
     def __init__(self, config: str | dict[str, Any]):
@@ -191,10 +190,10 @@ class KelvinProblemGenerator(BaseProblemGenerator):
             "displacement_statistics": {
                 "g_u": {
                     "shape": [i for i in displacements.shape],
-                    "min":  f"{displacements.min():.4E}",
-                    "max":  f"{displacements.max():.4E}",
-                    "mean": f"{displacements.mean():.4E}",
-                    "std":  f"{displacements.std():.4E}"
+                    "min":  ', '.join([f'{i:.4E}' for i in  displacements.min(axis=(0, 1, 2, 3))]),
+                    "max":  ', '.join([f'{i:.4E}' for i in  displacements.max(axis=(0, 1, 2, 3))]),
+                    "mean": ', '.join([f'{i:.4E}' for i in  displacements.mean(axis=(0, 1, 2, 3))]),
+                    "std":  ', '.join([f'{i:.4E}' for i in  displacements.std(axis=(0, 1, 2, 3))])
                 }
             }
         }

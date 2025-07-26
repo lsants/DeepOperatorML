@@ -3,8 +3,7 @@ import torch
 import numpy as np
 import dataclasses
 from pathlib import Path
-from typing import Optional, Literal
-from collections.abc import Callable
+from typing import Literal
 from .config import TransformConfig, ComponentTransformConfig
 from .data_augmentation.feature_expansions import FeatureExpansionConfig, FeatureExpansionRegistry
 
@@ -15,7 +14,7 @@ class DeepONetTransformPipeline:
         self.branch_stats: dict = {}
         self.trunk_stats: dict = {}
         self.target_stats: dict = {}
-        self.dimension_info: dict = {"trunk": None, "branch": None}
+        self.dimension_info: dict = {"trunk": None, "branch": None, "target": None}
 
     def fit_branch(self, branch_data: np.ndarray) -> None:
         """Compute statistics for branch normalization"""
@@ -33,7 +32,7 @@ class DeepONetTransformPipeline:
         """Compute statistics for target normalization"""
         tensor = self._to_tensor(target_data)
         self.target_stats = self._compute_stats(
-            data=tensor, norm_type=self.config.target_normalization)
+            data=tensor, norm_type=self.config.target.normalization)
 
     def _compute_stats(self, data: torch.Tensor, norm_type: str | None) -> dict:
         """Compute and return relevant statistics for normalization type"""
@@ -41,7 +40,7 @@ class DeepONetTransformPipeline:
         if norm_type == "standardize":
             stats["mean"] = data.mean(dim=0)
             stats["std"] = data.std(dim=0)
-        elif norm_type == "0_1_minmax" or norm_type == "-1_1_minmax":
+        elif norm_type == "minmax_0_1" or norm_type == "minmax_-1_1":
             stats["min"] = data.min(dim=0).values
             stats["max"] = data.max(dim=0).values
         return stats
@@ -58,7 +57,7 @@ class DeepONetTransformPipeline:
         """Set precomputed target statistics directly"""
         self.target_stats = self._convert_stats_to_tensor(stats)
 
-    def set_dimension_info(self, component: Literal["branch", "trunk"], original_dim: int) -> None:
+    def set_dimension_info(self, component: Literal["branch", "trunk", "target"], original_dim: int) -> None:
         """Set precomputed expansion information"""
         self.dimension_info[component] = original_dim
 
@@ -94,7 +93,9 @@ class DeepONetTransformPipeline:
     def transform_target(self, y: np.ndarray) -> torch.Tensor:
         """Apply target normalization"""
         tensor = self._to_tensor(y)
-        return self._apply_normalization(data=tensor, norm_type=self.config.target_normalization, stats=self.target_stats)
+        self.set_dimension_info(
+            component="target", original_dim=tensor.shape[-1])
+        return self._apply_normalization(data=tensor, norm_type=self.config.target.normalization, stats=self.target_stats)
 
     def _apply_normalization(self, data: torch.Tensor, norm_type: str | None, stats: dict) -> torch.Tensor:
         """Apply normalization using precomputed statistics"""
@@ -110,7 +111,7 @@ class DeepONetTransformPipeline:
             return 2 * (data - stats["min"]) / (stats["max"] - stats["min"]) - 1
         return data
 
-    def _apply_expansion(self, data: torch.Tensor, component: Literal["trunk", "branch"]) -> torch.Tensor:
+    def _apply_expansion(self, data: torch.Tensor, component: Literal["trunk", "branch", "target"]) -> torch.Tensor:
         """Apply feature expansion and track original dimensions"""
         expansion_cfg = getattr(self.config, component).feature_expansion
         if not expansion_cfg or expansion_cfg.type is None:
@@ -124,7 +125,7 @@ class DeepONetTransformPipeline:
         )
         return expansion_fn(data)
 
-    def inverse_transform(self, component: Literal["branch", "trunk"], tensor: torch.Tensor) -> torch.Tensor:
+    def inverse_transform(self, component: Literal["branch", "trunk", "target"], tensor: torch.Tensor) -> torch.Tensor:
         """Reverse transformations in correct order"""
         # Reverse expansion first
         if self.dimension_info.get(component):
@@ -142,10 +143,11 @@ class DeepONetTransformPipeline:
 
         if norm_type == "standardize":
             return data * stats["std"] + stats["mean"]
-        if norm_type == "0_1_minmax":
+        if norm_type == "minmax_0_1":
             return data * (stats["max"] - stats["min"]) + stats["min"]
-        if norm_type == "-1_1_minmax":
+        if norm_type == "minmax_-1_1":
             return (data + 1) * (stats["max"] - stats["min"]) / 2 + stats["min"]
+
         return data
 
     def save(self, path: Path) -> None:
@@ -156,7 +158,7 @@ class DeepONetTransformPipeline:
                 "device": str(self.config.device),
                 "branch": self._component_state("branch"),
                 "trunk": self._component_state("trunk"),
-                "target": {"normalization": self.config.target_normalization},
+                "target": self._component_state("target"),
             },
             "branch_stats": self.branch_stats,
             "trunk_stats": self.trunk_stats,
@@ -191,7 +193,12 @@ class DeepONetTransformPipeline:
                     **state["config"]["trunk"]["feature_expansion"])
                 if state["config"]["trunk"]["feature_expansion"] else None
             ),
-            target_normalization=state["config"]["target"]["normalization"],
+            target=ComponentTransformConfig(
+                normalization=state["config"]["target"]["normalization"],
+                feature_expansion=FeatureExpansionConfig(
+                    **state["config"]["target"]["feature_expansion"])
+                if state["config"]["target"]["feature_expansion"] else None
+            ),
             device=device,
             dtype=state["config"]["dtype"]
         )

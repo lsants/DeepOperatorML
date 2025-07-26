@@ -2,18 +2,18 @@ import dataclasses
 import logging
 import time
 import torch
-from .saving import Saver
+from src.modules.pipe.saving import Saver
 from copy import deepcopy
-from ..plotting import plot_training
-from ..model.config import ModelConfig
+from src.modules.plotting import plot_training
+from src.modules.model.config import ModelConfig
 from torch.utils.data import DataLoader
-from .training_loop import TrainingLoop
-from ..model.model_factory import ModelFactory
-from ..data_processing import data_loader as dtl
-from ..data_processing.deeponet_sampler import DeepONetSampler
-from ..data_processing.deeponet_dataset import DeepONetDataset
-from ..data_processing.deeponet_transformer import DeepONetTransformPipeline
-from ..pipe.pipeline_config import TrainConfig, DataConfig, ExperimentConfig, PathConfig, format_exp_cfg
+from src.modules.pipe.training_loop import TrainingLoop
+from src.modules.model.model_factory import ModelFactory
+from src.modules.data_processing import data_loader as dtl
+from src.modules.data_processing.deeponet_sampler import DeepONetSampler
+from src.modules.data_processing.deeponet_dataset import DeepONetDataset
+from src.modules.data_processing.deeponet_transform import DeepONetTransformPipeline
+from src.modules.pipe.pipeline_config import TrainConfig, DataConfig, ExperimentConfig, PathConfig, format_exp_cfg
 
 logger = logging.getLogger(name=__name__)
 
@@ -24,7 +24,7 @@ def train_model(
 ):
 
     torch.random.manual_seed(train_cfg.seed)
-    path_cfg = PathConfig.from_data_config(data_cfg=data_cfg)
+    path_cfg = PathConfig.from_data_config(data_cfg=data_cfg) # TODO: only create paths after model finishes training.
 
     exp_cfg = ExperimentConfig.from_dataclasses(
         data_cfg=data_cfg, train_cfg=train_cfg, path_cfg=path_cfg)

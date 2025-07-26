@@ -26,7 +26,6 @@ logger = logging.getLogger(__name__)
 class ModelFactory:
     @classmethod
     def create_for_training(cls, config: ModelConfig) -> tuple[DeepONet, TrainingStrategy]:
-
         strategy = cls._create_strategy(
             config=dataclasses.asdict(config))
         strategy.prepare_components(config)

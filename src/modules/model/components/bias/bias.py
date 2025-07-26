@@ -3,7 +3,7 @@ import torch
 
 
 class Bias(torch.nn.Module):
-    def __init__(self, num_channels: int, precomputed_mean: torch.Tensor | None = None):
+    def __init__(self, num_channels: int, precomputed_mean: torch.Tensor | None = None, use_zero_bias=False):
         """
         Flexible bias component that can be either:
         - Trainable parameter (standard case)
@@ -16,6 +16,8 @@ class Bias(torch.nn.Module):
         super().__init__()
         if precomputed_mean is not None:
             self.register_buffer('bias', precomputed_mean.T)
+        elif use_zero_bias:
+            self.register_buffer('bias', torch.zeros(num_channels))
         else:
             self.bias = torch.nn.Parameter(torch.zeros(num_channels))
 

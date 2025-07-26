@@ -2,12 +2,12 @@ from __future__ import annotations
 import time
 import numpy
 import logging
-from .saving import Saver
-from ..model.model_factory import ModelFactory
-from ..data_processing import data_loader as dtl
-from ..utilities.metrics.errors import ERROR_METRICS
-from .pipeline_config import DataConfig, TestConfig
-from ..data_processing.deeponet_transformer import DeepONetTransformPipeline
+from src.modules.pipe.saving import Saver
+from src.modules.model.model_factory import ModelFactory
+from src.modules.data_processing import data_loader as dtl
+from src.modules.utilities.metrics.errors import ERROR_METRICS
+from src.modules.pipe.pipeline_config import DataConfig, TestConfig
+from src.modules.data_processing.deeponet_transform import DeepONetTransformPipeline
 
 logger = logging.getLogger(__name__)
 
@@ -45,6 +45,7 @@ def inference(test_cfg: TestConfig, data_cfg: DataConfig):
                                                 transform_pipeline=transform_pipeline
                                                 )
 
+
     model = ModelFactory.create_for_inference(
         saved_config=test_cfg.model, state_dict=model_params)  # type: ignore
 
@@ -56,8 +57,6 @@ def inference(test_cfg: TestConfig, data_cfg: DataConfig):
                    test_transformed[data_cfg.features[1]]
                    )
 
-    predictions = y_pred.detach().numpy()
-
     duration = time.perf_counter() - start
 
     errors = {}
@@ -67,18 +66,26 @@ def inference(test_cfg: TestConfig, data_cfg: DataConfig):
              error_evaluator(y_truth)).detach().numpy()
 
     errors['Physical Error'] = {}
+    errors['Normalized Error'] = {}
     times['inference_time'] = duration
 
+    if test_cfg.transforms.target.normalization is not None:
+        y_pred = transform_pipeline.inverse_transform(tensor=y_pred, component='target')
+    
     for i, _ in enumerate(error):
-        errors['Physical Error'][data_cfg.targets_labels[i]] = error[i]
-
+        if test_cfg.transforms.target.normalization is None:
+            errors['Physical Error'][data_cfg.targets_labels[i]] = error[i]
+        else:
+            errors['Normalized Error'][data_cfg.targets_labels[i]] = error[i]
+            errors['Physical Error'][data_cfg.targets_labels[i]] = stats['g_u']['std'] * error[i]
+            
     msg = '\n'.join(list(map(lambda x, y: f"{x}: {y:.3%}",
                              data_cfg.targets_labels, error)))
     logger.info(
         f"Test error: \n{msg}, computed in {duration*1000:.3f} ms.")
 
-    data_to_plot = {**{i: j.detach().numpy() for i, j in test_transformed.items()},
-                    'predictions': predictions,
+    data_to_plot = {**{i: j for i, j in data_cfg.data.items()},
+                    'predictions': y_pred.detach().numpy(),
                     'branch_output': model.branch(test_transformed[data_cfg.features[0]]).detach().numpy(),
                     'trunk_output': model.trunk(test_transformed[data_cfg.features[1]]).detach().numpy(),
                     'bias': model.bias.bias.detach().numpy()

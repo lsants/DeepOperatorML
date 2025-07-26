@@ -1,17 +1,20 @@
 from __future__ import annotations
 import logging
+import torch
 from typing import Any
-from .pipeline_config import DataConfig, TestConfig
-from . import inference as inf
-from ..data_processing import data_loader as dtl
-from ..data_processing.postprocessing_helper import run_plotting
+from src.modules.pipe.pipeline_config import DataConfig, TestConfig
+from src.modules.pipe import inference as inf
+from src.modules.data_processing import data_loader as dtl
+from src.modules.data_processing.postprocessing_helper import run_plotting
 
 logger = logging.getLogger(__name__)
 
 
 def test_model(test_cfg_base: TestConfig, exp_cfg_dict: dict[str, Any], data_cfg: DataConfig) -> None:
-    checkpoint = dtl.get_trained_model_params(path=test_cfg_base.output_path / exp_cfg_dict['problem'] /
-                                              test_cfg_base.experiment_version / 'checkpoints' / 'experiment.pt')
+    checkpoint = torch.load(
+        f=test_cfg_base.output_path / exp_cfg_dict['problem'] / test_cfg_base.experiment_version / 'checkpoints' / 'experiment.pt',
+        weights_only=False
+    )
 
     if exp_cfg_dict['model']['strategy']['name'] == 'two_step':
         exp_cfg_dict['model']['trunk'].update({'inner_config': checkpoint['strategy']['inner_config'],

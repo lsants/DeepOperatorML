@@ -8,37 +8,12 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-def format_param(param: dict[str, Any] | Iterable, param_keys: list[str] | tuple | None = None) -> str:
-    """
-    Format a parameter value for display in the plot title.
-
-    - If 'param' is a dict, it returns a string of the form:
-          (key1=value1, key2=value2, ...)
-    - If 'param' is an iterable (but not a string) and param_keys is provided and its length
-      matches the length of 'param', it returns a string of the form:
-          (key1=value1, key2=value2, ...)
-      where the keys are taken from param_keys.
-    - Otherwise, it returns the string representation of param.
-
-    Args:
-        param: The parameter value, which can be a dict, tuple, list, etc.
-        param_keys (list or tuple, optional): List of keys to use if 'param' is an iterable.
-
-    Returns:
-        str: The formatted parameter string.
-    """
-    if isinstance(param, dict):
-        items = [f"{k}={v:.1E}" for k, v in param.items()]
+def format_param(param: list[Any], param_keys: list[str]):
+    if len(param_keys) == len(param):
+        items = [f"{k}={v:.1E}" for k, v in zip(param_keys, param)]
         return "(" + ", ".join(items) + ")"
-    elif hasattr(param, '__iter__') and not isinstance(param, str):
-        if param_keys is not None and len(param_keys) == len(param):
-            items = [f"{k}={v:.1E}" for k, v in zip(param_keys, param)]
-            return "(" + ", ".join(items) + ")"
-        else:
-            items = [f"{v:.1E}" for v in param]
-            return "(" + ", ".join(items) + ")"
     else:
-        return f"{param:.3f}"
+        return f"{param:.0E}"
 
 
 def get_modes_indices_to_highlight(abs_mean_coeffs: np.ndarray, n: int) -> np.ndarray:

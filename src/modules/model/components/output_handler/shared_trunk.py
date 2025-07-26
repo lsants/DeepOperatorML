@@ -10,7 +10,7 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-@OutputRegistry.register("shared_trunk")
+@OutputRegistry.register("shared_trunk") # TODO reimplement split branch
 class SharedTrunkHandler(OutputHandler):
     def __init__(self, config: OutputConfig):
         if config.num_channels < 1:

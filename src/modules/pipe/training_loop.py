@@ -6,10 +6,10 @@ from pathlib import Path
 from dataclasses import asdict
 from typing import Iterable, Optional
 from torch.utils.data import DataLoader
-from ..data_processing.deeponet_sampler import DeepONetSampler
-from .history import HistoryStorer
-from ..model.training_strategies.base import TrainingStrategy
-from ..model.deeponet import DeepONet
+from src.modules.data_processing.deeponet_sampler import DeepONetSampler
+from src.modules.pipe.history import HistoryStorer
+from src.modules.model.training_strategies.base import TrainingStrategy
+from src.modules.model.deeponet import DeepONet
 
 logger = logging.getLogger(__name__)
 
@@ -257,7 +257,7 @@ class TrainingLoop:
                         # ax[1].contourf(np.flipud(sample[4, 1].T))
                             
                         # plt.show()
-
+                        
                     # Per-batch metrics ------------------------------------
                     batch_metrics = self.strategy.calculate_metrics(
                         model=self.model,

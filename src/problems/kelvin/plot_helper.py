@@ -1,58 +1,56 @@
 import logging
 from typing import Any
-import matplotlib.pyplot as plt
-from tqdm.auto import tqdm
 from pathlib import Path
-from src.modules.pipe.pipeline_config import DataConfig, TestConfig
-# from src.problems.kelvin.plot_field import plot_3D_field
+from tqdm.auto import tqdm
+import matplotlib.pyplot as plt
+from src.problems.kelvin.plot_field import plot_field
 from src.problems.kelvin.plot_basis import plot_basis
+from src.modules.pipe.pipeline_config import DataConfig, TestConfig
 from src.problems.kelvin.plot_coeffs import plot_coefficients, plot_coefficients_mean
 
 logger = logging.getLogger(__file__)
 
 
-# def plot_planes_helper(data: dict[str, dict[str, Any]], data_cfg: DataConfig, metadata: dict[str, Any], plot_path: Path):
-#     mask = [i for i in metadata.keys() if i != 'percentiles']
-#     sample_map = metadata[mask[0]]
-#     percentiles = metadata['percentiles']
-#     for count, idx in tqdm(enumerate(sample_map['indices']), colour='green'):
-#         param_val = sample_map['values'][count]
-#         fig_plane = plot_2D_field(
-#             coords=data['coordinates'],
-#             truth_field=data['ground_truths'][idx],
-#             pred_field=data['predictions'][idx],
-#             input_function_value=param_val,
-#             input_function_labels=data_cfg.input_functions,
-#             target_labels=data_cfg.targets_labels
-#         )
-#         val_str = f"{param_val:.2f}"
-#         file_name = f"{percentiles[count]:.0f}_th_percentile_" + \
-#             'δ' + f"={val_str}.png"
-#         fig_plane_path = plot_path / file_name
-#         fig_plane.savefig(fig_plane_path)
-#         plt.close()
+def plot_planes_helper(data: dict[str, dict[str, Any]], data_cfg: DataConfig, metadata: dict[str, Any], plot_path: Path, test_cfg: TestConfig):
+    percentiles = metadata['percentiles']
+    for_filename = { "$\\nu$": 'ν' , 
+                    "$\\mu$": 'μ'}
 
+    planes = ['xy', 'xz', 'yz']
+    variables = ['predictions', 'truths', 'rel_errors']
 
-# def plot_axis_helper(data: dict[str, Any], data_cfg: DataConfig, metadata: dict[str, Any], plot_path: Path):
-#     mask = [i for i in metadata.keys() if i != 'percentiles']
-#     sample_map = metadata[mask[0]]
-#     for count, idx in tqdm(enumerate(sample_map['indices']), colour='green'):
-#         param_val = sample_map['values'][count]
-#         fig_axis = plot_axis(
-#             coords=data['coordinates'],
-#             truth_field=data['ground_truths'][idx],
-#             pred_field=data['predictions'][idx],
-#             param_map={rf'$\delta$': param_val},  # type: ignore
-#             target_labels=data_cfg.targets_labels
-#         )
-#         val_str = f"{param_val:.2f}"
-#         file_name = 'δ' + f"={val_str}.png"
-#         fig_axis_path = plot_path / file_name
-#         fig_axis.savefig(fig_axis_path)
-#         plt.close()
+    for p, param in enumerate(data_cfg.input_functions):
+        sample_map = metadata[param]
+        for plane in planes:
+            plane_path = plot_path / f"{plane}_plane"
+            plane_path.mkdir(exist_ok=True)
+
+            for var in variables:
+                var_path = plane_path / var
+                var_path.mkdir(exist_ok=True)
+                
+                for c, idx in tqdm(enumerate(sample_map['indices']), colour='green'):
+                    branch_sample_searched = data_cfg.data[data_cfg.features[0]][data_cfg.split_indices['xb_test']][idx]
+                    fig_plane = plot_field(
+                        coords=data['coordinates'],
+                        truth_field=data['ground_truths'][idx],
+                        pred_field=data['predictions'][idx],
+                        input_function_values=branch_sample_searched,
+                        input_function_labels=data_cfg.input_functions,
+                        target_labels=data_cfg.targets_labels,
+                        plot_plane=plane,
+                        plotted_variable=var
+                    )
+                    val_str = f"{branch_sample_searched[p]:.1E}"
+                    file_name = f"{for_filename[param]}_{percentiles[c] / 100:.0%}_perc_{val_str}.png"
+                    fig_plane_path = var_path / file_name
+                    fig_plane.savefig(fig_plane_path)
+                    plt.close()
 
 
 def plot_basis_helper(data: dict[str, Any], data_cfg: DataConfig, plot_path: Path):
+    print(data['bias'].shape)
+    quit()
     if data['bias'].ndim > 1:
         fig_bias = plot_basis(
             coords=data['coordinates'],
@@ -78,7 +76,8 @@ def plot_basis_helper(data: dict[str, Any], data_cfg: DataConfig, plot_path: Pat
 def plot_coefficients_helper(data: dict[str, Any], data_cfg: DataConfig, metadata: dict[str, Any], plot_path: Path):
     mask = [i for i in metadata.keys() if i != 'percentiles']
     for_filename = { "$\\nu$": 'ν' , 
-                    "$\\mu$": 'μ'}
+                    "$\\mu$": 'μ'
+    }
     percentiles = metadata['percentiles']
     for param in mask:
         sample_map = metadata[param]

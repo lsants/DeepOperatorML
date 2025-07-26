@@ -1,6 +1,7 @@
 import numpy as np
 import os
 import plotly.express as px
+import pyvista as pv
 import matplotlib.pyplot as plt
 from sklearn.decomposition import PCA
 import http.server
@@ -72,17 +73,96 @@ def plot_pod_mode_3d(x_coords: np.ndarray, y_coords: np.ndarray, z_coords: np.nd
 
 pod_path = '/Users/ls/Workspace/SSI_DeepONet/data/processed/kelvin/f83e9497/pod.npz'
 processed_path = '/Users/ls/Workspace/SSI_DeepONet/data/processed/kelvin/f83e9497/data.npz'
+raw_path = './data/raw/kelvin/kelvin_v4.npz'
+
+pod_data = np.load(pod_path)
+stacked_basis = pod_data['stacked_basis']
+stacked_mean = pod_data['stacked_mean']
+split_basis = pod_data['split_basis']
+split_mean = pod_data['split_mean']
+print(stacked_basis.shape, stacked_mean.shape,
+      split_basis.shape, split_mean.shape)
+
+raw_data = np.load(raw_path)
 data = np.load(processed_path)
 g_u_original = data['g_u']
 g_u = data['g_u'].reshape(500, -1)
 num_time_steps = g_u_original.shape[0]
 num_channels = g_u_original.shape[-1]
 spatial_dims_product = np.prod(g_u_original.shape[1:-1])
+
+xb, xt, gu = data['xb'], data['xt'], data['g_u']
+
+
+# vector_field_to_plot = raw_data['g_u']
+
+# x_coords = raw_data['x']
+# y_coords = raw_data['y']
+# z_coords = raw_data['z']
+
+# n_x, n_y, n_z = len(x_coords), len(y_coords), len(z_coords)
+
+# X, Y, Z = np.meshgrid(x_coords, y_coords, z_coords, indexing='ij')
+# vector_field_to_plot = raw_data['g_u']
+
+# pl = pv.Plotter(window_size=(1000, 800))
+
+# grid = pv.StructuredGrid(X, Y, Z)
+# grid["vectors"] = vector_field_to_plot
+
+# pl.add_mesh(grid.outline(), color='gray', line_width=1)
+
+# stride = 5
+
+# sub_grid = grid.extract_subset(
+#     (slice(0, n_x, stride), slice(0, n_y, stride), slice(0, n_z, stride)),
+#     uniform_spacing=True
+# )
+
+# sub_vectors = sub_grid["vectors"]
+
+# vector_magnitudes = np.linalg.norm(sub_vectors, axis=1)
+
+# pl.add_arrows(
+#     sub_grid.points,
+#     sub_vectors,
+#     mag=0.05,
+#     scalars=vector_magnitudes,
+#     cmap='viridis',
+#     show_scalar_bar=True,
+#     scalar_bar_args={'title': 'Vector Magnitude'}
+# )
+
+# pl.add_axes(
+#     interactive=False,
+#     xlabel='X-coordinate',
+#     ylabel='Y-coordinate',
+#     zlabel='Z-coordinate',
+#     box=True,
+# )
+
+# axis_length = 0.2
+# pl.add_axes_at_origin(
+#     labels=['X', 'Y', 'Z'],
+#     line_width=4,
+#     tip_length=0.15,
+#     shaft_length=axis_length,
+#     label_size=(0.05, 0.05),
+#     cone_radius=0.05
+# )
+
+# pl.camera_position = 'iso'
+
+# pl.show()
+
 pca = PCA(n_components=3)
 # Initialize lists to store components and their corresponding channel labels
 all_components = []
 channel_labels = []
 channels = ['x', 'y', 'z']
+
+
+
 
 for i in range(num_channels):
     current_channel_data = g_u_original[:, ..., i]
@@ -131,13 +211,6 @@ with socketserver.TCPServer(("", PORT), Handler) as httpd:
     except KeyboardInterrupt:
         print("\nServer stopped.")
 
-pod_data = np.load(pod_path)
-stacked_basis = pod_data['stacked_basis']
-stacked_mean = pod_data['stacked_mean']
-split_basis = pod_data['split_basis']
-split_mean = pod_data['split_mean']
-print(stacked_basis.shape, stacked_mean.shape,
-      split_basis.shape, split_mean.shape)
 # test = g_u.reshape(30, 20, 20, 2).transpose(0, 3, 2, 1)
 # print(test.shape)
 # fig = plot_basis_function(test[0][1])

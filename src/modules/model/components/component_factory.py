@@ -17,7 +17,8 @@ class BiasFactory:
         BiasConfigValidator.validate(config)
         return Bias(
             num_channels=config.num_channels,
-            precomputed_mean=config.precomputed_mean
+            precomputed_mean=config.precomputed_mean,
+            use_zero_bias=config.use_zero_bias
         )
 
 
