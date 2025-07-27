@@ -1,12 +1,11 @@
 from typing import Literal
 from dataclasses import dataclass
 
-
 @dataclass
 class OutputConfig:
-    handler_type: Literal["split_outputs", "shared_trunk", "single_output"]
+    handler_type: Literal["split_outputs", "shared_trunk", "shared_branch"]
     num_channels: int
-    basis_adjust: bool = True
+    dims_adjust: bool = True
 
     @classmethod
     def setup_for_training(cls, train_cfg: dict, data_cfg: dict):

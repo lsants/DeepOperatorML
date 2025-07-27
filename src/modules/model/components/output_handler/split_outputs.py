@@ -2,11 +2,11 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 import torch
 import logging
-from .protocol import OutputHandler
-from .config import OutputConfig
-from ..output_handler.registry import OutputRegistry
+from src.modules.model.components.output_handler.protocol import OutputHandler
+from src.modules.model.components.output_handler.config import OutputConfig
+from src.modules.model.components.output_handler.registry import OutputRegistry
 if TYPE_CHECKING:
-    from ...config import ModelConfig
+    from src.modules.model.config import ModelConfig
 
 
 logger = logging.getLogger(__name__)
@@ -16,10 +16,10 @@ logger = logging.getLogger(__name__)
 class SplitOutputsHandler(OutputHandler):
     def __init__(self, config: OutputConfig):
         self.num_channels = config.num_channels
-        self.basis_adjust = config.basis_adjust
+        self.dims_adjust = config.dims_adjust
 
     def adjust_dimensions(self, config: 'ModelConfig'):
-        if not self.basis_adjust:
+        if not self.dims_adjust:
             return
 
         config.trunk.output_dim *= self.num_channels  # type: ignore

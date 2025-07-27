@@ -3,22 +3,22 @@ import torch
 import numpy
 from copy import deepcopy
 from collections import defaultdict
-from ...model.deeponet import DeepONet
 from .base import TrainingStrategy
-from typing import TYPE_CHECKING, Iterable
-from .config import TwoStepConfig
-from ..components.component_factory import BranchFactory
-from ..optimization.optimizers.config import OptimizerSpec
-from ..components.trunk.orthonormal_trunk import OrthonormalTrunk
-from ..optimization.optimizers.optimizer_factory import create_optimizer, create_scheduler
-from ..components.output_handler import SharedTrunkHandler, SplitOutputsHandler
+from typing import TYPE_CHECKING
+from src.modules.model.deeponet import DeepONet
+from src.modules.model.config import TwoStepConfig
+from src.modules.model.components.component_factory import BranchFactory
+from src.modules.model.optimization.optimizers.config import OptimizerSpec
+from src.modules.model.components.trunk.orthonormal_trunk import OrthonormalTrunk
+from src.modules.model.optimization.optimizers.optimizer_factory import create_optimizer, create_scheduler
+from src.modules.model.components.output_handler import SharedTrunkHandler, SharedBranchHandler, SplitOutputsHandler
 if TYPE_CHECKING:
     from ..deeponet import DeepONet
     from ..config import ModelConfig
     from ..components.component_factory import BranchFactory, TrunkFactory
 
 
-class TwoStepStrategy(TrainingStrategy):
+class TwoStepStrategy(TrainingStrategy): # TODO: implement split branch decomposition
     def __init__(self, config: TwoStepConfig):
         super().__init__(config)
         self._phase = 1

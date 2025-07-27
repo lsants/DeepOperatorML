@@ -1,13 +1,13 @@
 # ------------------- Model architecture ------------------
 seed: 42
-training_strategy: two_step
-output_handling: split_outputs
-num_basis_functions: 30
+training_strategy: vanilla
+output_handling: shared_branch
+embedding_dimension: 30
 branch:
   architecture: resnet
   activation: relu
   hidden_layers: [256, 256, 256, 128, 128, 128, 128]
-  dropout_rates: [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+  dropout_rates: [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.1, 0.0]
   batch_normalization: [False, False, False, False, False, False, False, False]
   layer_normalization: [False, False, False, False, False, False, False, False]
   degree: 8
@@ -15,7 +15,7 @@ trunk:
   architecture: resnet
   activation: silu
   hidden_layers: [256, 256, 256, 128, 128, 128, 128]
-  dropout_rates: [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.1, 0.0]
+  dropout_rates: [0.0, 0.0, 0.0, 0.0, 0.1, 0.1, 0.2, 0.0]
   batch_normalization: [False, False, False, False, False, False, False, False]
   layer_normalization: [False, False, False, False, False, False, False, False]
   degree: 8
@@ -28,9 +28,9 @@ transforms:
     feature_expansion: null
   trunk:
     normalization: standardize # minmax_0_1, minmax_-1_1, standardize, null
-    feature_expansion: #null
-      type: cosine
-      size: 5
+    feature_expansion: null
+      # type: cosine
+      # size: 5
   target:
     normalization: standardize
     feature_expansion: null
@@ -45,18 +45,14 @@ branch_batch_size: 400 # Can't be null
 trunk_batch_size: null
 error: matrix_fro
 optimizer_schedule:
-  - epochs: 2000
+  - epochs: 250
     optimizer_type: adam
     learning_rate: 0.001
-    l2_regularization: 0.00000001
+    l2_regularization: 0.0000001
     lr_scheduler:
       type: step
       step_size: 500
       gamma: 0.7
-  - epochs: 1000
-    optimizer_type: adam
-    learning_rate: 0.0001
-    l2_regularization: 0.0000000
 
 # ------------------- Parameters for two step training ------------------
 decomposition_type: svd

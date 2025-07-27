@@ -13,8 +13,6 @@ cmap = plt.get_cmap('magma') # # tried: 'RdBu', plasma, inferno
 plt.rc('image', cmap=cmap.name)
 # matplotlib.rcParams['text.latex.preamble'] = r'\math'
 
-# It would be nice to draw an arrow to the point where the load is applied.
-
 def plot_field(
         coords: dict[str, np.ndarray],
         truth_field: np.ndarray, # (n_x, n_y, n_z, 3)

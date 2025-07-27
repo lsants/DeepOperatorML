@@ -2,10 +2,9 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 from typing import Literal, Optional, Callable
-from ..registry import ComponentRegistry
-from ....data_processing.config import TransformConfig
-from ..registry import ComponentRegistry
-from ....model.nn.activation_functions.activation_fns import ACTIVATION_MAP
+from src.modules.model.components.registry import ComponentRegistry
+from src.modules.data_processing.config import TransformConfig
+from src.modules.model.nn.activation_functions.activation_fns import ACTIVATION_MAP
 
 
 @dataclass
@@ -25,18 +24,15 @@ class BranchConfig:
     layer_normalization: Optional[list[bool]] = None
     activation: Optional[Callable | str] = None
     degree: Optional[int] = None
-    # Matrix-specific parameters
-    input_dim: Optional[int] = None
-    output_dim: Optional[int] = None
 
     @classmethod
     def setup_for_training(cls, data_cfg: dict, train_cfg: dict) -> "BranchConfig":
         branch_config = BranchConfig(**train_cfg["branch"])
-
         if branch_config.activation is not None:
             branch_config.activation = ACTIVATION_MAP[branch_config.activation.lower(
             )]
-        branch_config.input_dim = data_cfg["shapes"][data_cfg["features"][1]][1]
+        branch_config.input_dim = data_cfg["shapes"][data_cfg["features"][0]][1]
+        branch_config.output_dim = train_cfg["embedding_dimension"]
         return branch_config
 
     @classmethod

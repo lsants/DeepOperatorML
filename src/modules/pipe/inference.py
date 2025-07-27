@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 
 def inference(test_cfg: TestConfig, data_cfg: DataConfig):
 
-    error_evaluator = ERROR_METRICS[test_cfg.metric]  # type: ignore
+    metric = ERROR_METRICS[test_cfg.metric]  # type: ignore
     model_params = test_cfg.checkpoint['model']  # type: ignore
 
     _, _, test_data = dtl.get_split_data(data=data_cfg.data,
@@ -62,8 +62,9 @@ def inference(test_cfg: TestConfig, data_cfg: DataConfig):
     errors = {}
     times = {}
 
-    error = (error_evaluator(y_truth - y_pred) /
-             error_evaluator(y_truth)).detach().numpy()
+    abs_error = metric(y_truth - y_pred).detach().numpy()
+    norm_truth = metric(y_truth).detach().numpy()
+
 
     errors['Physical Error'] = {}
     errors['Normalized Error'] = {}
@@ -72,15 +73,18 @@ def inference(test_cfg: TestConfig, data_cfg: DataConfig):
     if test_cfg.transforms.target.normalization is not None:
         y_pred = transform_pipeline.inverse_transform(tensor=y_pred, component='target')
     
-    for i, _ in enumerate(error):
+    for i, _ in enumerate(abs_error):
         if test_cfg.transforms.target.normalization is None:
-            errors['Physical Error'][data_cfg.targets_labels[i]] = error[i]
+            errors['Physical Error'][data_cfg.targets_labels[i]] = (abs_error / norm_truth)[i]
         else:
-            errors['Normalized Error'][data_cfg.targets_labels[i]] = error[i]
-            errors['Physical Error'][data_cfg.targets_labels[i]] = stats['g_u']['std'] * error[i]
+            errors['Normalized Error'][data_cfg.targets_labels[i]] = (abs_error / norm_truth)[i]
+            errors['Physical Error'][data_cfg.targets_labels[i]] = (stats['g_u']['std'] * abs_error \
+                / (stats['g_u']['std'] * norm_truth + stats['g_u']['mean']))[i]
             
     msg = '\n'.join(list(map(lambda x, y: f"{x}: {y:.3%}",
-                             data_cfg.targets_labels, error)))
+                             data_cfg.targets_labels, errors['Physical Error'].values())))
+    
+    
     logger.info(
         f"Test error: \n{msg}, computed in {duration*1000:.3f} ms.")
 

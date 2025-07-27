@@ -2,24 +2,23 @@ from __future__ import annotations
 import torch
 import logging
 import dataclasses
-from copy import deepcopy
 from dataclasses import fields
 
 from src.modules.model.components.bias.config import BiasConfigValidator
-from .config import ModelConfig
-from .deeponet import DeepONet
-from .components.component_factory import BiasFactory
-from .components.component_factory import TrunkFactory
-from .components.component_factory import BranchFactory
-from .components.rescaling.rescaler import Rescaler
-from .training_strategies.base import TrainingStrategy
-from .components.trunk.config import TrunkConfigValidator
-from .components.branch.config import BranchConfigValidator
-from .components.output_handler.registry import OutputRegistry
-from .training_strategies.vanilla_strategy import VanillaStrategy
-from .training_strategies.two_step_strategy import TwoStepStrategy
-from .training_strategies.config import VanillaConfig, PODConfig, TwoStepConfig
-from .training_strategies.pod_strategy import PODStrategy
+from src.modules.model.config import ModelConfig
+from src.modules.model.deeponet import DeepONet
+from src.modules.model.components.component_factory import BiasFactory
+from src.modules.model.components.component_factory import TrunkFactory
+from src.modules.model.components.component_factory import BranchFactory
+from src.modules.model.components.rescaling.rescaler import Rescaler
+from src.modules.model.training_strategies.base import TrainingStrategy
+from src.modules.model.components.trunk.config import TrunkConfigValidator
+from src.modules.model.components.branch.config import BranchConfigValidator
+from src.modules.model.components.output_handler.registry import OutputRegistry
+from src.modules.model.training_strategies.vanilla_strategy import VanillaStrategy
+from src.modules.model.training_strategies.two_step_strategy import TwoStepStrategy
+from src.modules.model.training_strategies.config import VanillaConfig, PODConfig, TwoStepConfig
+from src.modules.model.training_strategies.pod_strategy import PODStrategy
 
 logger = logging.getLogger(__name__)
 
@@ -85,7 +84,7 @@ class ModelFactory:
     def _validate_inference_config(cls, config: ModelConfig):
         """Ensures config contains post-training state"""
         BranchConfigValidator.validate(config.branch)
-        if config.strategy.name != 'pod' and not config.output.basis_adjust:
+        if config.strategy.name != 'pod' and not config.output.dims_adjust:
             raise ValueError(
                 "Inference config must retain output handler basis adjustment"
             )
@@ -103,9 +102,9 @@ class ModelFactory:
                 raise ValueError(
                     "Shape of precomputed POD basis must be known in order to initialize model."
                 )
-            if config.rescaling.num_basis_functions * config.output.num_channels == config.branch.output_dim:
-                if config.output.basis_adjust:
-                    config.output.basis_adjust = False
+            if config.rescaling.embedding_dimension * config.output.num_channels == config.branch.output_dim:
+                if config.output.dims_adjust:
+                    config.output.dims_adjust = False
 
             config.trunk.pod_basis = torch.rand(config.trunk.pod_basis_shape)
         else:

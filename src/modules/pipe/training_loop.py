@@ -44,10 +44,8 @@ class TrainingLoop:
         self.val_loader: Optional[DataLoader] = val_loader
         self.sampler: DeepONetSampler = sampler
 
-        # Let strategy freeze layers / register hooks / etc.
         self.strategy.setup_training(self.model)
 
-        # Optimisation schedule [(n_epochs, optimiser, scheduler?), ...]
         self.optimizer_specs: list[
             tuple[int, torch.optim.optimizer.Optimizer,
                   Optional[torch.optim.lr_scheduler._LRScheduler]]
@@ -83,7 +81,6 @@ class TrainingLoop:
         self.optimizer: torch.optim.optimizer.Optimizer = opt
         self.scheduler: Optional[torch.optim.lr_scheduler._LRScheduler] = sch
 
-        # Ensure optimiser params reside on correct device
         for group in self.optimizer.param_groups:
             for p in group["params"]:
                 p.data = p.data.to(self.device)
@@ -178,7 +175,7 @@ class TrainingLoop:
                 "scheduler": self.scheduler.state_dict() if self.scheduler else None,
                 "history": self.history.get_history(),
                 "phase": self.current_phase,
-                "strategy": self.strategy_dict,  # Save strategy config
+                "strategy": self.strategy_dict,
             },
             exp_path,
         )
@@ -191,11 +188,6 @@ class TrainingLoop:
         assert loader is not None, "Validation loader requested but not provided."
 
         aggregated: dict[str, float] = defaultdict(float)
-        processed_samples = 0  # will replace old bs*num_batches logic
-
-        # Derive total sample count for later normalisation -----------------
-        aggregated: dict[str, float] = defaultdict(float)
-
         processed_samples = 0
 
         context = torch.enable_grad() if train else torch.inference_mode()
@@ -204,7 +196,6 @@ class TrainingLoop:
                 for i, batch in enumerate(loader):
                     x_branch, x_trunk, y_true, indices = self._prepare_batch(batch)
 
-                    # Forward + loss
                     y_pred, loss = self.strategy.compute_loss(
                         model=self.model, 
                         x_branch=x_branch, 

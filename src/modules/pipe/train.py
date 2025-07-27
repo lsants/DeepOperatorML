@@ -27,10 +27,15 @@ def train_model(
     path_cfg = PathConfig.from_data_config(data_cfg=data_cfg) # TODO: only create paths after model finishes training.
 
     exp_cfg = ExperimentConfig.from_dataclasses(
-        data_cfg=data_cfg, train_cfg=train_cfg, path_cfg=path_cfg)
+        data_cfg=data_cfg, 
+        train_cfg=train_cfg, 
+        path_cfg=path_cfg
+    )
 
-    stats = dtl.get_stats(data=data_cfg.scalers,
-                          keys=data_cfg.features + data_cfg.targets)
+    stats = dtl.get_stats(
+        data=data_cfg.scalers,
+        keys=data_cfg.features + data_cfg.targets
+    )
 
     transform_pipeline = DeepONetTransformPipeline(config=train_cfg.transforms)
 
@@ -44,21 +49,24 @@ def train_model(
         stats=stats[data_cfg.targets[0]]
     )
 
-    train_data, val_data, _ = dtl.get_split_data(data=data_cfg.data,
-                                                 split_indices=data_cfg.split_indices,
-                                                 features_keys=data_cfg.features,
-                                                 targets_keys=data_cfg.targets
-                                                 )
-    train_transformed = dtl.get_transformed_data(data=train_data,
-                                                 features_keys=data_cfg.features,
-                                                 targets_keys=data_cfg.targets,
-                                                 transform_pipeline=transform_pipeline
-                                                 )
-    val_transformed = dtl.get_transformed_data(data=val_data,
-                                               features_keys=data_cfg.features,
-                                               targets_keys=data_cfg.targets,
-                                               transform_pipeline=transform_pipeline
-                                               )
+    train_data, val_data, _ = dtl.get_split_data(
+        data=data_cfg.data,
+        split_indices=data_cfg.split_indices,
+        features_keys=data_cfg.features,
+        targets_keys=data_cfg.targets
+    )
+    train_transformed = dtl.get_transformed_data(
+        data=train_data,
+        features_keys=data_cfg.features,
+        targets_keys=data_cfg.targets,
+        transform_pipeline=transform_pipeline
+    )
+    val_transformed = dtl.get_transformed_data(
+        data=val_data,
+        features_keys=data_cfg.features,
+        targets_keys=data_cfg.targets,
+        transform_pipeline=transform_pipeline
+    )
 
     train_cfg.model.trunk.input_dim = train_transformed['xt'].shape[1]
 
@@ -79,18 +87,20 @@ def train_model(
     val_branch_samples = len(val_dataset[:][data_cfg.features[0]])
     val_trunk_samples = len(val_dataset[:][data_cfg.features[1]])
 
-    train_sampler = DeepONetSampler(num_branch_samples=train_branch_samples,
-                                    branch_batch_size=train_cfg.branch_batch_size,
-                                    num_trunk_samples=train_trunk_samples,
-                                    trunk_batch_size=train_cfg.trunk_batch_size,
-                                    shuffle=False
-                                    )
+    train_sampler = DeepONetSampler(
+        num_branch_samples=train_branch_samples,
+        branch_batch_size=train_cfg.branch_batch_size,
+        num_trunk_samples=train_trunk_samples,
+        trunk_batch_size=train_cfg.trunk_batch_size,
+        shuffle=False
+    )
 
-    val_sampler = DeepONetSampler(num_branch_samples=val_branch_samples,
-                                  branch_batch_size=train_cfg.branch_batch_size,
-                                  num_trunk_samples=val_trunk_samples,
-                                  trunk_batch_size=train_cfg.trunk_batch_size,
-                                  )
+    val_sampler = DeepONetSampler(
+        num_branch_samples=val_branch_samples,
+        branch_batch_size=train_cfg.branch_batch_size,
+        num_trunk_samples=val_trunk_samples,
+        trunk_batch_size=train_cfg.trunk_batch_size,
+    )
 
     train_dataloader = DataLoader(
         dataset=train_dataset,
@@ -160,7 +170,6 @@ def train_model(
         history=history, plot_config=dataclasses.asdict(train_cfg))
 
     exp_cfg = format_exp_cfg(exp_cfg)
-
 
 
     if hasattr(train_strategy, 'final_trunk_config'):

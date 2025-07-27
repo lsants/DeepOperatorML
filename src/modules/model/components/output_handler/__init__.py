@@ -1,3 +1,3 @@
-# src/output_handlers/__init__.py
-from .split_outputs import SplitOutputsHandler  # Triggers registration
-from .shared_trunk import SharedTrunkHandler    # Triggers registration
+from .split_outputs import SplitOutputsHandler
+from .shared_trunk import SharedTrunkHandler  
+from .shared_branch import SharedBranchHandler  

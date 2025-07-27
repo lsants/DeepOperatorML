@@ -1,13 +1,13 @@
 from __future__ import annotations
 import torch
 import logging
-from .config import PODConfig
-from .base import TrainingStrategy
 from typing import TYPE_CHECKING
-from ...utilities.metrics.errors import ERROR_METRICS
-from ..optimization.optimizers.config import OptimizerSpec
-from ..optimization.optimizers.optimizer_factory import create_optimizer, create_scheduler
-from ..components.trunk import PODTrunk
+from src.modules.model.training_strategies.config import PODConfig
+from src.modules.model.training_strategies.base import TrainingStrategy
+from src.modules.utilities.metrics.errors import ERROR_METRICS
+from src.modules.model.optimization.optimizers.config import OptimizerSpec
+from src.modules.model.optimization.optimizers.optimizer_factory import create_optimizer, create_scheduler
+from src.modules.model.components.trunk import PODTrunk
 
 if TYPE_CHECKING:
     from ..deeponet import DeepONet
@@ -28,11 +28,13 @@ class PODStrategy(TrainingStrategy):
         model_config.trunk.component_type = "pod_trunk"
         model_config.trunk.pod_basis = self.config.pod_basis
         if model_config.output.handler_type == 'split_outputs':
-            model_config.output.basis_adjust = False
-            model_config.rescaling.num_basis_functions = self.config.pod_basis.shape[
+            model_config.output.dims_adjust = False
+            model_config.rescaling.embedding_dimension = self.config.pod_basis.shape[
                 -1] // model_config.output.num_channels
-        else:
-            model_config.rescaling.num_basis_functions = self.config.pod_basis.shape[-1]
+        elif model_config.output.handler_type == 'shared_trunk':
+            model_config.rescaling.embedding_dimension = self.config.pod_basis.shape[-1]
+        else: # TODO: fix implementation for shared branch
+            model_config.rescaling.embedding_dimension = self.config.pod_basis.shape[-1]
 
     def setup_training(self, model: 'DeepONet'):
         if not isinstance(model.trunk, PODTrunk):

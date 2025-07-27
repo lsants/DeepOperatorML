@@ -23,7 +23,7 @@ def numpy_random_open_0_1(size=None):
 
 #     return c * (numerator / denominator)
 
-def mesh_rescaling(arr: np.ndarray, c: float) -> np.ndarray:
+def mesh_rescaling(arr: np.ndarray, c: float) -> np.ndarray: # TODO: non-uniform grid training: Find optimial grid and training scheme
     return arr
 
 # def mesh_rescaling(arr: np.ndarray, c: float) -> np.ndarray:

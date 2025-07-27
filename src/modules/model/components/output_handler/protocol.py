@@ -1,8 +1,7 @@
 import torch
-from typing import Literal, Protocol, TYPE_CHECKING
+from typing import Protocol, TYPE_CHECKING
 if TYPE_CHECKING:
-    from ...config import ModelConfig
-
+    from src.modules.model.config import ModelConfig
 
 class OutputHandler(Protocol):
     num_channels: int

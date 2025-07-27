@@ -50,7 +50,7 @@ def reshape_coefficients(branch_out: np.ndarray, data_cfg: DataConfig, test_cfg:
     return branch_out.reshape(
         -1,
         data_cfg.shapes[data_cfg.targets[0]][-1],
-        test_cfg.model.rescaling.num_basis_functions,  # type: ignore
+        test_cfg.model.rescaling.embedding_dimension,  # type: ignore
     )
 
 
@@ -58,7 +58,7 @@ def reshape_basis(trunk_out: np.ndarray, data_cfg: DataConfig, test_cfg: TestCon
     with open(data_cfg.raw_metadata_path, 'r') as file:
         raw_metadata = yaml.safe_load(file)
     basis = trunk_out.T.reshape(
-        test_cfg.model.rescaling.num_basis_functions,  # type: ignore
+        test_cfg.model.rescaling.embedding_dimension,  # type: ignore
         -1,
         raw_metadata["displacement_statistics"][data_cfg.targets[0]]["shape"][1],
         raw_metadata["displacement_statistics"][data_cfg.targets[0]]["shape"][2],

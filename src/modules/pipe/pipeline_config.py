@@ -1,7 +1,6 @@
 from __future__ import annotations
 import dataclasses
 import os
-from re import split
 import torch
 import yaml
 import logging
@@ -163,14 +162,15 @@ class TrainConfig:
         branch_config = BranchConfig.setup_for_training(
             dataclasses.asdict(data_cfg), train_cfg)
         bias_config = BiasConfig.setup_for_training(
-            pod_data=pod_data if train_cfg['training_strategy'] == 'pod' else None, data_cfg=dataclasses.asdict(data_cfg))
-
-        branch_config.input_dim = data_cfg.shapes[data_cfg.features[0]][1]
-        branch_config.output_dim = trunk_config.output_dim
+            pod_data=pod_data if train_cfg['training_strategy'] == 'pod' else None, 
+            data_cfg=dataclasses.asdict(data_cfg),
+            use_zero_bias=train_cfg["bias"]["use_zero_bias"]
+            )
 
         output_config = OutputConfig.setup_for_training(
             train_cfg=train_cfg, data_cfg=dataclasses.asdict(data_cfg))
         rescaling_config = RescalingConfig.setup_for_training(train_cfg)
+
 
         one_step_optimizer = [
             OptimizerSpec(**params)
@@ -237,9 +237,6 @@ class ConfigValidator:
     @staticmethod
     def validate(data_params: dict[str, Any],
                  train_params: dict[str, Any]) -> ValidatedConfig:
-        if (train_params['OUTPUT_HANDLING'] == 'split_outputs' and
-                len(data_params['TARGETS']) < 2):
-            raise ValueError("Split output handling requires multiple targets")
 
         if (train_params['DEVICE'] == 'cpu' and
                 train_params['PRECISION'] == 'float16'):
@@ -309,7 +306,7 @@ class TestConfig:
                 cfg_dict, self.transforms)
             if cfg_dict['strategy']['name'] == 'pod':
                 # type: ignore
-                trunk_config.output_dim = trunk_config.pod_basis_shape[-1]
+                trunk_config.output_dim = trunk_config.pod_basis_shape[-1] # type: ignore
             branch_config.output_dim = trunk_config.output_dim
             output_config = OutputConfig.setup_for_inference(cfg_dict)
             rescaling_config = RescalingConfig.setup_for_inference(cfg_dict)
@@ -369,7 +366,6 @@ class ExperimentConfig:
             strategy=train_cfg.model.strategy
         )
 
-
 @dataclass
 class PathConfig:
     experiment_version: str
@@ -410,7 +406,6 @@ class PathConfig:
         ]
         for path in paths:
             os.makedirs(path, exist_ok=True)
-
 
 def format_exp_cfg(exp_cfg: ExperimentConfig) -> ExperimentConfig:
     exp_cfg.model.trunk.pod_basis = None

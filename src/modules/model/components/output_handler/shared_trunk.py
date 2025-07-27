@@ -1,36 +1,32 @@
 import logging
 import torch
 from typing import TYPE_CHECKING
-from .config import OutputConfig
-from .registry import OutputRegistry
-from .protocol import OutputHandler
+from src.modules.model.components.output_handler.config import OutputConfig
+from src.modules.model.components.output_handler.registry import OutputRegistry
+from src.modules.model.components.output_handler.protocol import OutputHandler
 if TYPE_CHECKING:
-    from ...config import ModelConfig
+    from src.modules.model.config import ModelConfig
 
 logger = logging.getLogger(__name__)
 
 
-@OutputRegistry.register("shared_trunk") # TODO reimplement split branch
+@OutputRegistry.register("shared_trunk")
 class SharedTrunkHandler(OutputHandler):
     def __init__(self, config: OutputConfig):
-        if config.num_channels < 1:
-            raise ValueError(
-                "Channel count must be ≥1 for shared trunk",
-            )
         self.num_channels = config.num_channels
-        self.basis_adjust = config.basis_adjust
+        self.dims_adjust = config.dims_adjust
 
     def adjust_dimensions(self, config: 'ModelConfig'):
         """Only modifies branch output dim"""
-        if not self.basis_adjust:
+        if not self.dims_adjust:
             return
 
         if config.trunk.output_dim is None:
             raise ValueError(
                 "Trunk output dimension must be set for shared trunk handler."
             )
-        original_basis = config.trunk.output_dim
-        config.branch.output_dim = original_basis * self.num_channels
+        original_output_dims = config.trunk.output_dim
+        config.branch.output_dim = original_output_dims * self.num_channels
 
     def combine(self, branch_out: torch.Tensor, trunk_out: torch.Tensor) -> torch.Tensor:
         # branch_out: (B, C*P) -> (B, C, P)
@@ -38,4 +34,4 @@ class SharedTrunkHandler(OutputHandler):
         B = branch_out.size(0)
         branch_reshaped = branch_out.view(
             B, self.num_channels, -1)  # (B, C, P)
-        return torch.einsum('bci,ti->btc', branch_reshaped, trunk_out)
+        return torch.einsum('bcp,tp->btc', branch_reshaped, trunk_out)

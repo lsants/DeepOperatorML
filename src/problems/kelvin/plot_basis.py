@@ -1,17 +1,16 @@
 import numpy as np
-import pyvista as pv
 import matplotlib.pyplot as plt
 
 plt.rc('font', family='serif', size=15)
 plt.rc('text', usetex=True)
 plt.rc('axes', labelsize=15)
 plt.rc('legend', fontsize=12)
-cmap = plt.get_cmap('viridis') # tried: 'RdBu'
+cmap = plt.get_cmap('magma') # tried: 'RdBu'
 plt.rc('image', cmap=cmap.name)
 # matplotlib.rcParams['text.latex.preamble'] = r'\math'
 
 
-def plot_basis(coords: dict[str, np.ndarray],
+def plot_basis(coords: dict[str, np.ndarray], #TODO: implement basis plots for kelvin.
                basis: np.ndarray,
                index: int,
                target_labels: list[str]) -> plt.Figure:

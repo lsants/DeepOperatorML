@@ -19,14 +19,9 @@ logger = logging.getLogger(__name__)
 BASE_CONFIG = 'configs/training/config_train.yaml'
 
 overrides_list = [
-    {"PROBLEM": "kelvin", 
-     "DATA_FILE" : "./data/raw/kelvin_displacements.npz",
-     "INPUT_FUNCTION_KEYS" : ["F", "mu", "nu"],
-     "COORDINATE_KEYS" : ["x", "y", "z"],
-     "OUTPUT_KEYS" : ["g_u"],
-     "TRAINING_STRATEGY": "standard",
-     "OUTPUT_HANDLING": "single_output",
-     "TRUNK_FEATURE_EXPANSION": 0
+    {"problem": "kelvin", 
+     "training_strategy": "standard",
+     "output_handling": "split_outputs",
      },
 
 
