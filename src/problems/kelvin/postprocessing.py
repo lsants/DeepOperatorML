@@ -3,6 +3,7 @@ import yaml
 import logging
 import numpy as np
 from pathlib import Path
+from src.modules.model.components import branch
 from src.modules.pipe.pipeline_config import DataConfig, TestConfig
 logger = logging.getLogger(__file__)
 
@@ -48,8 +49,8 @@ def format_target(displacements: np.ndarray, data_cfg: DataConfig) -> np.ndarray
 
 def reshape_coefficients(branch_out: np.ndarray, data_cfg: DataConfig, test_cfg: TestConfig) -> np.ndarray:
     return branch_out.reshape(
+        int(data_cfg.shapes[data_cfg.targets[0]][0]*data_cfg.split_ratios[-1]),
         -1,
-        data_cfg.shapes[data_cfg.targets[0]][-1],
         test_cfg.model.rescaling.embedding_dimension,  # type: ignore
     )
 

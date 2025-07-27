@@ -11,7 +11,7 @@ from src.problems.kelvin.plot_coeffs import plot_coefficients, plot_coefficients
 logger = logging.getLogger(__file__)
 
 
-def plot_planes_helper(data: dict[str, dict[str, Any]], data_cfg: DataConfig, metadata: dict[str, Any], plot_path: Path, test_cfg: TestConfig):
+def plot_planes_helper(data: dict[str, dict[str, Any]], data_cfg: DataConfig, metadata: dict[str, Any], plot_path: Path):
     percentiles = metadata['percentiles']
     for_filename = { "$\\nu$": 'ν' , 
                     "$\\mu$": 'μ'}
@@ -49,29 +49,33 @@ def plot_planes_helper(data: dict[str, dict[str, Any]], data_cfg: DataConfig, me
 
 
 def plot_basis_helper(data: dict[str, Any], data_cfg: DataConfig, plot_path: Path):
-    print(data['bias'].shape)
-    quit()
-    if data['bias'].ndim > 1:
-        fig_bias = plot_basis(
-            coords=data['coordinates'],
-            basis=data['bias'],
-            index=0,
-            target_labels=data_cfg.targets_labels
-        )
-        fig_basis_path = plot_path / f"bias.png"
-        fig_bias.savefig(fig_basis_path)
-        plt.close()
+    planes = ['xy', 'xz', 'yz']
+    for plane in planes:
+        plane_path = plot_path / f"{plane}_plane"
+        plane_path.mkdir(exist_ok=True)
+        if data['bias'].ndim > 1:
+            fig_bias = plot_basis(
+                coords=data['coordinates'],
+                basis=data['bias'],
+                index=0,
+                target_labels=data_cfg.targets_labels,
+                plot_plane=plane
+            )
+            fig_basis_path = plot_path / plane_path / f"bias.png"
+            fig_bias.savefig(fig_basis_path)
+            plt.close()
 
-    for i in tqdm(range(1, len(data['basis']) + 1), colour='blue'):
-        fig_basis = plot_basis(
-            coords=data['coordinates'],
-            basis=data['basis'][i - 1],
-            index=i,
-            target_labels=data_cfg.targets_labels
-        )
-        fig_basis_path = plot_path / f"vector_{i}.png"
-        fig_basis.savefig(fig_basis_path)
-        plt.close()
+        for i in tqdm(range(1, len(data['basis']) + 1), colour='blue'):
+            fig_basis = plot_basis(
+                coords=data['coordinates'],
+                basis=data['basis'][i - 1],
+                index=i,
+                target_labels=data_cfg.targets_labels,
+                plot_plane=plane
+            )
+            fig_basis_path = plane_path / f"vector_{i}.png"
+            fig_basis.savefig(fig_basis_path)
+            plt.close()
 
 def plot_coefficients_helper(data: dict[str, Any], data_cfg: DataConfig, metadata: dict[str, Any], plot_path: Path):
     mask = [i for i in metadata.keys() if i != 'percentiles']

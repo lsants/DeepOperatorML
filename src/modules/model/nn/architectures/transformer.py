@@ -41,7 +41,7 @@ class MultiHeadAttention(torch.nn.Module):
         self.Wv = torch.nn.Linear(in_features=d_model, out_features=d_model)
         self.Wo = torch.nn.Linear(in_features=d_model, out_features=d_model)
 
-    def forward(self, X: torch.Tensor):
+    def forward(self, X: torch.Tensor): # TODO: Fix this reshaping into each head
         Q = self.Wq(X).view(-1, self.d_head, self.num_heads) # view of reshape? This is wrong and should be fixed. everything is by batch
         K = self.Wk(X).view(-1, self.d_head, self.num_heads)
         V = self.Wv(X).view(-1, self.d_head, self.num_heads)
@@ -53,7 +53,7 @@ class MultiHeadAttention(torch.nn.Module):
         return attention_by_head.view(-1, self.d_model) @ self.Wo
 
 
-class TransformerEncoder(torch.nn.Module):
+class TransformerEncoder(torch.nn.Module): # TODO: Adjust for padding.
     def __init__(self, length: int, d_model: int, num_heads: int, hidden_layers: list[int], activation: Callable[[torch.Tensor], torch.Tensor], max_length: int):
         super().__init__()
         # implement padding for seq length
@@ -78,4 +78,4 @@ class TransformerEncoder(torch.nn.Module):
         X = self.layer_norm(X)
         return X
     
-# implement decoder
+# TODO: Implement decoder

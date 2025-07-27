@@ -6,7 +6,7 @@ from collections import defaultdict
 from .base import TrainingStrategy
 from typing import TYPE_CHECKING
 from src.modules.model.deeponet import DeepONet
-from src.modules.model.config import TwoStepConfig
+from src.modules.model.training_strategies.config import TwoStepConfig
 from src.modules.model.components.component_factory import BranchFactory
 from src.modules.model.optimization.optimizers.config import OptimizerSpec
 from src.modules.model.components.trunk.orthonormal_trunk import OrthonormalTrunk

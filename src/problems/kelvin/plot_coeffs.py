@@ -93,51 +93,65 @@ def plot_coefficients(branch_output_sample: np.ndarray, basis: np.ndarray, input
     fig, axes = plt.subplots(
         ncols=len(branch_output_sample), figsize=(fig_width, fig_height))
 
-    for i, channel in enumerate(branch_output_sample):
-        axes[i].bar(range(len(channel)), channel,
-                    color=colors[i])
-        axes[i].set_ylim([branch_output_sample.min() * 1.5,
-                         branch_output_sample.max() * 1.3])
-        axes[i].set_xlabel(r'$i$')
-        axes[i].set_ylabel(r'$i$-th coefficient')
-        axes[i].set_title(
-            f'{target_labels[i]} ({parameters_map[0][0]}={parameters_map[0][1]:.1E}, {parameters_map[1][0]}={parameters_map[1][1]:.1E})')
+    if len(branch_output_sample) == 1:
+        ch = branch_output_sample[0]
+        axes.bar(range(len(ch)), ch,
+                    color=colors[0])
+        axes.set_ylim([branch_output_sample.min() * 1.5,
+                        branch_output_sample.max() * 1.3])
+        axes.set_xlabel(r'$i$')
+        axes.set_ylabel(r'$i$-th coefficient')
+        axes.set_title(
+            '$\\mathbf{u}$' + f'({parameters_map[0][0]}={parameters_map[0][1]:.1E}, {parameters_map[1][0]}={parameters_map[1][1]:.1E})')
 
-        # positions = []
-        # for j, coeff in enumerate(channel):
-        #     x_pos = j / (subplot_width)
-        #     y_pos = min(coeff / fig_height,
-        #                 0.85) if coeff >= 1 else min(coeff,
-        #                                              0.85) if coeff >= 0 else max(coeff / fig_height, 0)
-        #     # min(coeff * 0.2, 0.8) if coeff >= 0 else max(-coeff * 2, 0)
-        #     positions.append((x_pos, y_pos))
+    else:
+        for i, ch_ax in enumerate(zip(branch_output_sample, axes)):
+            ch = ch_ax[0]
+            ax = ch_ax[1]
+            ax.bar(range(len(ch)), ch,
+                        color=colors[i])
+            ax.set_ylim([branch_output_sample.min() * 1.5,
+                            branch_output_sample.max() * 1.3])
+            ax.set_xlabel(r'$i$')
+            ax.set_ylabel(r'$i$-th coefficient')
+            ax.set_title(
+                f'{target_labels[i]} ({parameters_map[0][0]}={parameters_map[0][1]:.1E}, {parameters_map[1][0]}={parameters_map[1][1]:.1E})')
 
-        # for (index, pos) in enumerate(positions):
-        #     ax_inset = axes[i].inset_axes([pos[0], pos[1], 0.15, 0.15])
-        #     vector_channel = basis[index][i]
-        #     vector_data = np.flipud(np.transpose(vector_channel, (1, 0)))
-        #     vector_data = vector_data if channel[index] >= 0 else - vector_data
-        #     ax_inset.imshow(vector_data, origin='lower')
-        #     ax_inset.set_title(r'$i$'+f'={index + 1}', fontsize=14)
-        #     ax_inset.set_xticklabels([])
-        #     ax_inset.set_yticklabels([])
-        #     ax_inset.tick_params(labelsize=7)
+            # positions = []
+            # for j, coeff in enumerate(channel):
+            #     x_pos = j / (subplot_width)
+            #     y_pos = min(coeff / fig_height,
+            #                 0.85) if coeff >= 1 else min(coeff,
+            #                                              0.85) if coeff >= 0 else max(coeff / fig_height, 0)
+            #     # min(coeff * 0.2, 0.8) if coeff >= 0 else max(-coeff * 2, 0)
+            #     positions.append((x_pos, y_pos))
 
-        #     ax_inset.set_aspect('equal', adjustable='box')
+            # for (index, pos) in enumerate(positions):
+            #     ax_inset = axes[i].inset_axes([pos[0], pos[1], 0.15, 0.15])
+            #     vector_channel = basis[index][i]
+            #     vector_data = np.flipud(np.transpose(vector_channel, (1, 0)))
+            #     vector_data = vector_data if channel[index] >= 0 else - vector_data
+            #     ax_inset.imshow(vector_data, origin='lower')
+            #     ax_inset.set_title(r'$i$'+f'={index + 1}', fontsize=14)
+            #     ax_inset.set_xticklabels([])
+            #     ax_inset.set_yticklabels([])
+            #     ax_inset.tick_params(labelsize=7)
 
-        #     x_main = index
-        #     y_main = channel[index]
-        #     coordsA = 'data'
-        #     coordsB = 'axes fraction'
-        #     plot_pos = (0.5, 0) if channel[index] > 0 else (0.5, 1)
-        #     for corner in [plot_pos]:
-        #         con = ConnectionPatch(
-        #             xyA=(x_main, y_main), coordsA=coordsA,
-        #             xyB=corner, coordsB=coordsB,
-        #             axesA=axes[i], axesB=ax_inset,
-        #             color='black'
-        #         )
-        #         ax_inset.add_artist(con)
+            #     ax_inset.set_aspect('equal', adjustable='box')
+
+            #     x_main = index
+            #     y_main = channel[index]
+            #     coordsA = 'data'
+            #     coordsB = 'axes fraction'
+            #     plot_pos = (0.5, 0) if channel[index] > 0 else (0.5, 1)
+            #     for corner in [plot_pos]:
+            #         con = ConnectionPatch(
+            #             xyA=(x_main, y_main), coordsA=coordsA,
+            #             xyB=corner, coordsB=coordsB,
+            #             axesA=axes[i], axesB=ax_inset,
+            #             color='black'
+            #         )
+            #         ax_inset.add_artist(con)
 
     fig.tight_layout()
     return fig

@@ -67,7 +67,7 @@ def run_problem_specific_plotting(data: dict[str, Any], data_cfg: DataConfig, te
     basis_plots_path = plots_path / 'basis_plots'
     coefficients_plots_path = plots_path / 'coefficients_plots'
 
-    for path in [coefficients_plots_path, plane_plots_path]:
+    for path in [coefficients_plots_path, plane_plots_path, basis_plots_path]:
         path.mkdir(exist_ok=True)
 
     if test_cfg.config is None:
@@ -112,9 +112,9 @@ def plot_metrics(test_cfg: TestConfig, data_cfg: DataConfig):
     output_data = ppr.get_output_data(test_cfg)
     ground_truths = ppr.format_target(output_data[data_cfg.targets[0]], data_cfg)
     predictions = ppr.format_target(output_data['predictions'], data_cfg)
+    basis = ppr.reshape_basis(output_data['trunk_output'], data_cfg, test_cfg)
     coefficients = ppr.reshape_coefficients(
         output_data['branch_output'], data_cfg, test_cfg)
-    basis = ppr.reshape_basis(output_data['trunk_output'], data_cfg, test_cfg)
     bias = ppr.format_bias(output_data['bias'], data_cfg, test_cfg)
 
     data = {
