@@ -33,12 +33,12 @@ class KelvinProblemGenerator(BaseProblemGenerator):
             array: Shape (N, 3) with columns [F, mu, nu], where N is the number of samples.
         """
 
-        log_mu_samples = self.config["MU_MIN"] + numpy_random_open_0_1(
-            self.config["N"]) * (self.config["MU_MAX"] - self.config["MU_MIN"])
+        log_mu_samples = self.config["mu_min"] + numpy_random_open_0_1(
+            self.config["N"]) * (self.config["mu_max"] - self.config["mu_min"])
         F_samples = -np.array(10**self.config["F"])
         mu_samples = 10**log_mu_samples
         nu_samples = numpy_random_open_0_1(
-            self.config["N"]) * (self.config["NU_MAX"] - self.config["NU_MIN"])
+            self.config["N"]) * (self.config["nu_max"] - self.config["nu_min"])
         return F_samples, mu_samples, nu_samples
 
     def _get_coordinates(self) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
@@ -47,11 +47,11 @@ class KelvinProblemGenerator(BaseProblemGenerator):
             tuple: [x, y, z]
         """
         x_field = np.linspace(
-            self.config["X_MIN"]+1e-6, self.config["X_MAX"] - 1e-6, self.config["N_X"])
+            self.config["x_min"]+1e-6, self.config["x_max"] - 1e-6, self.config["N_x"])
         y_field = np.linspace(
-            self.config["Y_MIN"]+1e-6, self.config["Y_MAX"] - 1e-6, self.config["N_Y"])
+            self.config["y_min"]+1e-6, self.config["y_max"] - 1e-6, self.config["N_y"])
         z_field = np.linspace(
-            self.config["Z_MIN"]+1e-6, self.config["Z_MAX"] - 1e-6, self.config["N_Z"])
+            self.config["z_min"]+1e-6, self.config["z_max"] - 1e-6, self.config["N_z"])
         return x_field, y_field, z_field
 
     def _influencefunc(self, F, mu, nu, x_field, y_field, z_field) -> tuple[np.ndarray, float]:
@@ -79,11 +79,11 @@ class KelvinProblemGenerator(BaseProblemGenerator):
         """
         start = time.perf_counter_ns()
 
-        if self.config["LOAD_DIRECTION"] == 'x':
+        if self.config["load_direction"] == 'x':
             d = 0
-        elif self.config["LOAD_DIRECTION"] == 'y':
+        elif self.config["load_direction"] == 'y':
             d = 1
-        elif self.config["LOAD_DIRECTION"] == 'z':
+        elif self.config["load_direction"] == 'z':
             d = 2
         else:
             raise ValueError(
@@ -127,17 +127,17 @@ class KelvinProblemGenerator(BaseProblemGenerator):
         x_field_transformed, y_field_transformed, z_field_transformed = coordinates
 
         x_field = mesh_rescaling(
-            x_field_transformed, self.config["SCALER"])
+            x_field_transformed, self.config["scaler"])
         y_field = mesh_rescaling(
-            y_field_transformed, self.config["SCALER"])
+            y_field_transformed, self.config["scaler"])
         z_field = mesh_rescaling(
-            z_field_transformed, self.config["SCALER"])
+            z_field_transformed, self.config["scaler"])
 
         logger.info(f"Generating...")
         displacements, duration = self._influencefunc(
             F, mu, nu, x_field, y_field, z_field)
 
-        scaler_parameter = self.config["SCALER"]
+        scaler_parameter = self.config["scaler"]
 
         logger.info(
             f"Runtime for computing Kelvin solution: {duration:.3f} ms\nData shapes:\nInput functions (F, mu, nu): {F.shape}, {mu.shape}, {nu.shape}\nDisplacements u: {displacements.shape}\nx: {x_field.shape}, y: {y_field.shape}, z: {z_field.shape}\nLoad magnitude = {F:.3E}\nShear modulus min = {mu.min():.3E}, max = {mu.max():.3E}\nPoisson's ratio min = {nu.min():.3f}, max = {nu.max():.3f}\nx: min = {x_field.min():3f}, max = {x_field.max():.3f}\nx: mean = {x_field.mean():3f}, std = {x_field.std():.3f}\ny: min = {y_field.min():3f}, max = {y_field.max():.3f}\ny: mean = {y_field.mean():3f}, std = {y_field.std():.3f}\nz: min = {z_field.min():3f}, max = {z_field.max():.3f}\nz: mean = {z_field.mean():3f}, std = {z_field.std():.3f}\ng_u: min = {displacements.min():3f}, max = {displacements.max():.3f}\ng_u: mean = {displacements.mean():3f}, std = {displacements.std():.3f}\n scaling parameter = {scaler_parameter:.3f}")
@@ -197,7 +197,7 @@ class KelvinProblemGenerator(BaseProblemGenerator):
                 }
             }
         }
-        path = Path(self.config["DATA_PATH"])
+        path = Path(self.config["data_filename"])
         if path.parent:
             path.parent.mkdir(parents=True, exist_ok=True)
 

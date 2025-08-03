@@ -1,0 +1,16 @@
+precision: float32
+device: cpu
+
+# Location of dataset to test
+experiment_version:  2025-08-02_16-21-40
+# Location of outputs (data, metrics) - Set this if testing a pretrained model
+output_path: ./output
+processed_data_path: ./data/processed
+
+plot_trajectories: true
+plot_basis: true
+plot_coefficients: true
+plot_coefficients_mean: false
+
+trajectories_to_plot: 4
+vectors_to_highlight: 3

@@ -5,10 +5,10 @@ import matplotlib.colors as colors
 from src.modules.utilities.plot_utils import format_param
 from matplotlib.ticker import PercentFormatter
 
-plt.rc('font', family='serif', size=14)
+plt.rc('font', family='serif', size=20)
 plt.rc('text', usetex=True)
-plt.rc('axes', labelsize=15)
-plt.rc('legend', fontsize=12)
+plt.rc('axes', labelsize=20)
+plt.rc('legend', fontsize=24)
 cmap = plt.get_cmap('magma') # # tried: 'RdBu', plasma, inferno
 plt.rc('image', cmap=cmap.name)
 # matplotlib.rcParams['text.latex.preamble'] = r'\math'
@@ -92,9 +92,9 @@ def plot_field(
             truth if plotted_variable == 'truths' else rel_error
         
         c = ax.contourf(X, Y, plotted, cmap=cmap.name)
-        ax.set_title(f"{ch} {param_str}")
-        ax.set_xlabel(x_label)
-        ax.set_ylabel(y_label)
+        ax.set_title(f"{ch} {param_str}", fontsize=24)
+        ax.set_xlabel(x_label, fontsize=24)
+        ax.set_ylabel(y_label, fontsize=24)
         fig.colorbar(c, ax=ax)
 
         if plot_plane != 'xy':
@@ -107,7 +107,7 @@ def plot_field(
                 ha='center',                         
                 va='center'                          
             )
-    fig.suptitle(f"{plotted_label_map[plotted_variable]} ${plot_plane}$ - Plane")
+    fig.suptitle(f"{plotted_label_map[plotted_variable]} ${plot_plane}$ - Plane", fontsize=24)
         
     fig.tight_layout()
     return fig

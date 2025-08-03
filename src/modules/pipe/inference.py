@@ -53,9 +53,10 @@ def inference(test_cfg: TestConfig, data_cfg: DataConfig):
 
     start = time.perf_counter()
 
-    y_pred = model(test_transformed[data_cfg.features[0]],
-                   test_transformed[data_cfg.features[1]]
-                   )
+    y_pred = model(
+        test_transformed[data_cfg.features[0]],
+        test_transformed[data_cfg.features[1]]
+    ).to(test_cfg.device)
 
     duration = time.perf_counter() - start
 

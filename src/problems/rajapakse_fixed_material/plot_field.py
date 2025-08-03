@@ -2,12 +2,12 @@ from __future__ import annotations
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.colors as colors
-from src.modules.utilities.plot_utils import format_param
 from matplotlib.ticker import PercentFormatter
+from src.modules.utilities.plot_utils import format_param
 
-plt.rc('font', family='serif', size=15)
+plt.rc('font', family='serif', size=18)
 plt.rc('text', usetex=True)
-plt.rc('axes', labelsize=14)
+plt.rc('axes', labelsize=18)
 plt.rc('legend', fontsize=12)
 cmap = plt.get_cmap('viridis') # # tried: 'RdBu'
 plt.rc('image', cmap=cmap.name)

@@ -1,32 +1,32 @@
 # DATA_PATH: ./data/raw/rajapakse_fixed_material/rajapakse_fixed_v1.npz
-DATA_PATH: /Volumes/tmh/new_data/rajapakse_fixed_material/rajapakse_fixed_v2.npz
+data_filename: /Volumes/tmh/new_data/rajapakse_fixed_material/rajapakse_fixed_v2.npz
 
-SEED: 42
+seed: 42
 
 # ---------------------- Influence function dynamic single material problem -----------------
 
-N_R: 40 # Mesh points for r coordinate
-N_Z: 40 # Mesh points for z coordinate
-R_MIN: 0 # Min r coordinate sampled [m]
-Z_MIN: 0 # Min. z coordinate sampled   [m]
-R_MAX: 10 # Max. r coordinate sampled [m]
-Z_MAX: 10 # Max. z coordinate sampled [m]
+N_r: 40 # Mesh points for r coordinate
+N_z: 40 # Mesh points for z coordinate
+r_min: 0 # Min r coordinate sampled [m]
+z_min: 0 # Min. z coordinate sampled   [m]
+r_max: 10 # Max. r coordinate sampled [m]
+z_max: 10 # Max. z coordinate sampled [m]
 
 N: 500 # Number of samples
 
-OMEGA_MIN: 0 # Min. sampled frequency [Rad/s]
-OMEGA_MAX: 5200 # Max. sampled frequency [Rad/s]
-LOAD: 6006663.0 # Load magnitude [N]
-Z_SOURCE: 0 # Position of source load in z axis [m]
-L_SOURCE: 0 # Dimension of source load in z axis [m]
-R_SOURCE: 2 # Dimension of source load in r axis [m]
+omega_min: 0 # Min. sampled frequency [Rad/s]
+omega_max: 5200 # Max. sampled frequency [Rad/s]
+load: 6006663.0 # Load magnitude [N]
+z_source: 0 # Position of source load in z axis [m]
+l_source: 0 # Dimension of source load in z axis [m]
+r_source: 2 # Dimension of source load in r axis [m]
 
 E: 25.0E+09 # Young Modulus [Pa]
-NU: 2.42277267E-01 # Poisson's ratio
-DAMP: 0.01 # Damping factor
-DENS: 1.73511990E+03 # Density [Kg.m-3]
+nu: 2.42277267E-01 # Poisson's ratio
+damp: 0.01 # Damping factor
+dens: 1.73511990E+03 # Density [Kg.m-3]
 
-COMPONENT:
+component:
   1 # uzz :  1
   # urz :  2
   # szzz : 3
@@ -38,14 +38,14 @@ COMPONENT:
   # srzr : 9
   # srrr : 10
 
-LOADTYPE:
+loadtype:
   3 # pointload    1
   # ringload     2
   # diskload     3
   # cylinderload 4
   # anularload   5
 
-BVPTYPE:
+bvptype:
   2 # loadinfullspace :   1
   # loadoverhalfspace : 2
   # loadinhalfspace :   3

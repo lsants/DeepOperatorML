@@ -1,0 +1,4 @@
+data_filename: ./data/raw/lorentz63/lorentz_v1.npz
+matlab_data_path: './data/raw/lorentz63/lorentz_data_300_trajectories.csv'
+
+max_time: 5 # seconds

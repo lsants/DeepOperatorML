@@ -61,7 +61,7 @@ def plot_basis_helper(data: dict[str, Any], data_cfg: DataConfig, plot_path: Pat
                 target_labels=data_cfg.targets_labels,
                 plot_plane=plane
             )
-            fig_basis_path = plot_path / plane_path / f"bias.png"
+            fig_basis_path = plane_path / f"bias.png"
             fig_bias.savefig(fig_basis_path)
             plt.close()
 

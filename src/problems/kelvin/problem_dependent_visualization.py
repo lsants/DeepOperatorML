@@ -79,7 +79,6 @@ def run_problem_specific_plotting(data: dict[str, Any], data_cfg: DataConfig, te
             data_cfg=data_cfg, 
             metadata=metadata, 
             plot_path=plane_plots_path,
-            test_cfg=test_cfg
         )
 
     if test_cfg.config['plot_basis']:

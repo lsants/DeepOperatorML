@@ -1,0 +1,33 @@
+#  ----------------------Location of .npz data files ----------------
+raw_data_path: ./data/raw/lorentz63/lorentz_v1.npz
+
+# ------------------------- Dataset parameters ----------------
+problem: lorentz63
+splitting:
+  ratios: [0.8, 0.1, 0.1]
+  seed: 42
+
+data_labels:
+  features: [xb, xt]
+  targets: [g_u]
+
+input_function_keys:  
+  - r_0
+
+input_function_labels:
+  - "$\\mathbf{r_0}$"
+
+coordinate_keys:
+  - t
+
+output_keys:
+  - g_u_x
+  - g_u_y
+  - g_u_z
+
+output_labels:
+  - "$r_x(t)$"
+  - "$r_y(t)$"
+  - "$r_z(t)$"
+
+var_share: 0.95

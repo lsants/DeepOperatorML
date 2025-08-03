@@ -18,6 +18,9 @@ def pod_stacked_data(data: np.ndarray, var_share: float) -> tuple[np.ndarray, ..
     
     n_vectors = max(1, (explained_variance_ratio < var_share).sum().item())
 
+    logger.info(f"Dataset has {n_vectors} vectors")
+
+
     basis = spatial_vectors[:, : n_vectors]  # (n_space, n_vectors)
 
     # import matplotlib.pyplot as plt

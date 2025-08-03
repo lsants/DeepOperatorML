@@ -1,25 +1,25 @@
-DATA_PATH: ./data/raw/kelvin/kelvin_v4.npz
+data_filename: ./data/raw/kelvin/kelvin_v4.npz
 
-SEED: 42
+seed: 42
 
 # -------------------------- Kelvin Problem -----------------------
 
 N: 500
-F: 2        # log10 [N] (10 MN)
-MU_MIN: 6       # log10 [Pa] (1 MPa)
-MU_MAX: 8   # log10 [Pa] (100 MPa)
-NU_MIN: 0.1
-NU_MAX: 0.5
+F: 5        # log10 [N] (10 MN)
+mu_min: 6       # log10 [Pa] (1 MPa)
+mu_max: 8   # log10 [Pa] (100 MPa)
+nu_min: 0.01
+nu_max: 0.5
 
-N_X: 20
-N_Y: 20
-N_Z: 20
-X_MIN: 0
-X_MAX: 1
-Y_MIN: 0
-Y_MAX: 1
-Z_MIN: 0
-Z_MAX: 1
-LOAD_DIRECTION: z
+N_x: 30
+N_y: 30
+N_z: 20
+x_min: -0.1
+x_max: 0.1
+y_min: -0.1
+y_max: 0.1
+z_min: -0.1
+z_max: 0.1
+load_direction: z
 
-SCALER: 1 # Scale parameter for mesh transformation
+scaler: 1 # Scale parameter for mesh transformation

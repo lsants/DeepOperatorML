@@ -35,13 +35,13 @@ class RajapakseFixedMaterialGenerator(BaseProblemGenerator):
         Returns:
             array: Shape (N, 1) consisting of N samples of the normalized frequency a0.
         """
-        e1 = self.config["E"] / (1 + self.config["NU"]) / \
-            (1 - 2 * self.config["NU"])
-        c44 = e1 * (1 - 2 * self.config["NU"]) / 2
-        omega = self.config["OMEGA_MIN"] + np.random.rand(self.config["N"]) * (
-            self.config["OMEGA_MAX"] - self.config["OMEGA_MIN"])
-        delta = omega * self.config["R_SOURCE"] * \
-            np.sqrt(self.config["DENS"] / c44)
+        e1 = self.config["E"] / (1 + self.config["nu"]) / \
+            (1 - 2 * self.config["nu"])
+        c44 = e1 * (1 - 2 * self.config["nu"]) / 2
+        omega = self.config["omega_min"] + np.random.rand(self.config["N"]) * (
+            self.config["omega_max"] - self.config["omega_min"])
+        delta = omega * self.config["r_source"] * \
+            np.sqrt(self.config["dens"] / c44)
         return delta
 
     def _get_coordinates(self):
@@ -50,12 +50,12 @@ class RajapakseFixedMaterialGenerator(BaseProblemGenerator):
             tuple: [r, z]
         """
         # To avoid computing at line r=0
-        modified_r_min = self.config["R_MIN"] + \
-            (self.config["R_SOURCE"] * 1e-2)
+        modified_r_min = self.config["r_min"] + \
+            (self.config["r_source"] * 1e-2)
         r_field = np.linspace(
-            modified_r_min, self.config["R_MAX"], self.config["N_R"]) / self.config["R_SOURCE"]
+            modified_r_min, self.config["r_max"], self.config["N_r"]) / self.config["r_source"]
         z_field = np.linspace(
-            self.config["Z_MIN"], self.config["Z_MAX"], self.config["N_Z"]) / self.config["R_SOURCE"]
+            self.config["z_min"], self.config["z_max"], self.config["N_z"]) / self.config["r_source"]
         return r_field, z_field
 
     def _influencefunc(self, norm_freqs, r_field, z_field):
@@ -74,18 +74,18 @@ class RajapakseFixedMaterialGenerator(BaseProblemGenerator):
             duration (float): Computation time in seconds.
         """
         # ------------ Material ------------
-        e1 = self.config["E"] / (1 + self.config["NU"]) / \
-            (1 - 2 * self.config["NU"])
-        c11 = e1 * (1 - self.config["NU"])
-        c12 = e1 * self.config["NU"]
-        c13 = e1 * self.config["NU"]
-        c33 = e1 * (1 - self.config["NU"])
-        c44 = e1 * (1 - 2 * self.config["NU"]) / 2
+        e1 = self.config["E"] / (1 + self.config["nu"]) / \
+            (1 - 2 * self.config["nu"])
+        c11 = e1 * (1 - self.config["nu"])
+        c12 = e1 * self.config["nu"]
+        c13 = e1 * self.config["nu"]
+        c33 = e1 * (1 - self.config["nu"])
+        c44 = e1 * (1 - 2 * self.config["nu"]) / 2
 
         # ---------- Displacement matrix ------------
         n_freqs = self.config["N"]
         wd = np.zeros(
-            (n_freqs, self.config["N_R"], self.config["N_Z"]), dtype=complex)
+            (n_freqs, self.config["N_r"], self.config["N_z"]), dtype=complex)
 
         # ------- Setting non-dimensional material constants ----------
         c11 = c11 / c44
@@ -93,24 +93,24 @@ class RajapakseFixedMaterialGenerator(BaseProblemGenerator):
         c13 = c13 / c44
         c33 = c33 / c44
         c44 = c44 / c44
-        dens = self.config["DENS"] / self.config["DENS"]
-        z_source = self.config["Z_SOURCE"] / self.config["R_SOURCE"]
-        r_source = self.config["R_SOURCE"] / self.config["R_SOURCE"]
+        dens = self.config["dens"] / self.config["dens"]
+        z_source = self.config["z_source"] / self.config["r_source"]
+        r_source = self.config["r_source"] / self.config["r_source"]
 
         # -------------- Computing displacement ----------------
         start = time.perf_counter_ns()
         for i in tqdm(range(n_freqs), colour='Green'):
-            for j in range(self.config["N_R"]):
-                for k in range(self.config["N_Z"]):
+            for j in range(self.config["N_r"]):
+                for k in range(self.config["N_z"]):
                     wd[i, j, k] = influence(
                         c11_val=c11, c12_val=c12, c13_val=c13, c33_val=c33, c44_val=c44,
-                        dens_val=dens, damp_val=self.config["DAMP"],
+                        dens_val=dens, damp_val=self.config["damp"],
                         r_campo_val=r_field[j], z_campo_val=z_field[k],
                         z_fonte_val=z_source, r_fonte_val=r_source, l_fonte_val=self.config[
-                            "L_SOURCE"],
+                            "l_source"],
                         freq_val=norm_freqs[i],
-                        bvptype_val=self.config["BVPTYPE"], loadtype_val=self.config[
-                            "LOADTYPE"], component_val=self.config["COMPONENT"]
+                        bvptype_val=self.config["bvptype"], loadtype_val=self.config[
+                            "loadtype"], component_val=self.config["component"]
                     )
 
         end = time.perf_counter_ns()
@@ -165,7 +165,7 @@ class RajapakseFixedMaterialGenerator(BaseProblemGenerator):
             }
         }
 
-        path = Path(self.config["DATA_PATH"])
+        path = Path(self.config["data_filename"])
         if path.parent:
             path.parent.mkdir(parents=True, exist_ok=True)
         np.savez(path, delta=delta, r=r_field, z=z_field, g_u=u)
