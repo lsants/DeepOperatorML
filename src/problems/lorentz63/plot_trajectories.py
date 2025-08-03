@@ -194,7 +194,8 @@ def plot_lorenz_trajectories_3d(
     
     if len(indices) == 1:
         x, y, z = trajectories.T
-        ax.plot(x, y, z, lw=1.2, label=f"IC: {np.round(initial_conditions[0], 1)}")
+        label = "$\\mathbf{r}_0$" + f"=({initial_conditions[0]:.1f}, {initial_conditions[1]:.1f}, {initial_conditions[2]:.1f})"
+        ax.plot(x, y, z, lw=1.2, label=label)
         ax.set_title(f"Lorenz Attractor ($t$={trajectory_window[-1]} s)")
         ax.set_xlabel("$x$", fontsize=20)
         ax.set_ylabel("$y$", fontsize=20)
@@ -203,7 +204,8 @@ def plot_lorenz_trajectories_3d(
     else:
         for i in indices:
             x, y, z = trajectories[i].T
-            ax.plot(x, y, z, lw=1.2, label=f"IC: {np.round(initial_conditions[i], 1)}")
+            label = "$\\mathbf{r}_0$" + f"=({initial_conditions[i][0]:.1f}, {initial_conditions[i][1]:.1f}, {initial_conditions[i][2]:.1f})"
+            ax.plot(x, y, z, lw=1.2, label=label)
         
         ax.set_title(f"Lorenz Attractor ($t$={trajectory_window[-1]} s)")
         ax.set_xlabel("$x$", fontsize=20)
