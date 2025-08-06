@@ -1,1 +1,1 @@
-from .pipe import train
+from src.modules.pipe import train
