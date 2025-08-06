@@ -1,6 +1,5 @@
 import os
 import sys
-import time
 import subprocess
 import logging
 import yaml
@@ -16,7 +15,7 @@ logging.basicConfig(
 
 logger = logging.getLogger(__name__)
 
-BASE_CONFIG = 'configs/training/config_train.yaml'
+BASE_CONFIG = 'configs/training/config_don_train.yaml'
 
 overrides_list = [
     {"problem": "kelvin", 

@@ -5,8 +5,8 @@ import yaml
 import logging
 from src import train_model
 from src import test_model
-from src.modules.pipe.pipeline_config import DataConfig, ExperimentConfig, TrainConfig, TestConfig
-from src.modules.utilities import config_validation as validation
+from src.modules.models.deeponet.config import DataConfig, TrainConfig, TestConfig
+from src.modules.models.deeponet.config import validator as validation
 
 logger = logging.getLogger(__name__)
 
@@ -21,7 +21,7 @@ logging.basicConfig(
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--problem", help="Type problem to be solved.")
-    parser.add_argument("--train-config-path", default="./configs/training/config_train.yaml",
+    parser.add_argument("--train-config-path", default="./configs/training/config_don_train.yaml",
                         help="Path to training config file.")
     parser.add_argument("--test",   action="store_true",
                         help="Skip training and only test.")
