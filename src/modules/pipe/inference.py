@@ -3,11 +3,11 @@ import time
 import numpy
 import logging
 from src.modules.pipe.saving import Saver
-from src.modules.model.model_factory import ModelFactory
-from src.modules.data_processing import data_loader as dtl
-from src.modules.utilities.metrics.errors import ERROR_METRICS
-from src.modules.pipe.pipeline_config import DataConfig, TestConfig
-from src.modules.data_processing.deeponet_transform import DeepONetTransformPipeline
+from src.modules.models.deeponet.deeponet_factory import DeepONetFactory
+from src.modules.models.deeponet.dataset import preprocessing_utils as dtl
+from src.modules.models.tools.metrics.errors import ERROR_METRICS
+from src.modules.models.deeponet.config import DataConfig, TestConfig
+from src.modules.models.deeponet.dataset.deeponet_transform import DeepONetTransformPipeline
 
 logger = logging.getLogger(__name__)
 
@@ -46,8 +46,8 @@ def inference(test_cfg: TestConfig, data_cfg: DataConfig):
                                                 )
 
 
-    model = ModelFactory.create_for_inference(
-        saved_config=test_cfg.model, state_dict=model_params)  # type: ignore
+    model = DeepONetFactory.create_for_inference(
+        saved_config=test_cfg.model, state_dict=model_params).to(device=test_cfg.device)  # type: ignore
 
     y_truth = test_transformed[data_cfg.targets[0]]
 

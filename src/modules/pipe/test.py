@@ -2,9 +2,8 @@ from __future__ import annotations
 import logging
 import torch
 from typing import Any
-from src.modules.pipe.pipeline_config import DataConfig, TestConfig
 from src.modules.pipe import inference as inf
-from src.modules.data_processing import data_loader as dtl
+from src.modules.models.deeponet.config import DataConfig, TestConfig
 from src.modules.data_processing.postprocessing_helper import run_plotting
 
 logger = logging.getLogger(__name__)

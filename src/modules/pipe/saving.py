@@ -5,8 +5,8 @@ import yaml
 import numpy as np
 from pathlib import Path
 import matplotlib.pyplot as plt
+from matplotlib.figure import Figure
 from typing import Any, Dict, Optional
-
 
 class Saver:
     def __init__(
@@ -90,11 +90,12 @@ class Saver:
     def save_plots(
         self,
         file_path: str | Path,
-        figure: plt.Figure
+        figure: Figure
     ) -> None:
         """Save a matplotlib figure to an image file."""
         figure.savefig(file_path)
         if self.full_logging:
+            self.logger.info(f"Figure saved to: {file_path}")
             self.logger.info(f"Figure saved to: {file_path}")
 
     def save_errors(self, file_path: str | Path, errors: Dict[str, Any]) -> None:

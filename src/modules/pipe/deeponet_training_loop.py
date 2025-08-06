@@ -6,15 +6,15 @@ from pathlib import Path
 from dataclasses import asdict
 from typing import Iterable, Optional
 from torch.utils.data import DataLoader
-from src.modules.data_processing.deeponet_sampler import DeepONetSampler
+from src.modules.models.deeponet.dataset.deeponet_sampler import DeepONetSampler
 from src.modules.pipe.history import HistoryStorer
-from src.modules.model.training_strategies.base import TrainingStrategy
-from src.modules.model.deeponet import DeepONet
+from src.modules.models.deeponet.training_strategies.base import TrainingStrategy
+from src.modules.models.deeponet.deeponet import DeepONet
 
 logger = logging.getLogger(__name__)
 
 
-class TrainingLoop:
+class DeepONetTrainingLoop:
     """Strategy‑aware training driver for *DeepONet*.
 
     The loop itself is deliberately thin: it orchestrates epochs, delegates
@@ -183,8 +183,7 @@ class TrainingLoop:
     # -------------------------------------------------------------- core epoch
     def _run_epoch(self, *, train: bool) -> dict[str, float]:
         self.model.train(mode=train)
-        # type: ignore[assignment]
-        loader: DataLoader = self.train_loader if train else self.val_loader
+        loader: DataLoader = self.train_loader if train else self.val_loader # type: ignore[assignment]
         assert loader is not None, "Validation loader requested but not provided."
 
         aggregated: dict[str, float] = defaultdict(float)

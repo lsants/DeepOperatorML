@@ -2,21 +2,20 @@ import dataclasses
 import logging
 import time
 import torch
-from src.modules.pipe.saving import Saver
 from copy import deepcopy
-from src.modules.plotting import plot_training
-from src.modules.model.config import ModelConfig
 from torch.utils.data import DataLoader
-from src.modules.pipe.training_loop import TrainingLoop
-from src.modules.model.model_factory import ModelFactory
-from src.modules.data_processing import data_loader as dtl
-from src.modules.data_processing.deeponet_sampler import DeepONetSampler
-from src.modules.data_processing.deeponet_dataset import DeepONetDataset
-from src.modules.data_processing.deeponet_transform import DeepONetTransformPipeline
-from src.modules.pipe.pipeline_config import TrainConfig, DataConfig, ExperimentConfig, PathConfig, format_exp_cfg
+from src.modules.pipe.saving import Saver
+from src.modules.pipe.plot_training import plot_training
+from src.modules.models.deeponet.config.deeponet_config import DeepONetConfig
+from src.modules.pipe.deeponet_training_loop import DeepONetTrainingLoop
+from src.modules.models.deeponet.deeponet_factory import DeepONetFactory
+from src.modules.models.deeponet.dataset import preprocessing_utils as dtl
+from src.modules.models.deeponet.dataset.deeponet_sampler import DeepONetSampler
+from src.modules.models.deeponet.dataset.deeponet_dataset import DeepONetDataset
+from src.modules.models.deeponet.dataset.deeponet_transform import DeepONetTransformPipeline
+from src.modules.models.deeponet.config import TrainConfig, DataConfig, ExperimentConfig, PathConfig
 
 logger = logging.getLogger(name=__name__)
-
 
 def train_model(
     data_cfg: DataConfig,
@@ -120,8 +119,8 @@ def train_model(
 
     # ------------------------------------ Initialize model & train loop -----------------------------
 
-    model, train_strategy = ModelFactory.create_for_training(
-        config=ModelConfig(
+    model, train_strategy = DeepONetFactory.create_for_training(
+        config=DeepONetConfig(
             branch=train_cfg.model.branch,
             trunk=train_cfg.model.trunk,
             bias=train_cfg.model.bias,
@@ -142,7 +141,7 @@ def train_model(
         transform_pipeline=transform_pipeline,
     )
 
-    loop = TrainingLoop(
+    loop = DeepONetTrainingLoop(
         model=model,
         strategy=train_strategy,
         train_loader=train_dataloader,
@@ -169,7 +168,7 @@ def train_model(
     fig = plot_training(
         history=history, plot_config=dataclasses.asdict(train_cfg))
 
-    exp_cfg = format_exp_cfg(exp_cfg)
+    exp_cfg = exp_cfg.get_serializable_config()
 
 
     if hasattr(train_strategy, 'final_trunk_config'):
