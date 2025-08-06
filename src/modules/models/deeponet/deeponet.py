@@ -13,7 +13,7 @@ class DeepONet(torch.nn.Module):
             branch (torch.nn.Module): Branch network, used to learn an operator's input function.
             trunk (torch.nn.Module): Trunk network, used to learn the operator's basis mapping.
             output_handler (OutputHandler): Defines how the DeepONet's inner product will be conducted depending on the number of channels.
-            rescaling (Rescaling): Determines how the DeepONet's output is rescaled in function of the number of basis functions.
+            rescaling (Rescaling): Determines how the DeepONet's output is rescaled in function of the embedding dimension.
         """
         super().__init__()
         self.branch: torch.nn.Module = branch
