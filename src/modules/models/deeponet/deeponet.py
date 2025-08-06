@@ -1,12 +1,9 @@
 from __future__ import annotations
 import torch
-import logging
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from src.modules.models.deeponet.components.output_handler.protocol import OutputHandler
     from src.modules.models.deeponet.components.rescaling.rescaler import Rescaler
-
-logger = logging.getLogger(__name__)
 
 class DeepONet(torch.nn.Module):
     def __init__(self, branch: torch.nn.Module, trunk: torch.nn.Module, bias: torch.nn.Module, output_handler: OutputHandler, rescaler: Rescaler):
