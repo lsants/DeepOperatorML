@@ -2,7 +2,7 @@ precision: float32
 device: cpu
 
 # Location of dataset to test
-experiment_version: 2025-07-18_23-06-51
+experiment_version: 2025-07-22_00-24-38
 
 # Location of outputs (data, metrics) - Set this if testing a pretrained model
 output_path: ./output

@@ -7,7 +7,7 @@ splitting:
   ratios: [0.8, 0.1, 0.1] # not splitting coordinates
   seed: 42
 
-data_labels: #raw
+data_labels:
   features: [xb, xt]
   targets: [g_u]
 

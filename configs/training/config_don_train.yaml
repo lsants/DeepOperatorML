@@ -5,32 +5,44 @@ output_handling: shared_branch
 embedding_dimension: 30
 branch:
   architecture: resnet
-  activation: relu
-  hidden_layers: [256, 256, 256, 128, 128, 128, 128]
-  dropout_rates: [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.1, 0.0]
-  batch_normalization: [False, False, False, False, False, False, False, False]
-  layer_normalization: [False, False, False, False, False, False, False, False]
-  degree: 8
-trunk:
-  architecture: resnet
+  # ---- for MLP ---------
   activation: silu
   hidden_layers: [256, 256, 256, 128, 128, 128, 128]
-  dropout_rates: [0.0, 0.0, 0.0, 0.0, 0.1, 0.1, 0.2, 0.0]
+  dropout_rates: [0.0, 0.0, 0.0, 0.0, 0.0, 0.1, 0.1, 0.0]
   batch_normalization: [False, False, False, False, False, False, False, False]
-  layer_normalization: [False, False, False, False, False, False, False, False]
+  layer_normalization: [false, false, false, false, false, false, false, false]
+  # ---- for KAN ---------
   degree: 8
+trunk:
+  architecture: transformer_encoder
+  # ---- for MLP ---------
+  activation: silu
+  hidden_layers: [256, 256, 256, 128, 128, 128, 128]
+  dropout_rates: [0.0, 0.0, 0.0, 0.0, 0.0, 0.1, 0.1, 0.0]
+  batch_normalization: [False, False, False, False, False, False, False, False]
+  layer_normalization: [false, false, false, false, false, false, false, false]
+  # ---- for KAN ---------
+  degree: 8
+  # ---- for Transformer ---------
+  num_heads: 8
+  num_layers: 4
+  d_model: 128
+  max_length: 256
+  dropout: 0.1
+  ff_mult: 4
 bias:
   use_zero_bias: true
-loss_function: mse
+loss_function: mse_dissipative
 transforms:
   branch:
     normalization: standardize # check if channel-wise
     feature_expansion: null
   trunk:
     normalization: standardize # minmax_0_1, minmax_-1_1, standardize, null
-    feature_expansion: null
-      # type: cosine
-      # size: 5
+    feature_expansion: #null
+      type: sin_cos
+      size: 20
+
   target:
     normalization: standardize
     feature_expansion: null
@@ -38,21 +50,21 @@ rescaling:
   exponent: 0 #  Used to rescale the output of the DeepONet by the number of basis functions to the power of the exponent (use exponent < 0).
 
 # --------------------- POD Config ----------------------
-pod: by_channel # stacked or by_channel
+pod: stacked # stacked or by_channel
 
 # ------------------- Parameters for vanilla / pod training ------------------
 branch_batch_size: 400 # Can't be null
 trunk_batch_size: null
 error: matrix_fro
 optimizer_schedule:
-  - epochs: 250
+  - epochs: 1000
     optimizer_type: adam
-    learning_rate: 0.001
-    l2_regularization: 0.0000001
-    lr_scheduler:
-      type: step
-      step_size: 500
-      gamma: 0.7
+    learning_rate: 0.0001
+    l2_regularization: 0.00001
+    # lr_scheduler:
+    #   type: step
+    #   step_size: 500
+    #   gamma: 0.7
 
 # ------------------- Parameters for two step training ------------------
 decomposition_type: svd
@@ -61,11 +73,11 @@ two_step_optimizer_schedule:
   trunk_phase:
     - epochs: 500
       optimizer_type: adam
-      learning_rate: 0.001
+      learning_rate: 0.0005
       l2_regularization: 1.0e-5
-    - epochs: 500
+    - epochs: 1000
       optimizer_type: adam
-      learning_rate: 0.001
+      learning_rate: 0.0001
       l2_regularization: 1.0e-5
       lr_scheduler:
         type: step
@@ -73,7 +85,7 @@ two_step_optimizer_schedule:
         gamma: 0.7
 
   branch_phase:
-    - epochs: 2000
+    - epochs: 1000
       optimizer_type: adam
       learning_rate: 0.001
       l2_regularization: 0.000001

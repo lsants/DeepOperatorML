@@ -1,5 +1,4 @@
 dataset_version: f83e9497
 precision: float32
-device: cpu
-# output_path: /Volumes/tmh/outputs # Script will create subdirectory with the problem name 'kelvin'.
-output_path: ./output
+device: mps 
+output_path: ./output # Script will create subdirectory with the problem name 'kelvin'.

@@ -1,5 +1,5 @@
 #  ----------------------Location of .npz data files ----------------
-raw_data_path: ./data/raw/lorentz63/lorentz_v1.npz
+raw_data_path: ./data/raw/lorentz63/lorentz_v2.npz
 
 # ------------------------- Dataset parameters ----------------
 problem: lorentz63
