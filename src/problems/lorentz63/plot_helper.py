@@ -5,7 +5,7 @@ from tqdm.auto import tqdm
 import matplotlib.pyplot as plt
 from src.problems.lorentz63.plot_trajectories import plot_lorenz_trajectories, plot_lorenz_trajectories_3d
 from src.problems.lorentz63.plot_basis import plot_basis_component, plot_basis_3d
-from src.modules.pipe.pipeline_config import DataConfig, TestConfig
+from src.modules.models.deeponet.config import DataConfig, TestConfig
 from src.problems.lorentz63.plot_coeffs import plot_coefficients, plot_coefficients_mean
 
 logger = logging.getLogger(__file__)
@@ -68,8 +68,8 @@ def plot_basis_helper(data: dict[str, Any], data_cfg: DataConfig, plot_path: Pat
 
     if data['bias'].ndim > 1:
         fig_bias_1d = plot_basis_component(
-            coords=data['coordinates'],
-            basis=data['bias'],
+            coords=data['coordinates']['t'],
+            basis=data['bias'][0],
             index=0,
             target_labels=data_cfg.targets_labels,
         )
@@ -78,8 +78,8 @@ def plot_basis_helper(data: dict[str, Any], data_cfg: DataConfig, plot_path: Pat
         plt.close()
 
         fig_bias_3d = plot_basis_3d(
-            coords=data['coordinates'],
-            basis=data['bias'],
+            coords=data['coordinates']['t'],
+            basis=data['bias'][0],
             index=0,
             target_labels=data_cfg.targets_labels,
         )
@@ -87,9 +87,10 @@ def plot_basis_helper(data: dict[str, Any], data_cfg: DataConfig, plot_path: Pat
         fig_bias_3d.savefig(fig_bias_3d_path)
         plt.close()
 
+
     for i in tqdm(range(1, len(data['basis']) + 1), colour='blue'):
         fig_basis_1d = plot_basis_component(
-            coords=data['coordinates'],
+            coords=data['coordinates']['t'],
             basis=data['basis'][i - 1],
             index=i,
             target_labels=data_cfg.targets_labels,
@@ -98,8 +99,11 @@ def plot_basis_helper(data: dict[str, Any], data_cfg: DataConfig, plot_path: Pat
         fig_basis_1d.savefig(fig_basis_1d_path)
         plt.close()
 
+        if data['basis'][i - 1].shape[0] == 1:
+            continue
+
         fig_basis_3d = plot_basis_3d(
-            coords=data['coordinates'],
+            coords=data['coordinates']['t'],
             basis=data['basis'][i - 1],
             index=i,
             target_labels=data_cfg.targets_labels,
@@ -109,7 +113,6 @@ def plot_basis_helper(data: dict[str, Any], data_cfg: DataConfig, plot_path: Pat
         plt.close()
 
 def plot_coefficients_helper(data: dict[str, Any], data_cfg: DataConfig, metadata: dict[str, Any], plot_path: Path):
-    for_filename = {"r_0": "$\\mathbf{r_0}$"}
     for idx in metadata['indices']:
         param_val = metadata['values'][idx]
         fig_coeffs = plot_coefficients(

@@ -45,7 +45,7 @@ def plot_pod_mode_3d(x_coords: np.ndarray, y_coords: np.ndarray, z_coords: np.nd
                 "Please ensure mode_values is flattened correctly (e.g., mode_values = mode_values.flatten())."
             )
 
-    fig = plt.figure(figsize=(10, 8))
+    fig = Figure(figsize=(10, 8))
     ax = fig.add_subplot(111, projection='3d')
 
     # Create the 3D scatter plot

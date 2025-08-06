@@ -6,8 +6,8 @@ import numpy as np
 from typing import Any
 from pathlib import Path
 from tqdm.auto import tqdm
-from .influence import influence
-from ..base_generator import BaseProblemGenerator
+from src.problems.rajapakse_fixed_material.influence import influence
+from src.problems.base_generator import BaseProblemGenerator
 
 logger = logging.getLogger(__name__)
 

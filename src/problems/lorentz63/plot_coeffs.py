@@ -2,6 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.patches import ConnectionPatch
 import matplotlib.ticker as ticker
+from matplotlib.figure import Figure
 
 plt.rc('font', family='serif', size=14)
 plt.rc('text', usetex=True)
@@ -15,21 +16,23 @@ def plot_coefficients_mean(
     coefficients: np.ndarray,
     num_vectors_to_highlight: int,
     target_labels: list[str]
-) -> plt.Figure:
+) -> Figure:
+    
 
     n_basis = vectors.shape[1]
     coefficients_mean = coefficients.mean(axis=0).T
+
     n_channels = coefficients_mean.shape[-1]
     k_highest_modes = np.sort(np.argsort(-np.abs(coefficients_mean), axis=0)[
         : num_vectors_to_highlight, :], axis=0)  # [k, n_basis]
 
     fig, ax = plt.subplots(ncols=n_channels, figsize=(5 * n_channels, 5))
-
+    if n_channels == 1:
+        ax = [ax]
     for ch in range(n_channels):
         coefficients_mean_for_i_channel = coefficients_mean[..., ch]
         x = np.arange(len(coefficients_mean_for_i_channel))
-        ax[ch].bar(x, abs(coefficients_mean_for_i_channel), align='edge',
-                   color='steelblue', alpha=0.8)
+        ax[ch].bar(x, abs(coefficients_mean_for_i_channel), align='edge', color='darkcyan', alpha=0.8)
         ax[ch].set_ylim([None, 1.3*abs(coefficients_mean_for_i_channel).max()])
         ax[ch].tick_params(axis='y', labelsize=12)
         ax[ch].set_xlabel(r'$i$', fontsize=15)
@@ -43,22 +46,19 @@ def plot_coefficients_mean(
         positions = []
         for i in range(len(k_highest_modes)):
             x_pos = min(0.15 + (i / len(k_highest_modes)) * 0.9, 0.85)
-            y_pos = min(
-                abs(coefficients_mean_for_i_channel)[k_highest_modes[:, ch]][i] * 3.6, 0.81)
+            y_pos = min(abs(coefficients_mean_for_i_channel)[k_highest_modes[:, ch]][i] * 3.6, 0.77)
             positions.append((x_pos, y_pos))
 
         for (index, pos) in zip(k_highest_modes[..., ch], positions):
             ax_inset = ax[ch].inset_axes([pos[0], pos[1], 0.16, 0.16])
             vector_channel = vectors[index][ch] if n_basis > 1 else vectors[index][0]
-            vector_channel = -vector_channel if coefficients_mean_for_i_channel[index] < 0 else vector_channel
-            vector_data = np.flipud(np.transpose(vector_channel, (1, 0)))
-            ax_inset.imshow(vector_data, origin='lower')
+            ax_inset.plot(vector_channel, color='deeppink')
             ax_inset.set_title(r'$i$'+f'={index + 1}', fontsize=14)
             ax_inset.set_xticklabels([])
             ax_inset.set_yticklabels([])
             ax_inset.tick_params(labelsize=7)
 
-            ax_inset.set_aspect('equal', adjustable='box')
+            # ax_inset.set_aspect('equal', adjustable='box')
 
             x_main = index
             y_main = np.abs(coefficients_mean[index, ch])
@@ -79,7 +79,7 @@ def plot_coefficients_mean(
 
 def plot_coefficients(branch_output_sample: np.ndarray, basis: np.ndarray, input_function_map: dict[str, float], target_labels: list[str]):
     # Branch output_sample: (n_channels, n_samples)
-    # Basis: (n_samples, n_channels, coord1, coord2)
+    # Basis: (n_samples, n_channels, coord)
     parameters_map = [(k, v) for k, v in input_function_map.items()]
 
     colors = ['crimson', 'goldenrod', 'royalblue']
@@ -99,10 +99,10 @@ def plot_coefficients(branch_output_sample: np.ndarray, basis: np.ndarray, input
                     color=colors[0])
         axes.set_ylim([branch_output_sample.min() * 1.5,
                         branch_output_sample.max() * 1.3])
-        axes.set_xlabel(r'$i$')
-        axes.set_ylabel(r'$i$-th coefficient')
+        axes.set_xlabel(r'$i$', fontsize=17)
+        axes.set_ylabel(r'$i$-th coefficient', fontsize=17)
         axes.set_title(
-            parameters_map[0][0] + f'=({parameters_map[0][1][0]:.1f},{parameters_map[0][1][1]:.1f}, {parameters_map[0][1][2]:.1f})')
+            parameters_map[0][0] + f'=({parameters_map[0][1][0]:.1f},{parameters_map[0][1][1]:.1f}, {parameters_map[0][1][2]:.1f})', fontsize=17)
 
     else:
         for i, ch_ax in enumerate(zip(branch_output_sample, axes)):
@@ -112,10 +112,10 @@ def plot_coefficients(branch_output_sample: np.ndarray, basis: np.ndarray, input
                         color=colors[i])
             ax.set_ylim([branch_output_sample.min() * 1.5,
                             branch_output_sample.max() * 1.3])
-            ax.set_xlabel(r'$i$')
-            ax.set_ylabel(r'$i$-th coefficient')
-            ax.set_title(
-                f'{target_labels[i]} ({parameters_map[0][0]}={parameters_map[0][1]:.1E}, {parameters_map[1][0]}={parameters_map[1][1]:.1E})')
+            ax.set_xlabel(r'$i$', fontsize=17)
+            ax.set_ylabel(r'$i$-th coefficient', fontsize=17)
+            ax.set_title(f'{target_labels[i]}', fontsize=17)
+        fig.suptitle(f"Coefficients for instance {parameters_map[0][0]}=({parameters_map[0][1][0]:.1f}, {parameters_map[0][1][1]:.1f}, {parameters_map[0][1][2]:.1f})", fontsize=18)
 
             # positions = []
             # for j, coeff in enumerate(channel):

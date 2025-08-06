@@ -2,6 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.patches import ConnectionPatch
 import matplotlib.ticker as ticker
+from matplotlib.figure import Figure
 
 plt.rc('font', family='serif', size=15)
 plt.rc('text', usetex=True)
@@ -15,7 +16,7 @@ def plot_coefficients_mean(
     coefficients: np.ndarray,
     num_vectors_to_highlight: int,
     target_labels: list[str]
-) -> plt.Figure:
+) -> Figure:
 
     n_basis = vectors.shape[1]
     coefficients_mean = coefficients.mean(axis=0).T
@@ -24,11 +25,11 @@ def plot_coefficients_mean(
         : num_vectors_to_highlight, :], axis=0)  # [k, n_basis]
 
     fig, ax = plt.subplots(ncols=n_channels, figsize=(5 * n_channels, 5))
+    if n_channels == 1:
+        ax = [ax]
 
     for ch in range(n_channels):
         coefficients_mean_for_i_channel = coefficients_mean[..., ch]
-        print(coefficients_mean_for_i_channel)
-        quit()
         x = np.arange(len(coefficients_mean_for_i_channel))
         ax[ch].bar(x, abs(coefficients_mean_for_i_channel), align='edge',
                    color='steelblue', alpha=0.8)

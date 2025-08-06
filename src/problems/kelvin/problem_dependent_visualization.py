@@ -5,7 +5,7 @@ import numpy as np
 from typing import Any
 from src.problems.kelvin import postprocessing as ppr
 from src.problems.kelvin import plot_helper as helper
-from src.modules.pipe.pipeline_config import DataConfig, TestConfig
+from src.modules.models.deeponet.config import DataConfig, TestConfig
 
 logger = logging.getLogger(__file__)
 

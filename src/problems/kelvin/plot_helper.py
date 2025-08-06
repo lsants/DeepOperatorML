@@ -5,7 +5,7 @@ from tqdm.auto import tqdm
 import matplotlib.pyplot as plt
 from src.problems.kelvin.plot_field import plot_field
 from src.problems.kelvin.plot_basis import plot_basis
-from src.modules.pipe.pipeline_config import DataConfig, TestConfig
+from src.modules.models.deeponet.config import DataConfig, TestConfig
 from src.problems.kelvin.plot_coeffs import plot_coefficients, plot_coefficients_mean
 
 logger = logging.getLogger(__file__)

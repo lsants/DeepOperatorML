@@ -1,5 +1,6 @@
 import numpy as np
 import pyvista as pv
+from matplotlib.figure import Figure
 
 raw_path = './data/raw/kelvin/kelvin_v4.npz'
 raw_data = np.load(raw_path)

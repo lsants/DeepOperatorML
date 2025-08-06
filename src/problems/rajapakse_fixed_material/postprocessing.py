@@ -3,7 +3,7 @@ import yaml
 import logging
 import numpy as np
 from pathlib import Path
-from src.modules.pipe.pipeline_config import DataConfig, TestConfig
+from src.modules.models.deeponet.config import DataConfig, TestConfig
 logger = logging.getLogger(__file__)
 
 

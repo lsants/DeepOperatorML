@@ -2,6 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.patches import ConnectionPatch
 import matplotlib.ticker as ticker
+from matplotlib.figure import Figure
 
 plt.rc('font', family='serif', size=14)
 plt.rc('text', usetex=True)
@@ -15,7 +16,7 @@ def plot_coefficients_mean(
     coefficients: np.ndarray,
     num_vectors_to_highlight: int,
     target_labels: list[str]
-) -> plt.Figure:
+) -> Figure:
 
     n_basis = vectors.shape[1]
     coefficients_mean = coefficients.mean(axis=0).T

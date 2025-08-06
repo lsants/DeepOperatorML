@@ -1,7 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
 
-
 plt.rc('font', family='serif', size=15)
 plt.rc('text', usetex=True)
 plt.rc('axes', labelsize=14)
@@ -21,7 +20,7 @@ plt.rc('image', cmap=cmap.name)
 def plot_basis(coords: dict[str, np.ndarray],
                basis: np.ndarray,
                index: int,
-               target_labels: list[str]) -> plt.Figure:
+               target_labels: list[str]) -> Figure:
     label_mapping = target_labels
     plot_dim1, plot_dim2 = [c for c in coords]
 

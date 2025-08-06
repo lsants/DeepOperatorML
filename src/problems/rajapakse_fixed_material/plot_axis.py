@@ -1,5 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
+from matplotlib.figure import Figure
 
 plt.rc('font', family='serif', size=15)
 plt.rc('text', usetex=True)
@@ -13,7 +14,7 @@ def plot_axis(coords: dict[str, np.ndarray],
               pred_field: np.ndarray,
               param_map: dict[str, float],
               target_labels: list[str],
-              rotated=False) -> plt.Figure:
+              rotated=False) -> Figure:
 
     dims = list(coords.keys())
     if len(dims) < 2:

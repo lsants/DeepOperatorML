@@ -2,8 +2,15 @@ from __future__ import annotations
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.colors as colors
-from src.modules.utilities.plot_utils import format_param
 from matplotlib.ticker import PercentFormatter
+from matplotlib.figure import Figure
+
+def format_param(param: list, param_keys: list[str]):
+    if len(param_keys) == len(param):
+        items = [f"{k}={v:.1E}" for k, v in zip(param_keys, param)]
+        return "(" + ", ".join(items) + ")"
+    else:
+        return f"{param:.0E}"
 
 plt.rc('font', family='serif', size=20)
 plt.rc('text', usetex=True)
@@ -22,7 +29,7 @@ def plot_field(
         target_labels: list[str],
         plot_plane: str,
         plotted_variable: str
-    ) -> plt.Figure:
+    ) -> Figure:
 
     coords_keys = ['x', 'y', 'z']
 

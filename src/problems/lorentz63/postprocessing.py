@@ -3,7 +3,7 @@ import yaml
 import logging
 import numpy as np
 from pathlib import Path
-from src.modules.pipe.pipeline_config import DataConfig, TestConfig
+from src.modules.models.deeponet.config import DataConfig, TestConfig
 
 logger = logging.getLogger(__file__)
 
@@ -46,7 +46,7 @@ def reshape_basis(trunk_out: np.ndarray, data_cfg: DataConfig, test_cfg: TestCon
         -1,
         raw_metadata["trajectories"][data_cfg.targets[0]]["shape"][1],
     )
-    return basis
+    return basis # (embedding_size, n_channels, n_coord)
 
 def format_bias(bias: np.ndarray, data_cfg: DataConfig, test_cfg: TestConfig) -> np.ndarray:
     if test_cfg.model.strategy.name != 'pod':  # type: ignore
@@ -56,8 +56,7 @@ def format_bias(bias: np.ndarray, data_cfg: DataConfig, test_cfg: TestConfig) ->
             raw_metadata = yaml.safe_load(file)
         bias = bias.T.reshape(
             -1,
+            raw_metadata["trajectories"][data_cfg.targets[0]]["shape"][-1], # TODO: Fix this so that it works also for pod stacked
             raw_metadata["trajectories"][data_cfg.targets[0]]["shape"][1],
-            raw_metadata["trajectories"][data_cfg.targets[0]]["shape"][2],
-            raw_metadata["trajectories"][data_cfg.targets[0]]["shape"][3],
         )
-        return bias
+        return bias # (embedding_size, n_channels, n_coord)

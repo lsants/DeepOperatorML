@@ -3,7 +3,7 @@ from typing import Any
 import matplotlib.pyplot as plt
 from tqdm.auto import tqdm
 from pathlib import Path
-from src.modules.pipe.pipeline_config import DataConfig, TestConfig
+from src.modules.models.deeponet.config import DataConfig, TestConfig
 from src.problems.rajapakse_fixed_material.plot_field import plot_2D_field
 from src.problems.rajapakse_fixed_material.plot_axis import plot_axis
 from src.problems.rajapakse_fixed_material.plot_basis import plot_basis

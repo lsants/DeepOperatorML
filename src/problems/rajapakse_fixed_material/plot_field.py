@@ -3,7 +3,14 @@ import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.colors as colors
 from matplotlib.ticker import PercentFormatter
-from src.modules.utilities.plot_utils import format_param
+from matplotlib.figure import Figure
+
+def format_param(param: list, param_keys: list[str]):
+    if len(param_keys) == len(param):
+        items = [f"{k}={v:.1E}" for k, v in zip(param_keys, param)]
+        return "(" + ", ".join(items) + ")"
+    else:
+        return f"{param:.0E}"
 
 plt.rc('font', family='serif', size=18)
 plt.rc('text', usetex=True)
@@ -20,7 +27,7 @@ def plot_2D_field(
         input_function_labels: list[str],
         input_function_value: list[float],
         target_labels: list[str]
-    ) -> plt.Figure:
+    ) -> Figure:
     dims = list(coords.keys())
     if len(dims) < 2:
         raise ValueError(

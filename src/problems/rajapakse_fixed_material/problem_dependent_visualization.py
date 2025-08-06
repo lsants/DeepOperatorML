@@ -5,7 +5,7 @@ import numpy as np
 from typing import Any
 from src.problems.rajapakse_fixed_material import postprocessing as ppr
 from src.problems.rajapakse_fixed_material import plot_helper as helper
-from src.modules.pipe.pipeline_config import DataConfig, TestConfig
+from src.modules.models.deeponet.config import DataConfig, TestConfig
 
 logger = logging.getLogger(__file__)
 

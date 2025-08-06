@@ -1,5 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
+from matplotlib.figure import Figure
+
 plt.rc('font', family='serif', size=15)
 plt.rc('text', usetex=True)
 plt.rc('axes', labelsize=15)
@@ -15,7 +17,7 @@ def plot_basis(
         index: int,
         target_labels: list[str],
         plot_plane: str,
-    ) -> plt.Figure:
+    ) -> Figure:
 
     coords_keys = ['x', 'y', 'z']
     orthogonal_dim = [pos for pos, coord in enumerate(coords_keys) if coord not in plot_plane][0]

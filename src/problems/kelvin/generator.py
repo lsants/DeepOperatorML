@@ -6,7 +6,7 @@ import numpy as np
 from typing import Any
 from pathlib import Path
 from src.problems.base_generator import BaseProblemGenerator
-from src.modules.utilities.sampling_functions import mesh_rescaling, numpy_random_open_0_1
+from src.problems.kelvin.sampling_functions import mesh_rescaling, numpy_random_open_0_1
 
 logger = logging.getLogger(__name__)
 

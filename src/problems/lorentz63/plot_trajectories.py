@@ -3,6 +3,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 import logging
+from matplotlib.figure import Figure
 
 logger = logging.getLogger(__file__)
 
@@ -189,7 +190,7 @@ def plot_lorenz_trajectories_3d(
         indices = np.arange(min(num_to_plot, num_available))
     
     # --- Figure: 3D Trajectory Plot (like MATLAB's plot3) ---
-    fig = plt.figure("3D Trajectory Plot", figsize=(10, 8))
+    fig = Figure("3D Trajectory Plot", figsize=(10, 8))
     ax = fig.add_subplot(111, projection='3d')
     
     if len(indices) == 1:
@@ -228,7 +229,7 @@ def plot_lorenz_trajectories(
     random_selection: bool = False,
     plot_1d: bool = True,
     plot_3d: bool = True
-) -> tuple[plt.Figure | None, plt.Figure | None]:
+) -> tuple[Figure | None, Figure | None]:
     """
     Plots Lorenz system trajectories from pre-processed data.
     
