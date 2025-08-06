@@ -6,7 +6,7 @@ import yaml
 from datetime import datetime
 from pathlib import Path
 from typing import Any
-from . import proper_orthogonal_decomposition as pod
+from src.modules.data_processing import proper_orthogonal_decomposition as pod
 
 logger = logging.getLogger(__name__)
 

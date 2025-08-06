@@ -1,18 +1,7 @@
 from __future__ import annotations
 from pathlib import Path
 import importlib.util
-from ..pipe.pipeline_config import DataConfig, TestConfig
-
-# def run_post_processing(test_cfg: TestConfig, data_cfg: DataConfig) -> None:
-#     # Load post-processing script path from config
-#     script_path = os.path.join('./src/problems', data_cfg.problem)
-
-#     # Dynamically import and run
-#     spec = importlib.util.spec_from_file_location(f'postprocesssing', script_path)
-#     postproc_module = importlib.util.module_from_spec(spec)
-#     spec.loader.exec_module(postproc_module)
-#     postproc_module.process_results(raw_dir, processed_dir)
-
+from src.modules.models.deeponet.config import DataConfig, TestConfig
 
 def run_plotting(test_cfg: TestConfig, data_cfg: DataConfig) -> None:
     base_dir = Path(__file__).parent.parent.parent
