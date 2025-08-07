@@ -1,8 +1,8 @@
 # ------------------- Model architecture ------------------
 seed: 42
-training_strategy: vanilla
-output_handling: shared_branch
-embedding_dimension: 30
+training_strategy: two_step
+output_handling: split_outputs
+embedding_dimension: 50
 branch:
   architecture: resnet
   # ---- for MLP ---------
@@ -18,7 +18,7 @@ trunk:
   # ---- for MLP ---------
   activation: silu
   hidden_layers: [256, 256, 256, 128, 128, 128, 128]
-  dropout_rates: [0.0, 0.0, 0.0, 0.0, 0.0, 0.1, 0.1, 0.0]
+  dropout_rates: [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
   batch_normalization: [False, False, False, False, False, False, False, False]
   layer_normalization: [false, false, false, false, false, false, false, false]
   # ---- for KAN ---------
@@ -32,7 +32,7 @@ trunk:
   ff_mult: 4
 bias:
   use_zero_bias: true
-loss_function: mse_dissipative
+loss_function: ot
 transforms:
   branch:
     normalization: standardize # check if channel-wise
@@ -50,14 +50,14 @@ rescaling:
   exponent: 0 #  Used to rescale the output of the DeepONet by the number of basis functions to the power of the exponent (use exponent < 0).
 
 # --------------------- POD Config ----------------------
-pod: stacked # stacked or by_channel
+pod_type: by_channel # stacked or by_channel
 
 # ------------------- Parameters for vanilla / pod training ------------------
 branch_batch_size: 400 # Can't be null
 trunk_batch_size: null
 error: matrix_fro
 optimizer_schedule:
-  - epochs: 1000
+  - epochs: 1
     optimizer_type: adam
     learning_rate: 0.0001
     l2_regularization: 0.00001
@@ -71,21 +71,21 @@ decomposition_type: svd
 
 two_step_optimizer_schedule:
   trunk_phase:
-    - epochs: 500
+    - epochs: 2000
       optimizer_type: adam
       learning_rate: 0.0005
-      l2_regularization: 1.0e-5
-    - epochs: 1000
-      optimizer_type: adam
-      learning_rate: 0.0001
-      l2_regularization: 1.0e-5
-      lr_scheduler:
-        type: step
-        step_size: 100
-        gamma: 0.7
+      l2_regularization: 1.0e-5 
+    # - epochs: 1000
+    #   optimizer_type: adam
+    #   learning_rate: 0.0001
+    #   l2_regularization: 1.0e-5
+    #   lr_scheduler:
+    #     type: step
+    #     step_size: 100
+    #     gamma: 0.7
 
   branch_phase:
-    - epochs: 1000
+    - epochs: 2000
       optimizer_type: adam
       learning_rate: 0.001
       l2_regularization: 0.000001

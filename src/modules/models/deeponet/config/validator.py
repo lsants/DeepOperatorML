@@ -6,7 +6,7 @@ from src.modules.models.deeponet.dataset.transform_config import TransformConfig
 from src.modules.models.deeponet.dataset.transform_config import TransformConfig
 from src.modules.models.deeponet.config.deeponet_config import DeepONetConfig
 from src.modules.models.deeponet.config import DataConfig, ExperimentConfig, TestConfig, TrainConfig
-
+from src.modules.models.deeponet.training_strategies.config import PODConfig
 
 @dataclass
 class ValidatedConfig:
@@ -35,6 +35,14 @@ def validate_train_config(cfg: TrainConfig):
     valid_strategies = ["pod", "two_step", "vanilla"]
     if cfg.model.strategy.name not in valid_strategies:
         raise ValueError(f"Invalid strategy: {cfg.model.strategy.name}")
+    
+    if cfg.model.strategy.name == 'pod':
+        if not isinstance(cfg.model.strategy, PODConfig):
+            raise ValueError(f"POD expected 'PODStrategy', got {type(cfg.model.strategy)} instead.")
+        else:
+            if cfg.model.strategy.pod_type == 'stacked' and cfg.model.output.handler_type != 'shared_trunk':
+                raise ValueError(f"Reusing the precomputed basis for all channels require 'stacked' POD computation.")
+
 
 
 def validate_config_compatibility(

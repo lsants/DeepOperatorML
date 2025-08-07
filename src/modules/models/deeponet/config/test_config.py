@@ -69,10 +69,7 @@ class TestConfig:
                 cfg_dict, self.transforms)
             trunk_config = TrunkConfig.setup_for_inference(
                 cfg_dict, self.transforms)
-            if cfg_dict['strategy']['name'] == 'pod':
-                # type: ignore
-                trunk_config.output_dim = trunk_config.pod_basis_shape[-1] # type: ignore
-            branch_config.output_dim = trunk_config.output_dim
+
             output_config = OutputConfig.setup_for_inference(cfg_dict)
             rescaling_config = RescalingConfig.setup_for_inference(cfg_dict)
             strategy_config = StrategyConfig.setup_for_inference(cfg_dict)

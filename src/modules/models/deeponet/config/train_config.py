@@ -36,7 +36,7 @@ class TrainConfig:
         with open(train_cfg_path) as f:
             train_cfg = yaml.safe_load(f)
 
-        pod_mask = 'split' if train_cfg['pod'] == 'by_channel' else 'stacked'
+        pod_mask = 'split' if train_cfg['pod_type'] == 'by_channel' else 'stacked'
 
         pod_data = {
             k: torch.tensor(v).to(
@@ -66,7 +66,6 @@ class TrainConfig:
             train_cfg=train_cfg, data_cfg=dataclasses.asdict(data_cfg))
         rescaling_config = RescalingConfig.setup_for_training(train_cfg)
 
-
         one_step_optimizer = [
             OptimizerSpec(**params)
             for params in train_cfg['optimizer_schedule']
@@ -83,6 +82,7 @@ class TrainConfig:
             'optimizer_scheduler': one_step_optimizer,
             'two_step_optimizer_schedule': multi_step_optimizer,
             'decomposition_type': train_cfg['decomposition_type'],
+            'pod_type': train_cfg['pod_type'],
             'num_branch_train_samples': int(data_cfg.split_ratios[0] * data_cfg.shapes[data_cfg.features[0]][0]),
             **pod_data
         }
