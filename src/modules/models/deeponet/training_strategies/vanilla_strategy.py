@@ -13,6 +13,13 @@ if TYPE_CHECKING:
 
 
 class VanillaStrategy(TrainingStrategy):
+    """
+    A simple training strategy for DeepONets.
+    
+    This strategy trains the neural branch and neural trunk simultaneously from scratch
+    without any intermediate decomposition or phase transitions. It represents a
+    standard, end-to-end training approach.
+    """
     def __init__(self, config: VanillaConfig):
         super().__init__(config)
         self.error_metric = ERROR_METRICS[config.error.lower()]

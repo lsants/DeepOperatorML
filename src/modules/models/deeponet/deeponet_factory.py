@@ -22,8 +22,30 @@ from src.modules.models.deeponet.training_strategies.config import VanillaConfig
 logger = logging.getLogger(__name__)
 
 class DeepONetFactory:
+    """
+    A factory class for creating and configuring DeepONet models.
+
+    This class provides static methods to build a DeepONet model either for
+    training with an associated training strategy or for inference from a
+    pre-trained state. It handles the instantiation of model components,
+    configuration validation, and state loading.
+    """
     @classmethod
     def create_for_training(cls, config: DeepONetConfig) -> tuple[DeepONet, TrainingStrategy]:
+        """
+        Creates a DeepONet model and a corresponding training strategy based on a configuration.
+
+        This method validates the configuration, builds the model components (branch, trunk,
+        and bias networks), and instantiates the appropriate training strategy.
+
+        Args:
+            config (DeepONetConfig): A configuration object containing all necessary
+                                     parameters for the DeepONet and the training strategy.
+
+        Returns:
+            tuple[DeepONet, TrainingStrategy]: A tuple containing the initialized DeepONet
+                                               model and its associated training strategy.
+        """
         strategy = cls._create_strategy(
             config=dataclasses.asdict(config))
         strategy.prepare_components(config)
@@ -35,9 +57,9 @@ class DeepONetFactory:
         BiasConfigValidator.validate(config.bias)
         BranchConfigValidator.validate(config.branch)
         TrunkConfigValidator.validate(config.trunk)
-
         branch = BranchFactory.build(config.branch)
         trunk = TrunkFactory.build(config.trunk)
+
         bias = BiasFactory.build(config.bias)
 
         return (DeepONet(
@@ -52,19 +74,30 @@ class DeepONetFactory:
 
     @classmethod
     def create_for_inference(cls, saved_config: DeepONetConfig, state_dict: dict) -> DeepONet:
-        """Builds model from frozen post-training config without strategy involvement"""
+        """
+        Builds a DeepONet model for inference from a saved configuration and state dictionary.
+
+        This method constructs the model from a post-training configuration, loads the
+        weights from the provided state dictionary, and sets the model to evaluation mode.
+        It does not involve a training strategy.
+
+        Args:
+            saved_config (DeepONetConfig): The configuration object saved after training.
+            state_dict (dict): The state dictionary containing the trained model weights.
+
+        Returns:
+            DeepONet: The fully constructed DeepONet model ready for inference.
+        """
         cls._validate_inference_config(saved_config)
 
         output_handler = OutputRegistry.create(saved_config.output)
         output_handler.adjust_dimensions(
             saved_config)
-
         rescaler = Rescaler(saved_config.rescaling)
 
         trunk = TrunkFactory.build(saved_config.trunk)
         branch = BranchFactory.build(saved_config.branch)
         bias = BiasFactory.build(saved_config.bias)
-
 
         model = DeepONet(
             branch=branch,
@@ -81,7 +114,19 @@ class DeepONetFactory:
 
     @classmethod
     def _validate_inference_config(cls, config: DeepONetConfig):
-        """Ensures config contains post-training state"""
+        """
+        Ensures the inference configuration is valid and contains a post-training state.
+
+        This method performs specific checks based on the training strategy used to ensure
+        the model can be correctly initialized for inference.
+
+        Args:
+            config (DeepONetConfig): The configuration to be validated.
+
+        Raises:
+            ValueError: If the configuration is not valid for inference (e.g., missing
+                        basis information for POD trunk).
+        """
         BranchConfigValidator.validate(config.branch)
         if config.strategy.name != 'pod' and not config.output.dims_adjust:
             raise ValueError(
@@ -111,6 +156,15 @@ class DeepONetFactory:
 
     @classmethod
     def _create_strategy(cls, config: dict) -> TrainingStrategy:
+        """
+        Initializes and returns a specific training strategy based on the configuration.
+
+        Args:
+            config (dict): A dictionary containing the `strategy` configuration details.
+
+        Returns:
+            TrainingStrategy: An instance of the requested training strategy.
+        """
         strategy_map = {
             "vanilla": (VanillaStrategy, VanillaConfig),
             "pod": (PODStrategy, PODConfig),

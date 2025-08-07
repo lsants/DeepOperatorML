@@ -19,11 +19,34 @@ if TYPE_CHECKING:
 
 
 class TwoStepStrategy(TrainingStrategy): # TODO: implement share branch decomposition
+    """
+    A training strategy for DeepONets that proceeds in two distinct phases.
+    
+    Phase 1: A temporary 'matrix_branch' is used to train a neural 'trunk' network.
+    Phase 2: The trained trunk is decomposed to create an orthonormal basis, which is
+             then used to train the original neural 'branch' network. This is based on
+             the "On the training and generalization of deep operator networks, S.Lee (2024)" paper.
+    """
     def __init__(self, config: TwoStepConfig):
+        """
+        Initializes the TwoStepStrategy with a configuration.
+        
+        Args:
+            config (TwoStepConfig): The configuration object for this strategy.
+        """
         super().__init__(config)
         self._phase = 1
 
     def prepare_components(self, model_config: 'DeepONetConfig'):
+        """
+        Modifies the model configuration to prepare for Phase 1 training.
+        
+        This method replaces the user's intended branch and trunk with temporary
+        components for the first phase of training.
+        
+        Args:
+            model_config (DeepONetConfig): The DeepONet model configuration.
+        """
         self._original_branch_cfg = deepcopy(model_config.branch)
         self._original_trunk_cfg = deepcopy(model_config.trunk)
 
@@ -34,6 +57,12 @@ class TwoStepStrategy(TrainingStrategy): # TODO: implement share branch decompos
         model_config.trunk.component_type = "neural_trunk"
 
     def setup_training(self, model: 'DeepONet'):
+        """
+        Sets up the training environment, including optimizers and schedulers.
+        
+        Args:
+            model (DeepONet): The DeepONet model to be trained.
+        """
         # Phase 1: Both components trainable
         model.trunk.requires_grad_(True)
         model.branch.requires_grad_(True)
@@ -66,6 +95,15 @@ class TwoStepStrategy(TrainingStrategy): # TODO: implement share branch decompos
                 (spec.epochs, branch_phase_optimizer, branch_phase_scheduler))
 
     def _get_trainable_parameters(self, model: 'DeepONet'):
+        """
+        Gets all trainable parameters from the model's components.
+        
+        Args:
+            model (DeepONet): The DeepONet model.
+            
+        Returns:
+            list: A list of trainable parameters.
+        """
         trainable_params = []
         for name, param in model.trunk.named_parameters():
             if param.requires_grad:
@@ -79,6 +117,12 @@ class TwoStepStrategy(TrainingStrategy): # TODO: implement share branch decompos
         return trainable_params
 
     def get_train_schedule(self) -> list[tuple[torch.optim.optimizer.Optimizer, torch.optim.lr_scheduler._LRScheduler, int]]:
+        """
+        Returns the appropriate training schedule based on the current phase.
+        
+        Returns:
+            list: The list of (epochs, optimizer, scheduler) tuples for the current phase.
+        """
         if self._phase == 1:
             if not hasattr(self, 'trunk_train_schedule'):
                 raise ValueError(
@@ -93,7 +137,18 @@ class TwoStepStrategy(TrainingStrategy): # TODO: implement share branch decompos
             raise RuntimeError("Invalid training phase")
 
     def execute_phase_transition(self, model: 'DeepONet', all_branch_indices: torch.Tensor, full_trunk_batch: torch.Tensor, full_outputs_batch: torch.Tensor):
-        """Decomposes the trunk and updates the model for phase 2 training."""
+        """
+        Performs the transition from Phase 1 to Phase 2.
+        
+        This involves decomposing the trained trunk, creating a new orthonormal trunk,
+        and replacing the temporary branch with the original one from the config.
+        
+        Args:
+            model (DeepONet): The DeepONet model.
+            all_branch_indices (torch.Tensor): Indices for all branch inputs.
+            full_trunk_batch (torch.Tensor): A full batch of trunk inputs.
+            full_outputs_batch (torch.Tensor): A full batch of corresponding outputs.
+        """
         if not isinstance(self.config, TwoStepConfig):
             raise TypeError("TwoStepStrategy requires TwoStepConfig")
 
@@ -266,7 +321,12 @@ class TwoStepStrategy(TrainingStrategy): # TODO: implement share branch decompos
 
 
     def _update_optimizer_parameters(self, model: 'DeepONet'):
-        """Updates optimizer parameters to match current model parameters"""
+        """
+        Updates the optimizers for Phase 2 to only consider the new branch parameters.
+        
+        Args:
+            model (DeepONet): The DeepONet model.
+        """
         trainable_params = []
         for param in model.branch.parameters():
             if param.requires_grad:
@@ -280,9 +340,24 @@ class TwoStepStrategy(TrainingStrategy): # TODO: implement share branch decompos
             optimizer.state = defaultdict(dict)
 
     def validation_enabled(self) -> bool:
+        """
+        Checks if validation is enabled. It is not enabled by default for this strategy.
+        """
         return False
 
     def should_transition_phase(self, current_phase: int, current_epoch: int) -> bool:
+        """
+        Determines if a phase transition from Phase 1 to Phase 2 is needed.
+        
+        The transition happens after all epochs for the trunk phase are complete.
+        
+        Args:
+            current_phase (int): The current training phase (1 or 2).
+            current_epoch (int): The current epoch within the current phase.
+            
+        Returns:
+            bool: True if a transition should occur, False otherwise.
+        """
         if current_phase == 1:
             # Transition after completing trunk phase
             trunk_epochs = sum(epochs for epochs, _,
@@ -296,7 +371,19 @@ class TwoStepStrategy(TrainingStrategy): # TODO: implement share branch decompos
                      x_trunk: torch.Tensor,
                      y_true: torch.Tensor,
                      indices: tuple[numpy.ndarray, ...]) -> tuple[torch.Tensor, ...]:
-        """Computes the loss for the given model and data"""
+        """
+        Computes the loss for the given model and data, adjusting based on the phase.
+        
+        Args:
+            model (DeepONet): The DeepONet model.
+            x_branch (torch.Tensor): Branch inputs.
+            x_trunk (torch.Tensor): Trunk inputs.
+            y_true (torch.Tensor): Ground truth outputs.
+            indices (tuple): Indices for branch inputs.
+            
+        Returns:
+            tuple: A tuple of (y_pred, loss).
+        """
         if self._phase == 1:
             y_pred = model(indices[0], x_trunk)
         elif self._phase == 2:
@@ -326,6 +413,19 @@ class TwoStepStrategy(TrainingStrategy): # TODO: implement share branch decompos
         return metrics
 
     def strategy_specific_metrics(self, model: torch.nn.Module, y_true: torch.Tensor, y_pred: torch.Tensor, branch_indices: numpy.ndarray, label_map: list[str] | None = None) -> dict[str, float]:
+        """
+        Calculates strategy-specific metrics, such as relative error, for each phase.
+        
+        Args:
+            model (torch.nn.Module): The model.
+            y_true (torch.Tensor): Ground truth outputs.
+            y_pred (torch.Tensor): Predicted outputs.
+            branch_indices (numpy.ndarray): Indices for branch inputs.
+            label_map (list[str]): Optional list of labels for outputs.
+            
+        Returns:
+            dict: A dictionary of the calculated metrics.
+        """
         if self._phase == 1:
             relative_error = self.error_metric(
                 y_true - y_pred) / self.error_metric(y_true)
