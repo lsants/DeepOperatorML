@@ -42,10 +42,15 @@ class BranchConfig:
             mask = re.sub(r'[^a-zA-Z0-9]', '', branch_config.activation.lower(
             ))
             branch_config.activation = ACTIVATION_MAP[mask]
-        if transform_cfg.branch.feature_expansion.size is None:
-            transform_cfg.branch.feature_expansion.size = 0
-        branch_config.input_dim = transform_cfg.branch.original_dim * (1 +
-                                                                       transform_cfg.branch.feature_expansion.size)
+        if hasattr(transform_cfg.branch, 'feature_expansion'):
+            if transform_cfg.branch.feature_expansion is not None:
+                if transform_cfg.branch.feature_expansion.size is None:
+                    transform_cfg.branch.feature_expansion.size = 0
+                else:
+                    if transform_cfg.branch.original_dim is not None:
+                        branch_config.input_dim = transform_cfg.branch.original_dim * (1 + transform_cfg.branch.feature_expansion.size)
+        # key = "embedding_dimension" if "embedding_dimension" in model_cfg_dict["rescaling"] else "num_basis_functions"
+        # branch_config.output_dim = model_cfg_dict["rescaling"][key]
         return branch_config
 
 

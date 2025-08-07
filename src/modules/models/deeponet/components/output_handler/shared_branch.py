@@ -26,6 +26,11 @@ class SharedBranchHandler(OutputHandler):
                 "Branch output dimension must be set for shared branch handler."
             )
         original_output_dims = config.trunk.output_dim
+        if original_output_dims is None:
+            raise ValueError(
+                "Trunk output dimension must be set for shared branch handler."
+            )
+        config.branch.output_dim = original_output_dims
         config.trunk.output_dim = original_output_dims * self.num_channels
 
     def combine(self, branch_out: torch.Tensor, trunk_out: torch.Tensor) -> torch.Tensor:

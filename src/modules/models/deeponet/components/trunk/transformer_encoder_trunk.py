@@ -28,7 +28,7 @@ class TransformerEncoderTrunk(torch.nn.Module):
             d_model=d_model,
             nhead=num_heads,
             num_layers=num_layers,
-            out_dim=output_dim,
+            output_dim=output_dim,
             ff_mult=ff_mult,
             max_len=max_length,
             dropout=dropout,

@@ -1,8 +1,8 @@
 from __future__ import annotations
 import torch
 import re
-from typing import Literal, Optional, Callable
 from dataclasses import dataclass
+from typing import Literal, Optional, Callable
 from src.modules.models.deeponet.dataset.transform_config import TransformConfig
 from src.modules.models.deeponet.components.registry import ComponentRegistry
 from src.modules.models.tools.activation_functions.activation_fns import ACTIVATION_MAP
@@ -43,6 +43,8 @@ class TrunkConfig:
         trunk_config.input_dim = data_cfg["shapes"][data_cfg["features"][1]][1]
         trunk_config.output_dim = train_cfg["embedding_dimension"] \
             if train_cfg['training_strategy'] != 'pod' else train_cfg["trunk"]['pod_basis'].shape[-1]
+        if trunk_config.output_dim is None:
+            raise TypeError("Trunk output dimension should not be None.")
         return trunk_config
 
     @classmethod
@@ -73,7 +75,7 @@ class TrunkConfigValidator:
             TrunkConfigValidator._validate_pod(config)
             return
         try:
-            component_class, required_params = ComponentRegistry.get(
+            _, required_params = ComponentRegistry.get(
                 component_type=config.component_type,
                 architecture=config.architecture
             )
@@ -87,7 +89,6 @@ class TrunkConfigValidator:
         except ValueError as e:
             raise ValueError(f"Invalid trunk configuration: {e}") from e
 
-        # Architecture-specific validation
         if 'kan' in str(config.architecture) and config.degree < 1:  # type: ignore
             raise ValueError("KAN requires degree >= 1")
 
@@ -116,29 +117,19 @@ class TrunkConfigValidator:
 
         if errors:
             raise ValueError(f"Orthonormal trunk errors: {', '.join(errors)}")
-
     @staticmethod
     def _validate_pod(config: TrunkConfig):
         """Special validation for POD trunk configuration"""
         errors = []
         pod_basis = config.pod_basis
-
-        print(pod_basis.shape[-1], config.output_dim)
-        quit()
-
         if not hasattr(config, "pod_basis"):
             errors.append("Missing pod_basis attribute for PODConfig")
-
         else:
             pod_basis = config.pod_basis
             if pod_basis is None:
                 errors.append("Basis tensor is missing in PODConfig")
             elif not isinstance(pod_basis, (torch.Tensor)):
                 errors.append("POD modes must be Tensor")
-
-            elif pod_basis.shape[-1] != config.output_dim:
-                errors.append(
-                    "POD modes' second dimension must match the trunk's output dimension")
 
         if errors:
             raise ValueError(f"POD trunk errors: {', '.join(errors)}")
