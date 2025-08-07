@@ -66,7 +66,10 @@ def plot_basis_helper(data: dict[str, Any], data_cfg: DataConfig, plot_path: Pat
     basis_path_3d = plot_path / f"3d"
     basis_path_3d.mkdir(exist_ok=True)
 
-    if data['bias'].ndim > 1:
+    mask_1 = len(data['bias']) > 1
+    mask_2 = data['bias'].ndim > 1
+    mask = mask_1 and mask_2
+    if mask:
         fig_bias_1d = plot_basis_component(
             coords=data['coordinates']['t'],
             basis=data['bias'][0],

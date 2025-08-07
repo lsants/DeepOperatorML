@@ -190,7 +190,7 @@ def plot_lorenz_trajectories_3d(
         indices = np.arange(min(num_to_plot, num_available))
     
     # --- Figure: 3D Trajectory Plot (like MATLAB's plot3) ---
-    fig = Figure("3D Trajectory Plot", figsize=(10, 8))
+    fig = Figure(figsize=(10, 8))
     ax = fig.add_subplot(111, projection='3d')
     
     if len(indices) == 1:

@@ -39,12 +39,12 @@ def inference(test_cfg: TestConfig, data_cfg: DataConfig):
         stats=stats[data_cfg.targets[0]]
     )
 
-    test_transformed = dtl.get_transformed_data(data=test_data,
-                                                features_keys=data_cfg.features,
-                                                targets_keys=data_cfg.targets,
-                                                transform_pipeline=transform_pipeline
-                                                )
-
+    test_transformed = dtl.get_transformed_data(
+        data=test_data,                                        
+        features_keys=data_cfg.features,                                        
+        targets_keys=data_cfg.targets,                                        
+        transform_pipeline=transform_pipeline
+    )
 
     model = DeepONetFactory.create_for_inference(
         saved_config=test_cfg.model, state_dict=model_params).to(device=test_cfg.device)  # type: ignore
@@ -71,11 +71,12 @@ def inference(test_cfg: TestConfig, data_cfg: DataConfig):
     errors['Normalized Error'] = {}
     times['inference_time'] = duration
 
-    if test_cfg.transforms.target.normalization is not None:
-        y_pred = transform_pipeline.inverse_transform(tensor=y_pred, component='target')
+    if test_cfg.transforms is not None:
+        if test_cfg.transforms.target.normalization is not None:
+            y_pred = transform_pipeline.inverse_transform(tensor=y_pred, component='target')
     
     for i, _ in enumerate(abs_error):
-        if test_cfg.transforms.target.normalization is None:
+        if test_cfg.transforms is not None:
             errors['Physical Error'][data_cfg.targets_labels[i]] = (abs_error / norm_truth)[i]
         else:
             errors['Normalized Error'][data_cfg.targets_labels[i]] = (abs_error / norm_truth)[i]
@@ -113,6 +114,5 @@ def inference(test_cfg: TestConfig, data_cfg: DataConfig):
                 test_cfg.experiment_version / 'aux' / 'output_data.npz', **data_to_plot)
 
     logger.info(
-        # type: ignore
-        f"Saved to {test_cfg.output_path / test_cfg.problem / test_cfg.experiment_version}"
+        f"Saved to {test_cfg.output_path / str(test_cfg.problem) / str(test_cfg.experiment_version)}"
     )

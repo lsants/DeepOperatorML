@@ -54,9 +54,10 @@ def format_bias(bias: np.ndarray, data_cfg: DataConfig, test_cfg: TestConfig) ->
     else:
         with open(data_cfg.raw_metadata_path, 'r') as file:
             raw_metadata = yaml.safe_load(file)
+
         bias = bias.T.reshape(
             -1,
-            raw_metadata["trajectories"][data_cfg.targets[0]]["shape"][-1], # TODO: Fix this so that it works also for pod stacked
+            bias.shape[-1],
             raw_metadata["trajectories"][data_cfg.targets[0]]["shape"][1],
         )
         return bias # (embedding_size, n_channels, n_coord)

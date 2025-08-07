@@ -3,8 +3,8 @@ import torch
 class JacobiKANLayer(torch.nn.Module):
     def __init__(self, input_dim, output_dim, degree, a=1.0, b=1.0):
         super(JacobiKANLayer, self).__init__()
-        self.inputdim = input_dim
-        self.outdim   = output_dim
+        self.input_dim = input_dim
+        self.output_dim   = output_dim
         self.a        = a
         self.b        = b
         self.degree   = degree

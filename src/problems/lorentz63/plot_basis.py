@@ -61,7 +61,7 @@ def plot_basis_3d(
     y_labels = r'$\\mathbf{r}(t)$'
     suffix = 'st' if index == 1 else 'nd' if index == 2 else 'rd' if index == 3 else 'th'
 
-    fig = Figure("3D Basis")
+    fig = Figure(figsize=(8, 6))
     ax = fig.add_subplot(111, projection='3d')
 
 

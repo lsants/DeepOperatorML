@@ -3,8 +3,8 @@ import torch
 class ChebyshevKANLayer(torch.nn.Module):
     def __init__(self, input_dim, output_dim, degree):
         super(ChebyshevKANLayer, self).__init__()
-        self.inputdim = input_dim
-        self.outdim = output_dim
+        self.input_dim = input_dim
+        self.output_dim = output_dim
         self.degree = degree
         self.eps = 1e-7
         self.cheby_coeffs = torch.nn.Parameter(torch.empty(input_dim, output_dim, degree + 1))

@@ -14,7 +14,7 @@ class LearnedReadoutTransformer(nn.Module):
         d_model: int,
         nhead: int,
         num_layers: int,
-        out_dim: int,
+        output_dim: int,
         token_feature_dim: int = 1,
         ff_mult: int = 4,
         max_len: int = 256,
@@ -35,7 +35,7 @@ class LearnedReadoutTransformer(nn.Module):
 
         
         self.score = nn.Linear(d_model, 1, bias=False) # (produces α_i ∈ ℝ)
-        self.out_proj = nn.Linear(d_model, out_dim, bias=False) # linear projection from context vec to size P
+        self.out_proj = nn.Linear(d_model, output_dim, bias=False) # linear projection from context vec to size P
 
     # ------------------------------------------------------------------
     def forward(

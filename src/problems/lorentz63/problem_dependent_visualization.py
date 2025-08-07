@@ -103,7 +103,6 @@ def plot_metrics(test_cfg: TestConfig, data_cfg: DataConfig):
     coefficients = ppr.reshape_coefficients(
         output_data['branch_output'], data_cfg, test_cfg)
     bias = ppr.format_bias(output_data['bias'], data_cfg, test_cfg)
-
     data = {
         'input_functions': input_functions,
         'coordinates': coordinates,

@@ -168,31 +168,14 @@ def train_model(
     fig = plot_training(
         history=history, plot_config=dataclasses.asdict(train_cfg))
 
-    exp_cfg = exp_cfg.get_serializable_config()
+    exp_cfg = exp_cfg.get_serializable_config(train_strategy)
 
-
-    if hasattr(train_strategy, 'final_trunk_config'):
-        final_model_config = deepcopy(exp_cfg.model)
-        final_model_config.trunk = train_strategy.final_trunk_config  # type: ignore
-        final_model_config.trunk.pod_basis = None
-        if final_model_config.trunk.inner_config is not None:
-            final_model_config.trunk.inner_config.pod_basis = None
-        final_model_config.branch = train_strategy.final_branch_config  # type: ignore
-    else:
-        final_model_config = exp_cfg.model
-
-    exp_dict = dataclasses.asdict(exp_cfg)
-    try:
-        del exp_dict['strategy']['pod_basis']
-        del exp_dict['strategy']['pod_mean']
-    except KeyError:
-        pass
 
     saver.save_model_info(
         file_path=path_cfg.outputs_path / 'experiment_config.yaml',
         model_info={
-            **exp_dict,
-            "model": dataclasses.asdict(final_model_config)
+            **dataclasses.asdict(exp_cfg),
+            "model": dataclasses.asdict(exp_cfg.model)
         }
     )
 
