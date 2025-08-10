@@ -24,9 +24,8 @@ def plot_coefficients_mean(
     k_highest_modes = np.sort(np.argsort(-np.abs(coefficients_mean), axis=0)[
         : num_vectors_to_highlight, :], axis=0)  # [k, n_basis]
 
-    fig, ax = plt.subplots(ncols=n_channels, figsize=(5 * n_channels, 5))
-    if n_channels == 1:
-        ax = [ax]
+    fig, axes = plt.subplots(ncols=n_channels, figsize=(5 * n_channels, 5))
+    ax = np.array([axes]) if isinstance(axes, plt.Axes) else np.array(axes)
 
     for ch in range(n_channels):
         coefficients_mean_for_i_channel = coefficients_mean[..., ch]
@@ -94,6 +93,9 @@ def plot_coefficients(branch_output_sample: np.ndarray, basis: np.ndarray, input
 
     fig, axes = plt.subplots(
         ncols=len(branch_output_sample), figsize=(fig_width, fig_height))
+
+    if len(branch_output_sample) == 1:
+        axes = [axes]
     for i, channel in enumerate(branch_output_sample):
         axes[i].bar(range(len(channel)), channel,
                     color=colors[i])
@@ -103,7 +105,7 @@ def plot_coefficients(branch_output_sample: np.ndarray, basis: np.ndarray, input
         axes[i].set_ylabel(r'$i$-th coefficient')
         axes[i].set_title(
             f'{target_labels[i]} for {parameters_map[0][0]}={parameters_map[0][1]:.3f}')
-
+    
         # positions = []
         # for j, coeff in enumerate(channel):
         #     x_pos = j / (subplot_width)

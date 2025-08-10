@@ -6,7 +6,7 @@ from matplotlib.ticker import PercentFormatter
 from matplotlib.figure import Figure
 
 def format_param(param: list, param_keys: list[str]):
-    if len(param_keys) == len(param):
+    if not isinstance(param, float) and len(param_keys) == len(param):
         items = [f"{k}={v:.1E}" for k, v in zip(param_keys, param)]
         return "(" + ", ".join(items) + ")"
     else:

@@ -91,9 +91,11 @@ class DeepONetFactory:
         cls._validate_inference_config(saved_config)
 
         output_handler = OutputRegistry.create(saved_config.output)
-        output_handler.adjust_dimensions(
-            saved_config)
+
+        # output_handler.adjust_dimensions(
+        #     saved_config)
         rescaler = Rescaler(saved_config.rescaling)
+
 
         trunk = TrunkFactory.build(saved_config.trunk)
         branch = BranchFactory.build(saved_config.branch)
@@ -127,7 +129,6 @@ class DeepONetFactory:
             ValueError: If the configuration is not valid for inference (e.g., missing
                         basis information for POD trunk).
         """
-        BranchConfigValidator.validate(config.branch)
         if config.strategy.name != 'pod' and not config.output.dims_adjust:
             raise ValueError(
                 "Inference config must retain output handler basis adjustment"
@@ -137,22 +138,24 @@ class DeepONetFactory:
                 raise ValueError(
                     "Two-step inference requires pretrained decomposed trunk architecture"
                 )
+            if config.output.handler_type != "two_step_final" or config.trunk.component_type != 'orthonormal_trunk':
+                raise ValueError(
+                    "Two-step inference requires pretrained decomposed trunk architecture"
+                )
         if config.strategy.name == "pod":
             if config.trunk.architecture != "precomputed" or config.trunk.component_type != 'pod_trunk':
                 raise ValueError(
-                    "POD inference requires precomputed POD trunk architecture"
+                    f"POD inference requires precomputed POD trunk architecture, has {config.trunk.architecture}"
                 )
             if config.trunk.pod_basis_shape is None:
                 raise ValueError(
                     "Shape of precomputed POD basis must be known in order to initialize model."
                 )
-            if config.rescaling.embedding_dimension * config.output.num_channels == config.branch.output_dim:
-                if config.output.dims_adjust:
-                    config.output.dims_adjust = False
 
             config.trunk.pod_basis = torch.rand(config.trunk.pod_basis_shape)
         else:
             TrunkConfigValidator.validate(config.trunk)
+            BranchConfigValidator.validate(config.branch)
 
     @classmethod
     def _create_strategy(cls, config: dict) -> TrainingStrategy:

@@ -1,5 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
+from matplotlib.figure import Figure
 
 plt.rc('font', family='serif', size=15)
 plt.rc('text', usetex=True)

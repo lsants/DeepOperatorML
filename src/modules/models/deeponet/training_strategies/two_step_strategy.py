@@ -4,18 +4,20 @@ import numpy
 from copy import deepcopy
 from collections import defaultdict
 from typing import TYPE_CHECKING
+from src.modules.models.deeponet.components.output_handler.config import OutputConfig
 from src.modules.models.deeponet.deeponet import DeepONet
 from src.modules.models.deeponet.training_strategies.config import TwoStepConfig
 from src.modules.models.deeponet.training_strategies.base import TrainingStrategy
 from src.modules.models.deeponet.components.component_factory import BranchFactory
 from src.modules.models.tools.optimizers.config import OptimizerSpec
 from src.modules.models.deeponet.components.trunk.orthonormal_trunk import OrthonormalTrunk
+from src.modules.models.deeponet.components.branch.orthonormal_branch import OrthonormalBranch
 from src.modules.models.tools.optimizers.optimizer_factory import create_optimizer, create_scheduler
-from src.modules.models.deeponet.components.output_handler import SharedTrunkHandler, SharedBranchHandler, SplitOutputsHandler
+from src.modules.models.deeponet.components.output_handler import SharedBranchHandler, SharedTrunkHandler, SplitOutputsHandler, Phase2Handler
 if TYPE_CHECKING:
     from src.modules.models.deeponet.deeponet import DeepONet
     from src.modules.models.deeponet.config.deeponet_config import DeepONetConfig
-    from src.modules.models.deeponet.components.component_factory import BranchFactory, TrunkFactory
+    from src.modules.models.deeponet.components.component_factory import BranchFactory
 
 
 class TwoStepStrategy(TrainingStrategy): # TODO: implement share branch decomposition
@@ -177,25 +179,55 @@ class TwoStepStrategy(TrainingStrategy): # TODO: implement share branch decompos
         new_trunk_config.inner_config = deepcopy(
             self._original_trunk_cfg)  # Preserve original
 
-        self.final_trunk_config = new_trunk_config
         self.final_branch_config = deepcopy(self._original_branch_cfg)
+        new_branch_config = deepcopy(self._original_branch_cfg)
+        new_branch_config.component_type = "orthonormal_branch"
+        new_branch_config.architecture = "pretrained"
+        new_branch_config.inner_config = deepcopy(
+            self._original_branch_cfg)  # Preserve original
+        
+        self.final_trunk_config = new_trunk_config
+        self.final_branch_config = new_branch_config
 
-        if self._original_branch_cfg.output_dim is not None:
-            self._original_branch_cfg.output_dim *= model.output_handler.num_channels
-        if isinstance(model.output_handler, SplitOutputsHandler):
+        if isinstance(model.output_handler, (SplitOutputsHandler)):
+            if self.final_branch_config.output_dim is not None:
+                self.final_branch_config.output_dim *= model.output_handler.num_channels
+            if self.final_branch_config.inner_config and self.final_branch_config.inner_config.output_dim is not None:
+                self.final_branch_config.inner_config.output_dim *= model.output_handler.num_channels
             if self.final_trunk_config.output_dim is not None:
                 self.final_trunk_config.output_dim *= model.output_handler.num_channels
+            if self.final_trunk_config.inner_config and self.final_trunk_config.inner_config.output_dim is not None:
+                self.final_trunk_config.inner_config.output_dim *= model.output_handler.num_channels
+        elif isinstance(model.output_handler, (SharedBranchHandler)):
+            if self.final_trunk_config.output_dim is not None:
+                self.final_trunk_config.output_dim *= model.output_handler.num_channels
+            if self.final_trunk_config.inner_config and self.final_trunk_config.inner_config.output_dim is not None:
+                self.final_trunk_config.inner_config.output_dim *= model.output_handler.num_channels
+        else:
+            if self.final_branch_config.output_dim is not None:
+                self.final_branch_config.output_dim *= model.output_handler.num_channels
+            if self.final_branch_config.inner_config and self.final_branch_config.inner_config.output_dim is not None:
+                self.final_branch_config.inner_config.output_dim *= model.output_handler.num_channels
 
         self.output_handler = model.output_handler
 
         if self._original_branch_cfg is None:
             raise RuntimeError("Missing original component configs.")
 
-        new_trunk = OrthonormalTrunk(model.trunk, T)
-        new_branch = BranchFactory.build(self._original_branch_cfg)
+        new_inner_branch = BranchFactory.build(self.final_branch_config.inner_config)
+        
+        is_shared_branch = isinstance(model.output_handler, SharedBranchHandler)
+        is_shared_trunk = isinstance(model.output_handler, SharedTrunkHandler)
+        num_channels = model.output_handler.num_channels
+        handler_cfg = OutputConfig(handler_type='two_step_final', num_channels=num_channels)
 
-        model.trunk = new_trunk
-        model.branch = new_branch
+        final_branch = OrthonormalBranch(new_inner_branch, R, num_channels, is_shared_branch)
+        final_trunk = OrthonormalTrunk(model.trunk, T, num_channels, is_shared_trunk)
+        final_handler = Phase2Handler(config=handler_cfg)
+        
+        model.trunk = final_trunk
+        model.branch = final_branch
+        model.output_handler = final_handler
 
         model.trunk.requires_grad_(False)
         model.branch.requires_grad_(True)
@@ -209,7 +241,7 @@ class TwoStepStrategy(TrainingStrategy): # TODO: implement share branch decompos
 
         self._phase = 2
 
-    def _check_RT_invertibilty(self, model: torch.nn.Module, R: torch.Tensor, T: torch.Tensor):
+    def _check_RT_invertibilty(self, model: 'DeepONet', R: torch.Tensor, T: torch.Tensor):
         if isinstance(model.output_handler, SplitOutputsHandler):
             n_channels = model.output_handler.num_channels
             for i in range(n_channels):
@@ -384,18 +416,35 @@ class TwoStepStrategy(TrainingStrategy): # TODO: implement share branch decompos
         Returns:
             tuple: A tuple of (y_pred, loss).
         """
+
         if self._phase == 1:
             y_pred = model(indices[0], x_trunk)
+            loss = self.loss(y_pred, y_true)
         elif self._phase == 2:
-            y_true = self.compute_synthetic_targets(model=model, branch_indices=indices[0])
-            y_pred = model.branch(x_branch)
+            synthetic_targets = self.compute_synthetic_targets(model=model, branch_indices=indices[0])
+            A_pred_raw = model.branch(x_branch)
+            
+            if isinstance(model.output_handler, SharedBranchHandler):
+                A_pred_flat = A_pred_raw.unsqueeze(1)
+                A_pred = self._matmul_blockwise(
+                                    A_flat=A_pred_flat,
+                                    R_T=self.R.T,
+                                    n_channels=model.output_handler.num_channels
+                                )
+                loss = self.loss(A_pred, synthetic_targets)
+
+            else:
+                A_pred = A_pred_raw.reshape(synthetic_targets.shape)
+                loss = self.loss(A_pred, synthetic_targets)
+            trunk_out = model.trunk(x_trunk)
+            branch_out = A_pred
+            y_pred = model.rescaler(model.output_handler.combine(branch_out, trunk_out))
         else:
             raise RuntimeError("Invalid training phase")
-        loss = self.loss(y_pred, y_true)
         return y_pred, loss
 
     def calculate_metrics(self,
-                          model: torch.nn.Module,
+                          model: 'DeepONet',
                           y_true: torch.Tensor,
                           y_pred: torch.Tensor,
                           loss: float,
@@ -412,7 +461,7 @@ class TwoStepStrategy(TrainingStrategy): # TODO: implement share branch decompos
             y_true=y_true, y_pred=y_pred, branch_indices=branch_indices, label_map=label_map))
         return metrics
 
-    def strategy_specific_metrics(self, model: torch.nn.Module, y_true: torch.Tensor, y_pred: torch.Tensor, branch_indices: numpy.ndarray, label_map: list[str] | None = None) -> dict[str, float]:
+    def strategy_specific_metrics(self, model: 'DeepONet', y_true: torch.Tensor, y_pred: torch.Tensor, branch_indices: numpy.ndarray, label_map: list[str] | None = None) -> dict[str, float]:
         """
         Calculates strategy-specific metrics, such as relative error, for each phase.
         
@@ -430,12 +479,10 @@ class TwoStepStrategy(TrainingStrategy): # TODO: implement share branch decompos
             relative_error = self.error_metric(
                 y_true - y_pred) / self.error_metric(y_true)
         elif self._phase == 2:
-            y_true = self.compute_synthetic_targets(model=model, branch_indices=branch_indices)
-            if y_true.shape != y_pred.shape:
-                raise ValueError(
-                    "Synthetic targets and predictions must have the same shape.")
-            relative_error = self.error_metric(
-                y_true - y_pred) / self.error_metric(y_true)
+            error_norm = self.error_metric(
+                y_pred - y_true)
+            true_norm = self.error_metric(y_true)
+            relative_error = error_norm / (true_norm + 1e-8)
         else:
             raise RuntimeError("Invalid training phase")
 
@@ -453,47 +500,86 @@ class TwoStepStrategy(TrainingStrategy): # TODO: implement share branch decompos
         return strategy_metric
 
     def _matmul_blockwise(self,
-                          A_flat: torch.Tensor,   # (B, C, P)
+                          A_flat: torch.Tensor,   # (B, C, P) or (B, 1, C)
                           R_T: torch.Tensor,   # (C·P, C·P) or (P, P)
+                          n_channels: int
                         ) -> torch.Tensor:
         """
-        Returns C = A · (Rᵀ) block‑by‑block.
-        Works for any C >= 1.  Output shape (B, C, P).
-        The number of R blocks is the number of orthonormal basis sets.
+        Args:
+            y_true (torch.Tensor): Ground truth outputs.
+            y_pred (torch.Tensor): Predicted outputs.
+            branch_indices (int): Size of operator output vector.
+
+        Returns:
+            coeffs (torch.Tensor): coefs = M = A · (Rᵀ). It occurs block‑wise on Rᵀ if trunk is split.
+        Block multiplication will depend of output handling (i = 1, ... , C):
+            1) If 'split_outputs', we have M_i = A_i @ block_i(Rᵀ): 
+                - D = C
+                - (B, C, P) (block-wise product) (C·P, C·P) -> (B, C, P)
+            2) If 'shared_trunk', we have M_i = A_i @ (Rᵀ):
+                - D = C
+                - (B, C, P)        @             (P, P) -> (B, C, P)
+            3) If 'shared_branch', we have M_i = A @ block_i(Rᵀ)
+                - D = 1
+                - (B, 1, P) (block-wise product) (C·P, C·P) -> (B, C, P)
         """
-        B, C, P = A_flat.shape
-        coeff = torch.empty_like(A_flat)
+        C = n_channels
+        B, D, P = A_flat.shape
+        coeff = torch.empty((B, C, P), device=A_flat.device, dtype=A_flat.dtype)
 
         for c in range(C):
             rows = slice(c * P, (c + 1) * P)
 
             if R_T.shape[0] == C * P:
-                R_c = R_T[rows, rows]            # (P, P) block
+                R_c = R_T[rows, rows]  # Always (P, P) block
                 Rc = R_c
             else:
                 Rc = R_T
-            coeff[:, c, :] = A_flat[:, c, :] @ Rc
+            if D == C:
+                Ac = A_flat[:, c, :]
+                coeff[:, c, :] = Ac @ Rc
+            else:
+                A = A_flat[:, 0]
+                coeff[:, c, :] = A @ Rc
 
-        return coeff        # (B, C, P)
+        return coeff # (B, C, P)
 
-
-    def compute_synthetic_targets(self, model: torch.nn.Module, branch_indices: numpy.ndarray) -> torch.Tensor:
+    def _broadcast_coeffs(self, coeff_pred, coeff_pretrained) -> torch.Tensor:
+        pred_shape = coeff_pred.shape # Either (B, P) or (B, C·P)
+        true_shape = coeff_pretrained.shape # Always (B, P, C)
+        
+        if pred_shape[-1] != true_shape[-2]:
+            coeff_pred_reshaped = coeff_pred.reshape(true_shape)
+        else:
+            coeff_pred_reshaped = coeff_pred[:, :, None]
+        return coeff_pred_reshaped
+                
+    def compute_synthetic_targets(self, model: 'DeepONet', branch_indices: numpy.ndarray) -> torch.Tensor:
         """Computes synthetic targets using the decomposed trunk and branch"""
         if self.A is None or self.R is None:
             raise RuntimeError(
                 "A and R matrices must be set before computing synthetic targets.")
         
+        def _handle_A_reshape(model: 'DeepONet', A: torch.Tensor) -> torch.Tensor:
+            B, D = A.shape
+            if model.branch.is_shared_branch and not model.trunk.is_shared_trunk : # Here, D = P (always)
+                P = D
+                C = 1
+            else:   # D = C * P where P is the embedding size
+                C = model.output_handler.num_channels
+                P = D // C
+            return A.view(B, C, P)
+
         indices = branch_indices.flatten()
-
         A_batch = self.A_full[indices]
-
-        B, CtimesP = A_batch.shape
-        C = model.output_handler.num_channels
-        P = CtimesP // C
-        A_flat = A_batch.view(B, C, P)
-
-        coeff = self._matmul_blockwise(A_flat, self.R.T)
-        return coeff.reshape(B, C * P)
+        A_flat = _handle_A_reshape(model, A_batch)
+        
+        coeff = self._matmul_blockwise(
+            A_flat=A_flat, 
+            R_T=self.R.T, 
+            n_channels=model.output_handler.num_channels
+        )
+        return coeff
 
     def get_optimizer_scheduler(self):
         return self.config.optimizer_scheduler  # type: ignore
@@ -506,7 +592,7 @@ class TwoStepStrategy(TrainingStrategy): # TODO: implement share branch decompos
         """Optional gradient clipping/normalization"""
         pass
 
-    def _decompose_trunk(self, model: torch.nn.Module, trunk: torch.nn.Module, full_trunk_batch: torch.Tensor) -> tuple[torch.Tensor, ...]:
+    def _decompose_trunk(self, model: 'DeepONet', trunk: torch.nn.Module, full_trunk_batch: torch.Tensor) -> tuple[torch.Tensor, ...]:
         """SVD decomposition of final trunk layer.
         Returns (R, T) with shapes            (D, D)  and  (D, D)
         where D = C·P  for split‑channel handlers,  D = P otherwise.
@@ -523,9 +609,10 @@ class TwoStepStrategy(TrainingStrategy): # TODO: implement share branch decompos
         D = phi.shape[1]
 
         handler = model.output_handler
-        is_split = isinstance(handler, SplitOutputsHandler)
+        split = isinstance(handler, SplitOutputsHandler)
+        shared_branch = isinstance(handler, SharedBranchHandler)
         C = getattr(handler, 'num_channels')
-        if is_split:
+        if split or shared_branch:
             if D % C != 0:
                 raise ValueError(
                     f"Trunk outputs {D} columns but handler expects "
@@ -550,7 +637,7 @@ class TwoStepStrategy(TrainingStrategy): # TODO: implement share branch decompos
 
         use_qr = (self.config.decomposition_type.lower() == "qr") # type: ignore
 
-        if is_split:
+        if split or shared_branch:
             for c in range(C):
                 cols = slice(c * P, (c + 1) * P)
                 phi_ch = phi[:, cols]

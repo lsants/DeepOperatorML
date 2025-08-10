@@ -3,6 +3,7 @@ from collections import defaultdict
 from typing import Any
 import matplotlib.pyplot as plt
 from matplotlib.ticker import PercentFormatter
+from matplotlib.figure import Figure
 import numpy as np
 
 plt.rc('font', family='serif', size=15)
@@ -19,7 +20,9 @@ loss_label_map = {
     'mse': f'MSE',
     'huber': f'Huber',
     'mse_dissipative': '$\\mathcal{L}_{\\lambda}$',
-    'wasserstein': f'$W$'
+    'wasserstein': f'$W$',
+    'ot': '$\\mathcal{L}_{OT}$',
+
 }
 
 # ---------------------------------------------------------------------------

@@ -7,9 +7,9 @@ from src.modules.models.deeponet.components.bias.config import BiasConfig, BiasC
 from src.modules.models.deeponet.components.trunk.config import TrunkConfig, TrunkConfigValidator
 from src.modules.models.deeponet.components.branch.config import BranchConfig, BranchConfigValidator
 from src.modules.models.deeponet.components.trunk import OrthonormalTrunk, PODTrunk
+from src.modules.models.deeponet.components.branch import OrthonormalBranch
 
 T = TypeVar('T')
-
 
 class BiasFactory:
     @classmethod
@@ -26,11 +26,14 @@ class BranchFactory:
     @classmethod
     def build(cls, config: BranchConfig) -> torch.nn.Module:
         BranchConfigValidator.validate(config)
+        if config.component_type == "orthonormal_branch":
+            inner_branch = cls.build(config.inner_config)  # type: ignore
+            coeff_tensor = torch.as_tensor(config.R_matrix)
+            return OrthonormalBranch(inner_branch, coeff_tensor, config.inner_config.num_channels, config.inner_config.is_shared_branch)  # type: ignore
         component_class, _ = ComponentRegistry.get(
             component_type=config.component_type,
             architecture=config.architecture
         )
-        # Filter valid constructor parameters
         sig = inspect.signature(component_class.__init__)
         valid_params = {
             k: v for k, v in config.__dict__.items()
@@ -39,14 +42,13 @@ class BranchFactory:
 
         return component_class(**valid_params)
 
-
 class TrunkFactory:
     @classmethod
     def build(cls, config: TrunkConfig) -> torch.nn.Module:
         if config.component_type == "orthonormal_trunk":
             inner_trunk = cls.build(config.inner_config)  # type: ignore
             basis_tensor = torch.as_tensor(config.T_matrix)
-            return OrthonormalTrunk(inner_trunk, basis_tensor)  # type: ignore
+            return OrthonormalTrunk(inner_trunk, basis_tensor, config.inner_config.num_channels, config.inner_config.is_shared_trunk)  # type: ignore
 
         if config.component_type == "pod_trunk":
             basis = config.pod_basis

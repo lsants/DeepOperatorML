@@ -1,3 +1,4 @@
+from __future__ import annotations
 import torch
 import numpy
 from src.modules.models.deeponet.components.registry import ComponentRegistry
@@ -16,7 +17,11 @@ class MatrixBranch(torch.nn.Module):
     def __str__(self):
         return f"MatrixBranch(input_dim={self.weights.shape[1]}, output_dim={self.weights.shape[0]})"
 
-    def forward(self, index: numpy.ndarray) -> torch.Tensor: # Need to figure out how to correctl index the vector to be multiplied by the sample.
-        coefficients_matrix = self.weights.T 
-        batch_coefficients = coefficients_matrix[index.flatten()]
+    def forward(self, index: numpy.ndarray | torch.Tensor) -> torch.Tensor: # Need to figure out how to correctl index the vector to be multiplied by the sample.
+        coefficients_matrix = self.weights.T
+        if isinstance(index, numpy.ndarray):
+          index_tensor = torch.from_numpy(index).to(self.weights.device)
+        else:
+          index_tensor = index.to(self.weights.device)
+        batch_coefficients = coefficients_matrix[index_tensor.flatten().long()]
         return batch_coefficients

@@ -9,7 +9,7 @@ from src.modules.models.tools.activation_functions.activation_fns import ACTIVAT
 
 @dataclass
 class TrunkConfig:
-    architecture: Optional[Literal["resnet", "mlp", "chebyshev_kan", "pretrained"]]
+    architecture: Optional[Literal["resnet", "mlp", "chebyshev_kan", "pretrained", "precomputed"]]
     component_type: Literal["neural_trunk", "pod_trunk", "orthonormal_trunk"] = "neural_trunk"
     input_dim: Optional[int] = None
     output_dim: Optional[int] = None
@@ -30,6 +30,9 @@ class TrunkConfig:
     ff_mult: Optional[int] = None
     # POD/Decomposed params
     inner_config: Optional[TrunkConfig] = None
+    T_matrix: Optional[torch.Tensor] = None
+    num_channels: Optional[int] = None
+    is_shared_trunk: Optional[bool] = None
     T_matrix: Optional[torch.Tensor] = None
     pod_basis: Optional[torch.Tensor] = None
     pod_basis_shape: Optional[torch.Size] = None
@@ -62,7 +65,16 @@ class TrunkConfig:
                     if transform_cfg.trunk.original_dim is not None:
                         trunk_config.input_dim = transform_cfg.trunk.original_dim * (1 + transform_cfg.trunk.feature_expansion.size)
         key = "embedding_dimension" if "embedding_dimension" in model_cfg_dict["rescaling"] else "num_basis_functions"
-        trunk_config.output_dim = model_cfg_dict["rescaling"][key]
+
+        if model_cfg_dict['strategy']['name'] == 'two_step':
+            trunk_config.inner_config = TrunkConfig(**model_cfg_dict["trunk"]["inner_config"])
+            trunk_config.inner_config.num_channels = model_cfg_dict['output']['num_channels']
+            mask = re.sub(r'[^a-zA-Z0-9]', '', trunk_config.inner_config.activation.lower())
+            trunk_config.inner_config.activation = ACTIVATION_MAP[mask]
+            if model_cfg_dict['output']['handler_type'] == 'shared_trunk':
+                trunk_config.inner_config.is_shared_trunk = True
+            else:
+                trunk_config.inner_config.is_shared_trunk = False
         return trunk_config
 
 class TrunkConfigValidator:

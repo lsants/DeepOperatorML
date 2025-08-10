@@ -12,13 +12,12 @@ logger = logging.getLogger(__name__)
 def test_model(test_cfg_base: TestConfig, exp_cfg_dict: dict[str, Any], data_cfg: DataConfig) -> None:
     checkpoint = torch.load(
         f=test_cfg_base.output_path / exp_cfg_dict['problem'] / test_cfg_base.experiment_version / 'checkpoints' / 'experiment.pt',
-        weights_only=False
+        weights_only=False,
+        map_location=test_cfg_base.device
     )
-
     if exp_cfg_dict['model']['strategy']['name'] == 'two_step':
-        exp_cfg_dict['model']['trunk'].update({'inner_config': checkpoint['strategy']['inner_config'],
-                                               'T_matrix': checkpoint['model']['trunk.T']}
-                                              )
+        exp_cfg_dict['model']['trunk'].update({'T_matrix': checkpoint['model']['trunk.T']})
+        exp_cfg_dict['model']['branch'].update({'R_matrix': checkpoint['model']['branch.R']})
     elif exp_cfg_dict['model']['strategy']['name'] == 'pod':
         exp_cfg_dict['model']['trunk']['pod_basis_shape'] = checkpoint['model']['trunk.pod_basis'].shape
         exp_cfg_dict['model']['bias']['precomputed_mean_shape'] = checkpoint['model']['bias.bias'].T.shape

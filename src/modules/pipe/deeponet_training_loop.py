@@ -66,8 +66,10 @@ class DeepONetTrainingLoop:
 
         self.strategy_dict = asdict(self.strategy.config)
         if self.strategy.config.name == 'two_step':
-            self.strategy_dict.update(
-                {'inner_config': self.strategy._original_trunk_cfg})  # type: ignore
+            self.strategy_dict.update({
+                'trunk_inner_config': self.strategy._original_trunk_cfg,  # type: ignore[attr-defined]
+                'branch_inner_config': self.strategy._original_branch_cfg,  # type: ignore[attr-defined]
+            })
 
         # Label map -------------------------------------------------------
         self.label_map = label_map
@@ -208,45 +210,6 @@ class DeepONetTrainingLoop:
                         loss.backward()
                         self.strategy.apply_gradient_constraints(self.model)
                         self.optimizer.step()
-
-                        
-                    # if i % 10 == 0:
-                    #     print(f"Loss: {loss:.4E} for batch {i + 1}")
-
-                    # if self.current_phase == 2:
-                    #     import numpy as np
-                    #     sample = self.model.branch(x_branch).detach().numpy()
-                        
-                    #     sample = sample.reshape(
-                    #         -1, 2, 30)
-                        
-                        # sample = sample.T.reshape(-2, 2, 40, 40)
-                        # sample = np.concatenate(
-                        #     (np.flip(sample, axis=2), sample), axis=2)
-                            
-                            # print(sample[0, 0, :3, :3], sample[0, 1, :3, :3])
-                        # true = self.strategy.compute_synthetic_targets(self.model, indices[0])
-                        # true = true.reshape(
-                        #     -1, 2, 30).detach().numpy()
-                        
-                        # true = np.concatenate(
-                        #     (np.flip(true, axis=1), true), axis=1)
-                            
-                            # print(sample[indices[0].flatten()[0]][0, 1], indices[0].flatten()[0])
-                        # import matplotlib.pyplot as plt
-                        # fig, ax = plt.subplots(1, 2)
-                        # ax[0].bar(x=range(30), height=sample[indices[0].flatten()[0], 1])
-                        # ax[1].bar(x=range(30), height=true[indices[0].flatten()[0], 1])
-                        # fig.suptitle(f"Sample {indices[0].flatten()[0]}")
-                        # # ax[0].set_ylim([-0.15, 0.15])
-                        # ax[0].set_title("Predicted")
-                        # # ax[1].set_ylim([-0.15, 0.15])
-                        # ax[1].set_title("True")
-                            
-                        # ax[0].contourf(np.flipud(sample[4, 0].T))
-                        # ax[1].contourf(np.flipud(sample[4, 1].T))
-                            
-                        # plt.show()
                         
                     # Per-batch metrics ------------------------------------
                     batch_metrics = self.strategy.calculate_metrics(

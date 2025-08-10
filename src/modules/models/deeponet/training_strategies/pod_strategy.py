@@ -50,6 +50,7 @@ class PODStrategy(TrainingStrategy):
             raise TypeError("PODStrategy requires PODConfig")
         model_config.branch.component_type = "neural_branch"
         model_config.trunk.component_type = "pod_trunk"
+        model_config.trunk.architecture = "precomputed"
         model_config.trunk.pod_basis = self.config.pod_basis
         model_config.rescaling.embedding_dimension = self.config.pod_basis.shape[-1]
         if model_config.output.handler_type == 'shared_branch':
@@ -58,7 +59,6 @@ class PODStrategy(TrainingStrategy):
         elif model_config.output.handler_type == 'split_outputs':
             model_config.rescaling.embedding_dimension = self.config.pod_basis.shape[-1] // model_config.output.num_channels
             model_config.trunk.output_dim = model_config.rescaling.embedding_dimension
-
 
     def setup_training(self, model: 'DeepONet'):
         """

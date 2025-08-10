@@ -3,7 +3,7 @@ from dataclasses import dataclass
 
 @dataclass
 class OutputConfig:
-    handler_type: Literal["split_outputs", "shared_trunk", "shared_branch"]
+    handler_type: Literal["split_outputs", "shared_trunk", "shared_branch", "two_step_final"]
     num_channels: int
     dims_adjust: bool = True
 
@@ -19,6 +19,8 @@ class OutputConfig:
     def setup_for_inference(cls, model_cfg_dict):
         num_channels = model_cfg_dict["output"]["num_channels"]
         handler_type = model_cfg_dict["output"]["handler_type"]
+        if model_cfg_dict["strategy"]["name"] == 'two_step':
+            handler_type = 'two_step_final'
         return cls(
             handler_type=handler_type,
             num_channels=num_channels

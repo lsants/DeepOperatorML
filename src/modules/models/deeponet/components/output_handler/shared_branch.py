@@ -21,6 +21,10 @@ class SharedBranchHandler(OutputHandler):
         if not self.dims_adjust:
             return
 
+        if config.trunk.inner_config is not None:
+            config.trunk.inner_config.output_dim *= self.num_channels  # type: ignore
+
+
         if config.branch.output_dim is None:
             raise ValueError(
                 "Branch output dimension must be set for shared branch handler."

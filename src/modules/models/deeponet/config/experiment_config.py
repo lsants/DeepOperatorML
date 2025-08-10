@@ -41,74 +41,83 @@ class ExperimentConfig:
         )
     
 
-    def get_serializable_config(self, strategy) -> ExperimentConfig:
+    def get_serializable_config(self, updated_strategy) -> ExperimentConfig:
         """
         Returns a new, serializable copy of the configuration by removing
         large or non-serializable attributes like POD basis tensors,
         and ensuring the model configuration is correct for the saved state.
         """
         
-        config_copy = deepcopy(self)
-        updated_model = config_copy.model
-        updated_strategy = config_copy.strategy
+        prev_config_copy = deepcopy(self)
+        prev_model_config = prev_config_copy.model
+        prev_strategy_config = prev_config_copy.strategy
         
-        if config_copy.strategy.name == 'pod':
-            updated_trunk = replace(config_copy.model.trunk, pod_basis=None)
-            if updated_trunk.inner_config is not None:
-                updated_inner_config = replace(updated_trunk.inner_config, pod_basis=None)
-                updated_trunk = replace(updated_trunk, inner_config=updated_inner_config)
+        if prev_strategy_config.name == 'pod':
+            updated_trunk_config = replace(prev_config_copy.model.trunk, pod_basis=None)
+
+            if updated_trunk_config.inner_config is not None:
+                updated_inner_config = replace(updated_trunk_config.inner_config, pod_basis=None)
+                updated_trunk_config = replace(updated_trunk_config, inner_config=updated_inner_config)
                 
-            updated_strategy = replace(config_copy.strategy, pod_basis=None)
-            updated_model_strategy = replace(config_copy.model.strategy, pod_basis=None)
-            updated_bias = replace(config_copy.model.bias, precomputed_mean=None)
+            # modifying this inplace
+            prev_config_copy.strategy = replace(prev_strategy_config, pod_basis=None)
+            prev_model_config_strategy_clean = replace(prev_config_copy.model.strategy, pod_basis=None)
+            updated_bias_config = replace(prev_config_copy.model.bias, precomputed_mean=None)
             
-            updated_model = replace(config_copy.model,
-                                    trunk=updated_trunk,
-                                    strategy=updated_model_strategy,
-                                    bias=updated_bias)
+            pod_updated_model_config = replace(
+                prev_config_copy.model,
+                trunk=updated_trunk_config,
+                strategy=prev_model_config_strategy_clean,
+                bias=updated_bias_config
+            )
         
-        elif config_copy.strategy.name == 'two_step':
-            # Start with the model from the initial copy
-            current_model = config_copy.model
+        elif prev_strategy_config.name == 'two_step':
             
-            # 1. If there's a final config, create a new model with the final trunk and branch
-            if hasattr(strategy, 'final_trunk_config'):
-                current_model = replace(
-                    current_model,
-                    trunk=strategy.final_trunk_config,
-                    branch=strategy.final_branch_config
+            if hasattr(updated_strategy, 'final_trunk_config') and hasattr(updated_strategy, 'final_branch_config'):
+                updated_strategy.final_branch_config.inner_config.output_dim = updated_strategy.final_branch_config.output_dim
+                updated_strategy.final_trunk_config.inner_config.output_dim = updated_strategy.final_trunk_config.output_dim
+                new_model_config = replace(
+                    prev_model_config,
+                    trunk=updated_strategy.final_trunk_config,
+                    branch=updated_strategy.final_branch_config
                 )
             else:
                 raise AttributeError("New component config was not found.")
 
-            # 2. Now, create a new, cleaned trunk from the current model's trunk
-            new_trunk = current_model.trunk
+            new_trunk_config = new_model_config.trunk
+            new_branch_config = new_model_config.branch
             
-            # Clean the inner_config first (inside-out)
-            if new_trunk.inner_config is not None and hasattr(new_trunk.inner_config, 'pod_basis'):
-                if new_trunk.inner_config.pod_basis is not None:
-                    cleaned_inner_config = replace(new_trunk.inner_config, pod_basis=None)
-                    # Update the new_trunk with the cleaned inner_config
-                    new_trunk = replace(new_trunk, inner_config=cleaned_inner_config)
+            if new_trunk_config.pod_basis is not None:
+                new_trunk_config = replace(new_trunk_config, pod_basis=None)
             
-            # Clean the trunk's pod_basis
-            if new_trunk.pod_basis is not None:
-                new_trunk = replace(new_trunk, pod_basis=None)
+            if hasattr(new_trunk_config.inner_config, 'pod_basis'):
+                clean_inner_config = replace(new_trunk_config.inner_config, pod_basis=None)
+            
+            if new_trunk_config.inner_config is not None:
+                new_trunk_config = replace(new_trunk_config, inner_config=clean_inner_config)
 
-            # 3. Finally, create the fully updated model with the new, cleaned trunk
-            updated_model = replace(current_model, trunk=new_trunk)
+            two_step_updated_model_config = replace(prev_model_config, trunk=new_trunk_config, branch=new_branch_config)
 
-        strategy_dict = asdict(updated_strategy)
+        strategy_dict = asdict(prev_strategy_config)
+        updated_strategy_config = type(prev_strategy_config)(**strategy_dict)
+        if hasattr(updated_strategy_config, 'pod_basis'):
+            updated_strategy_config = replace(updated_strategy_config, pod_basis=None)
+        if hasattr(updated_strategy_config, 'pod_mean'):
+            updated_strategy_config = replace(updated_strategy_config, pod_mean=None)
+
         try:
             del strategy_dict['pod_basis']
             del strategy_dict['pod_mean']
         except KeyError:
             pass
-        
-        updated_strategy = type(updated_strategy)(**strategy_dict)
 
-        final_config = replace(config_copy,
-                            model=updated_model,
-                            strategy=updated_strategy)
-        
+        updated_model_config = pod_updated_model_config if prev_strategy_config.name == 'pod' else two_step_updated_model_config
+
+        print(updated_model_config.branch.output_dim)
+        print(updated_model_config.trunk.output_dim)
+        # print(updated_strategy.final_branch_config.inner_config.output_dim)
+        # print(updated_strategy.final_trunk_config.inner_config.output_dim)
+        final_config = replace(prev_config_copy,
+                            model=updated_model_config,
+                            strategy=updated_strategy_config)
         return final_config

@@ -22,7 +22,6 @@ def inference(test_cfg: TestConfig, data_cfg: DataConfig):
                                          features_keys=data_cfg.features,
                                          targets_keys=data_cfg.targets
                                          )
-
     stats = dtl.get_stats(data=data_cfg.scalers,
                           keys=data_cfg.features + data_cfg.targets)
 

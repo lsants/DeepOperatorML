@@ -23,7 +23,6 @@ class DeepONet(torch.nn.Module):
         self.rescaler: Rescaler = rescaler
 
     def forward(self, branch_input: torch.Tensor, trunk_input: torch.Tensor) -> torch.Tensor:
-
         branch_out = self.branch(branch_input)
         trunk_out = self.trunk(trunk_input)
 
