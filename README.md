@@ -2,7 +2,7 @@
 
 ## Description
 
-This project aims to develop a framework for solving problems (e.g. PDEs) using an Operator Learning approach. The framework currently provides interfaces for data processing, a modular DeepONet architecture and a wide variety of optimization schemes. The user can define a new custom problem using the interface and solve it using one of the implemented models.
+This project aims to develop a framework for solving problems (e.g., PDEs) using an Operator Learning approach. The framework currently provides interfaces for data processing, a modular DeepONet architecture and a wide variety of optimization schemes. The user can define a new custom problem using the interface and solve it using one of the implemented models.
 
 ## Project Overview
 
