@@ -214,6 +214,8 @@ class TwoStepStrategy(TrainingStrategy): # TODO: implement share branch decompos
         if self._original_branch_cfg is None:
             raise RuntimeError("Missing original component configs.")
 
+        if self.final_branch_config.inner_config is None:
+            raise RuntimeError("Final branch config must have an inner config.")
         new_inner_branch = BranchFactory.build(self.final_branch_config.inner_config)
         
         is_shared_branch = isinstance(model.output_handler, SharedBranchHandler)

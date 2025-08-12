@@ -10,7 +10,6 @@ from src.modules.models.deeponet.config import TrainConfig, DataConfig
 if TYPE_CHECKING:
     from src.modules.models.deeponet.config import DeepONetConfig
 
-
 @dataclass
 class ExperimentConfig:
     """Aggregate configuration for the experiment."""
@@ -89,11 +88,9 @@ class ExperimentConfig:
             
             if new_trunk_config.pod_basis is not None:
                 new_trunk_config = replace(new_trunk_config, pod_basis=None)
-            
-            if hasattr(new_trunk_config.inner_config, 'pod_basis'):
+
+            if new_trunk_config.inner_config is not None and hasattr(new_trunk_config.inner_config, 'pod_basis'):
                 clean_inner_config = replace(new_trunk_config.inner_config, pod_basis=None)
-            
-            if new_trunk_config.inner_config is not None:
                 new_trunk_config = replace(new_trunk_config, inner_config=clean_inner_config)
 
             two_step_updated_model_config = replace(prev_model_config, trunk=new_trunk_config, branch=new_branch_config)
@@ -117,6 +114,7 @@ class ExperimentConfig:
         print(updated_model_config.trunk.output_dim)
         # print(updated_strategy.final_branch_config.inner_config.output_dim)
         # print(updated_strategy.final_trunk_config.inner_config.output_dim)
+        
         final_config = replace(prev_config_copy,
                             model=updated_model_config,
                             strategy=updated_strategy_config)

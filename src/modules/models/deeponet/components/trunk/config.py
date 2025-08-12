@@ -69,8 +69,9 @@ class TrunkConfig:
         if model_cfg_dict['strategy']['name'] == 'two_step':
             trunk_config.inner_config = TrunkConfig(**model_cfg_dict["trunk"]["inner_config"])
             trunk_config.inner_config.num_channels = model_cfg_dict['output']['num_channels']
-            mask = re.sub(r'[^a-zA-Z0-9]', '', trunk_config.inner_config.activation.lower())
-            trunk_config.inner_config.activation = ACTIVATION_MAP[mask]
+            if trunk_config.inner_config.activation is not None:
+                mask = re.sub(r'[^a-zA-Z0-9]', '', trunk_config.inner_config.activation.lower())
+                trunk_config.inner_config.activation = ACTIVATION_MAP[mask]
             if model_cfg_dict['output']['handler_type'] == 'shared_trunk':
                 trunk_config.inner_config.is_shared_trunk = True
             else:

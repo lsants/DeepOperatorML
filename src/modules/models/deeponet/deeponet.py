@@ -25,9 +25,7 @@ class DeepONet(torch.nn.Module):
     def forward(self, branch_input: torch.Tensor, trunk_input: torch.Tensor) -> torch.Tensor:
         branch_out = self.branch(branch_input)
         trunk_out = self.trunk(trunk_input)
-
         dot_product = self.output_handler.combine(branch_out, trunk_out)
         output = self.bias(dot_product)
-
         return self.rescaler(output)
 

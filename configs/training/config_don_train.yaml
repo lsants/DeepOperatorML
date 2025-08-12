@@ -1,7 +1,7 @@
 # ------------------- Model architecture ------------------
 seed: 42
 training_strategy: two_step
-output_handling: split_outputs
+output_handling: shared_branch
 embedding_dimension: 50
 branch:
   architecture: resnet
@@ -71,7 +71,7 @@ decomposition_type: svd
 
 two_step_optimizer_schedule:
   trunk_phase:
-    - epochs: 2000
+    - epochs: 3000
       optimizer_type: adam
       learning_rate: 0.0005
       l2_regularization: 1.0e-5 
@@ -85,11 +85,11 @@ two_step_optimizer_schedule:
     #     gamma: 0.7
 
   branch_phase:
-    - epochs: 2000
+    - epochs: 1000
       optimizer_type: adam
       learning_rate: 0.001
       l2_regularization: 0.000001
       lr_scheduler:
         type: step
-        step_size: 500
+        step_size: 1000
         gamma: 0.7
