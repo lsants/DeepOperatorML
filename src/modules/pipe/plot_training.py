@@ -119,73 +119,82 @@ def plot_training(
     history: output of HistoryStorer.get_history()
     plot_config: same as before, for labels/scales
     """
-    phases = list(history.keys())
-    n_phases = len(phases)
+    try: # Render using Latex
+        phases = list(history.keys())
+        n_phases = len(phases)
 
-    max_err = max(len(h['train_errors']) for h in history.values())
-    n_cols = 1 + max_err  # first col for loss
+        max_err = max(len(h['train_errors']) for h in history.values())
+        n_cols = 1 + max_err  # first col for loss
 
-    fig, axes = plt.subplots(
-        nrows=n_phases,
-        ncols=n_cols,
-        figsize=(5 * n_cols, 4.5 * n_phases),
-        squeeze=False
-    )
+        fig, axes = plt.subplots(
+            nrows=n_phases,
+            ncols=n_cols,
+            figsize=(5 * n_cols, 4.5 * n_phases),
+            squeeze=False
+        )
 
-    for row, phase in enumerate(phases):
-        h = history[phase]
-        # x-axis
-        if len(phase) == 3:
-            phase = phase.upper()
-        else:
-            phase = phase.capitalize()
-        phase = phase.replace('_', ' ')
-        epochs = np.arange(1, len(h['train_loss']) + 1)
+        for row, phase in enumerate(phases):
+            h = history[phase]
+            # x-axis
+            if len(phase) == 3:
+                phase = phase.upper()
+            else:
+                phase = phase.capitalize()
+            phase = phase.replace('_', ' ')
+            epochs = np.arange(1, len(h['train_loss']) + 1)
 
-        # --- Loss plot ---
-        ax_loss = axes[row][0]
-        ax_loss.plot(epochs, h['train_loss'], label='Train', lw=1.3)
-        if h['val_loss']:
-            ax_loss.plot(epochs, h['val_loss'], label='Val', lw=1.3)
-        ax_loss.set_title(f"{phase} – Loss")
-        ax_loss.set_xlabel("Epoch")
-        ax_loss.set_ylabel(loss_label_map[plot_config['strategy']['loss']])
-        ax_loss.set_yscale("log")
-        ax_loss.legend()
+            # --- Loss plot ---
+            ax_loss = axes[row][0]
+            ax_loss.plot(epochs, h['train_loss'], label='Train', lw=1.3)
+            if h['val_loss']:
+                ax_loss.plot(epochs, h['val_loss'], label='Val', lw=1.3)
+            ax_loss.set_title(f"{phase} – Loss")
+            ax_loss.set_xlabel("Epoch")
+            ax_loss.set_ylabel(loss_label_map[plot_config['strategy']['loss']])
+            ax_loss.set_yscale("log")
+            ax_loss.legend()
 
-        # LR on same plot
-        ax_lr = ax_loss.twinx()
-        ax_lr.plot(epochs, h['learning_rate'], color='k', lw=0.5)
-        ax_lr.set_ylabel("LR")
-        ax_lr.set_yscale("log")
+            # LR on same plot
+            ax_lr = ax_loss.twinx()
+            ax_lr.plot(epochs, h['learning_rate'], color='k', lw=0.5)
+            ax_lr.set_ylabel("LR")
+            ax_lr.set_yscale("log")
 
-        # --- Error plots ---
-        err_keys = list(h['train_errors'].keys())
-        for col, key in enumerate(err_keys, start=1):
-            title = key.replace('Error_', 'Error ')
-            ax = axes[row][col]
-            train_err = np.asarray(h['train_errors'][key], dtype=float)
-            val_err = np.asarray(h['val_errors'].get(key, []), dtype=float)
+            # --- Error plots ---
+            err_keys = list(h['train_errors'].keys())
+            for col, key in enumerate(err_keys, start=1):
+                title = key.replace('Error_', 'Error ')
+                ax = axes[row][col]
+                train_err = np.asarray(h['train_errors'][key], dtype=float)
+                val_err = np.asarray(h['val_errors'].get(key, []), dtype=float)
 
-            ax.plot(epochs, train_err, label='Train', lw=1.3)
-            if val_err.size:
-                ax.plot(epochs, val_err, label='Val', lw=1.3)
+                ax.plot(epochs, train_err, label='Train', lw=1.3)
+                if val_err.size:
+                    ax.plot(epochs, val_err, label='Val', lw=1.3)
 
-            ax.set_title(f"{phase} – {title}")
-            ax.set_xlabel("Epoch")
-            ax.set_ylabel(error_label_map[plot_config['strategy']['error']])
-            ax.set_yscale("log")
-            ax.legend()
+                ax.set_title(f"{phase} – {title}")
+                ax.set_xlabel("Epoch")
+                ax.set_ylabel(error_label_map[plot_config['strategy']['error']])
+                ax.set_yscale("log")
+                ax.legend()
 
-            # LR again
-            ax2 = ax.twinx()
-            ax2.plot(epochs, h['learning_rate'], color='k', lw=0.5)
-            ax2.set_ylabel("LR")
-            ax2.set_yscale("log")
+                # LR again
+                ax2 = ax.twinx()
+                ax2.plot(epochs, h['learning_rate'], color='k', lw=0.5)
+                ax2.set_ylabel("LR")
+                ax2.set_yscale("log")
 
-        # blank out any unused subplots
-        for empty_col in range(1 + len(err_keys), n_cols):
-            axes[row][empty_col].axis('off')
+            # blank out any unused subplots
+            for empty_col in range(1 + len(err_keys), n_cols):
+                axes[row][empty_col].axis('off')
 
-    fig.tight_layout()
-    return fig
+        fig.tight_layout()
+        return fig
+    except Exception:
+        print("All plotting attempts failed. Returning a placeholder figure.")
+        fig = plt.figure(figsize=(8, 6))
+        ax = fig.add_subplot(111)
+        ax.text(0.5, 0.5, "Could not generate plot.\nPlease check your LaTeX installation.",
+                ha='center', va='center', transform=ax.transAxes, fontsize=14)
+        ax.axis('off')
+        return fig
