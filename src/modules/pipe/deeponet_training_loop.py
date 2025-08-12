@@ -110,6 +110,7 @@ class DeepONetTrainingLoop:
                 elif self.strategy.should_transition_phase(current_phase=self.current_phase, current_epoch=epoch):
                     self._handle_phase_transition()
                     epoch = 0
+                    self.strategy.loss = lambda x, y: torch.mean((x-y) ** 2)
                 else:
                     break
 
