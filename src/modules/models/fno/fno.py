@@ -11,7 +11,5 @@ class FNO(torch.nn.Module):
         super().__init__()
         self.embedding = None # Lifting z(x) to dimension dz
 
-    
-
     def forward(self):
         pass

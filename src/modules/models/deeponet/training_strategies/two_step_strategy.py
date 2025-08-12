@@ -377,7 +377,7 @@ class TwoStepStrategy(TrainingStrategy): # TODO: implement share branch decompos
         """
         Checks if validation is enabled. It is not enabled by default for this strategy.
         """
-        return False
+        return True
 
     def should_transition_phase(self, current_phase: int, current_epoch: int) -> bool:
         """

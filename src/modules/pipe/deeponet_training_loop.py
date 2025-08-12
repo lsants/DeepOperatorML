@@ -10,6 +10,7 @@ from src.modules.models.deeponet.dataset.deeponet_sampler import DeepONetSampler
 from src.modules.pipe.history import HistoryStorer
 from src.modules.models.deeponet.training_strategies.base import TrainingStrategy
 from src.modules.models.deeponet.deeponet import DeepONet
+import wandb
 
 logger = logging.getLogger(__name__)
 
@@ -95,93 +96,178 @@ class DeepONetTrainingLoop:
             self.epochs_per_spec,
             self.optimizer.param_groups[0]["lr"],
         )
-
     # ----------------------------------------------------------------- training
     def run(self) -> None:
+        # W&B init
+        phase_name = self.phases[self.current_phase - 1]
+        run_name = f"testlorent63_{phase_name}"
+        project_name = "deeponet"
+
+        wandb.init(
+            project=project_name,
+            name=run_name,
+            config={
+                "optimizer_specs": self.optimizer_specs,
+                "epochs_per_spec": self.epochs_per_spec,
+                "phases": self.phases,
+                "strategy": type(self.strategy).__name__,
+                "model": type(self.model).__name__,
+            },
+        )
+        wandb.watch(self.model, log="gradients", log_freq=1)
+
+        # Define step + metric bindings
+        wandb.define_metric("epoch_global")  # unified step for plots
+        wandb.define_metric("train/*", step_metric="epoch_global")
+        wandb.define_metric("val/*", step_metric="epoch_global")
+        wandb.define_metric("lr", step_metric="epoch_global")
+        wandb.define_metric("spec/*", step_metric="epoch_global")
+        wandb.define_metric("phase_idx", step_metric="epoch_global")
+        wandb.define_metric("epoch_in_phase", step_metric="epoch_global")
+
         epoch = 0
-        while True:
-            epoch += 1
-            if self.epochs_in_current_spec >= self.epochs_per_spec:
-                if self.current_spec_idx < len(self.optimizer_specs) - 1:
-                    self.current_spec_idx += 1
-                    self.epochs_in_current_spec = 0
-                    self._init_current_optimizer()
+        epoch_global = 0  # monotonically increasing across phases/specs
 
-                elif self.strategy.should_transition_phase(current_phase=self.current_phase, current_epoch=epoch):
-                    self._handle_phase_transition()
-                    epoch = 0
-                    self.strategy.loss = lambda x, y: torch.mean((x-y) ** 2)
-                else:
-                    break
+        try:
+            while True:
+                epoch += 1
 
-            # ---------------- train ----------------
-            # logger.info(
-            #     f"\n\n\n\n================= Epoch {epoch} ===================== \n\n\n\n")
+                if self.epochs_in_current_spec >= self.epochs_per_spec:
+                    if self.current_spec_idx < len(self.optimizer_specs) - 1:
+                        self.current_spec_idx += 1
+                        self.epochs_in_current_spec = 0
+                        self._init_current_optimizer()
 
-            train_metrics = self._run_epoch(train=True)
-            self.history.store_epoch_metrics(
-                phase=self.phases[self.current_phase - 1],
-                loss=train_metrics.get("loss"),
-                errors={k: v for k, v in train_metrics.items() if k != "loss"},
-                train=True
-            )
-            max_gradients = {}
-            for name, param in self.model.named_parameters():
-                if param.grad is not None:
-                    max_gradients[name] = param.grad.max().item()
-                else:
-                    max_gradients[name] = None
+                    elif self.strategy.should_transition_phase(
+                        current_phase=self.current_phase, current_epoch=epoch
+                    ):
+                        self._handle_phase_transition()
+                        epoch = 0
+                        # reset loss to MSE after transition (as in your code)
+                        self.strategy.loss = lambda x, y: torch.mean((x - y) ** 2)
+                    else:
+                        break
 
-            self.history.store_max_gradients(
-                phase=self.phases[self.current_phase - 1],
-                gradients=max_gradients
-            )
-
-            # ---------------- validate --------------
-            val_metrics: dict[str, float] = {}
-            if self.strategy.validation_enabled() and self.val_loader is not None:
-                val_metrics = self._run_epoch(train=False)
+                # ---------------- train ----------------
+                train_metrics = self._run_epoch(train=True)
                 self.history.store_epoch_metrics(
                     phase=self.phases[self.current_phase - 1],
-                    loss=val_metrics.get("loss"),
-                    errors={k: v for k, v in val_metrics.items() if k !=
-                            "loss"},
-                    train=False
+                    loss=train_metrics.get("loss"),
+                    errors={k: v for k, v in train_metrics.items() if k != "loss"},
+                    train=True,
                 )
 
-            self.history.store_learning_rate(
-                phase=self.phases[self.current_phase - 1],
-                lr=self.optimizer.param_groups[0]["lr"],
+                # Per-parameter max gradients
+                max_gradients: dict[str, float | None] = {}
+                for name, param in self.model.named_parameters():
+                    if param.grad is not None:
+                        try:
+                            max_gradients[name] = param.grad.detach().abs().max().item()
+                        except Exception:
+                            max_gradients[name] = None
+                    else:
+                        max_gradients[name] = None
+
+                self.history.store_max_gradients(
+                    phase=self.phases[self.current_phase - 1],
+                    gradients=max_gradients,
+                )
+
+                # ---------------- validate --------------
+                val_metrics: dict[str, float] = {}
+                if self.strategy.validation_enabled() and self.val_loader is not None:
+                    val_metrics = self._run_epoch(train=False)
+                    self.history.store_epoch_metrics(
+                        phase=self.phases[self.current_phase - 1],
+                        loss=val_metrics.get("loss"),
+                        errors={k: v for k, v in val_metrics.items() if k != "loss"},
+                        train=False,
+                    )
+
+                # Learning rate before stepping scheduler (matches your logic)
+                current_lr = self.optimizer.param_groups[0]["lr"]
+                self.history.store_learning_rate(
+                    phase=self.phases[self.current_phase - 1],
+                    lr=current_lr,
+                )
+
+                if hasattr(self.strategy, "on_epoch_end"):
+                    self.strategy.on_epoch_end(  # type: ignore[attr-defined]
+                        epoch=epoch,
+                        model=self.model,
+                        optimizer=self.optimizer,
+                        metrics={"train": train_metrics, "val": val_metrics},
+                    )
+
+                if self.scheduler is not None:
+                    self.scheduler.step()
+
+                # ---------------- W&B log ----------------
+                epoch_global += 1
+                
+
+                log_payload: dict[str, float | int | str] = {
+                    "epoch_global": epoch_global,
+                    "epoch_in_phase": epoch,
+                    "phase_idx": self.current_phase,         
+                    "spec/index": self.current_spec_idx,
+                    "spec/epoch_in_spec": self.epochs_in_current_spec,
+                    "train_loss": self.history.history[self.phases[self.current_phase - 1]]["train_loss"][-1],
+                    "val_loss": self.history.history[self.phases[self.current_phase - 1]]["val_loss"][-1],
+                    "train_error_x": self.history.history[self.phases[self.current_phase - 1]]["train_errors"]["Error_$r_x(t)$"][-1],
+                    "train_error_y": self.history.history[self.phases[self.current_phase - 1]]["train_errors"]["Error_$r_y(t)$"][-1],
+                    "train_error_z": self.history.history[self.phases[self.current_phase - 1]]["train_errors"]["Error_$r_z(t)$"][-1],
+                    "lr": current_lr,
+                }
+
+                # Prefix metrics to avoid name collisions
+                if train_metrics:
+                    for k, v in train_metrics.items():
+                        log_payload[f"train/{k}"] = v
+                if val_metrics:
+                    for k, v in val_metrics.items():
+                        log_payload[f"val/{k}"] = v
+
+                # Per-parameter max grad scalars (can be verbose)
+                for pname, gval in max_gradients.items():
+                    if gval is not None:
+                        log_payload[f"grads/max/{pname}"] = gval
+
+                wandb.log(log_payload, step=epoch_global)
+
+                # ---------------- console/logging ----------------
+                self._log_progress(epoch, train_metrics, val_metrics)
+
+                self.epochs_in_current_spec += 1
+
+            # ---------------- save checkpoint + W&B artifact ----------------
+            exp_path = self.checkpoint_dir / "experiment.pt"
+            torch.save(
+                {
+                    "model": self.model.state_dict(),
+                    "optimizer": self.optimizer.state_dict(),
+                    "scheduler": self.scheduler.state_dict() if self.scheduler else None,
+                    "history": self.history.get_history(),
+                    "phase": self.current_phase,
+                    "strategy": self.strategy_dict,
+                },
+                exp_path,
             )
 
-            if hasattr(self.strategy, "on_epoch_end"):
-                self.strategy.on_epoch_end(  # type: ignore[attr-defined]
-                    epoch=epoch,
-                    model=self.model,
-                    optimizer=self.optimizer,
-                    metrics={"train": train_metrics, "val": val_metrics},
-                )
+            artifact = wandb.Artifact(
+                name=f"{type(self.model).__name__.lower()}-checkpoint",
+                type="model",
+                metadata={"final_phase_idx": self.current_phase, "final_phase_name": phase_name},
+            )
+            artifact.add_file(str(exp_path))
+            wandb.log_artifact(artifact)
 
-            if self.scheduler is not None:
-                self.scheduler.step()
+            # Optional: summarize final phase in W&B
+            wandb.summary["final_phase_idx"] = self.current_phase
+            wandb.summary["final_phase_name"] = phase_name
 
-            # Logging ------------------------------------------------------
-            self._log_progress(epoch, train_metrics, val_metrics)
-
-            self.epochs_in_current_spec += 1
-
-        exp_path = self.checkpoint_dir / 'experiment.pt'
-        torch.save(
-            {
-                "model": self.model.state_dict(),
-                "optimizer": self.optimizer.state_dict(),
-                "scheduler": self.scheduler.state_dict() if self.scheduler else None,
-                "history": self.history.get_history(),
-                "phase": self.current_phase,
-                "strategy": self.strategy_dict,
-            },
-            exp_path,
-        )
+        finally:
+            wandb.finish()
 
     # -------------------------------------------------------------- core epoch
     def _run_epoch(self, *, train: bool) -> dict[str, float]:

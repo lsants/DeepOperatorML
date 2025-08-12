@@ -27,6 +27,7 @@ def main() -> None:
                         help="Skip training and only test.")
     args = parser.parse_args()
 
+
     problem_path = os.path.join("./configs/problems/", args.problem)
     train_config_path = args.train_config_path
     experiment_config_path = os.path.join(

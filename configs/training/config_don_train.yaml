@@ -71,9 +71,9 @@ decomposition_type: svd
 
 two_step_optimizer_schedule:
   trunk_phase:
-    - epochs: 3000
+    - epochs: 100000
       optimizer_type: adam
-      learning_rate: 0.0005
+      learning_rate: 0.00005
       l2_regularization: 1.0e-5 
     # - epochs: 1000
     #   optimizer_type: adam
@@ -85,9 +85,9 @@ two_step_optimizer_schedule:
     #     gamma: 0.7
 
   branch_phase:
-    - epochs: 1000
+    - epochs: 100000
       optimizer_type: adam
-      learning_rate: 0.001
+      learning_rate: 0.0001
       l2_regularization: 0.000001
       lr_scheduler:
         type: step

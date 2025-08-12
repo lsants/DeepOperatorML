@@ -239,7 +239,7 @@ LOSS_FUNCTIONS = {
     "mag_phase": mag_phase_loss,
     'huber': huber_loss,
     "mse_dissipative": mse_dissipative,
-    'ot': CombinedLoss(0.1, 'tensorized').loss
+    'ot': CombinedLoss(1, 'tensorized').loss
 }
 
 
