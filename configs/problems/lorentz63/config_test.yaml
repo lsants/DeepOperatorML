@@ -2,9 +2,9 @@ precision: float32
 device: cpu
 
 # Location of dataset to test
-experiment_version: 2025-08-05_12-44-31
+experiment_version: 2025-08-13_01-30-58
 # Location of outputs (data, metrics) - Set this if testing a pretrained model
-output_path: ./output_deeponet
+output_path: ./output
 processed_data_path: ./data/processed
 
 plot_trajectories: true
