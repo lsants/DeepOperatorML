@@ -6,11 +6,7 @@ This project aims to develop a framework for solving problems (e.g., PDEs) using
 
 ## Project Overview
 
-- **Goal**: To provide a data-driven solver aggregating **state of the art** machine learning algorithms.
-
-- **Approach**: Employment of Operator learning schemes with for multi-output operators. Currently, vanilla DeepONets [Lu, et al., (2019)](https://arxiv.org/abs/1910.03193), POD-DeepONets [Lu, et al., (2021)](https://arxiv.org/abs/2111.05512) and Two-step DeepONet [Lee & Shin, (2023)](https://arxiv.org/abs/2309.01020).
-  
-- **Implementation**: The model is developed in Python using PyTorch. Support for other tensor backend libraries (e.g., JAX, TensorFlow 2.x) are to be implemented in the future.
+The project's goal is to provide a data-driven solver aggregating **state of the art** machine learning algorithms. The approach implemented was the employment of Operator learning schemes with for multi-output operators. Currently, vanilla DeepONets [Lu, et al., (2019)](https://arxiv.org/abs/1910.03193), POD-DeepONets [Lu, et al., (2021)](https://arxiv.org/abs/2111.05512) and Two-step DeepONet [Lee & Shin, (2023)](https://arxiv.org/abs/2309.01020) have been implemented. The model is developed in Python using PyTorch. Support for other tensor backend libraries (e.g., JAX, TensorFlow 2.x) are to be implemented in the future.
 
 ## Implemented Problems
 
