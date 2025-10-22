@@ -50,7 +50,7 @@ class MLP(torch.nn.Module):
                 module=torch.nn.Linear(
                     in_features=layers[i], out_features=layers[i + 1],)
             )
-            self.linears.append(
+            self.norms.append(
                 module=_build_norm(
                     out_features=layers[i + 1], use_bn=batch_normalization[i], use_ln=layer_normalization[i])
             )
